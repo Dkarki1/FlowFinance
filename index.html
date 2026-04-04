@@ -137,6 +137,7 @@ select option{background:#1a1a28}
   <button class="nt" onclick="showTab('strategy')">🎯 Strategy</button>
   <button class="nt" onclick="showTab('debts')">💳 Debts</button>
   <button class="nt" onclick="showTab('bills')">🧾 Bills</button>
+  <button class="nt" onclick="showTab('spending')">⚡ Log Spend</button>
   <button class="nt" onclick="showTab('goals')">🏆 Goals</button>
   <button class="nt" onclick="showTab('networth')">💰 Net Worth</button>
   <button class="nt" onclick="showTab('forecast')">📈 Forecast</button>
@@ -370,6 +371,59 @@ Try any command below ↓</div></div>
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════ SPENDING LOG ══ -->
+<div id="tab-spending" class="page hidden tc gap">
+
+  <!-- Big quick-log button area -->
+  <div class="card" style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--ac3)">
+    <div class="stitle" style="color:var(--ac);font-size:16px">⚡ Quick Log — After Every Purchase</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label>Amount ($)</label><input type="number" id="ql-amt" placeholder="0.00" style="font-size:18px;font-weight:700" inputmode="decimal"/></div>
+      <div><label>Merchant (optional)</label><input id="ql-merchant" placeholder="e.g. Woolworths"/></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="margin-bottom:8px;display:block">Category</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px" id="ql-cats">
+        <button class="ql-cat-btn active-cat" onclick="selCat(this,'Food')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--ac);background:var(--ac3);color:var(--ac);font-size:12px;font-weight:600;cursor:pointer">🍔 Food</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Transport')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">🚗 Transport</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Shopping')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">🛍 Shopping</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Health')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">💊 Health</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Entertainment')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">🎮 Entertainment</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Housing')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">🏠 Housing</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Family')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">👨‍👩‍👧 Family</button>
+        <button class="ql-cat-btn" onclick="selCat(this,'Other')" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">📦 Other</button>
+      </div>
+    </div>
+    <button class="btn bp" onclick="logSpend()" style="width:100%;font-size:15px;padding:14px;letter-spacing:1px">⚡ LOG PURCHASE</button>
+    <div id="ql-confirm" style="display:none;margin-top:12px;text-align:center;color:var(--ac);font-weight:600;font-size:13px;font-family:var(--mono)"></div>
+  </div>
+
+  <!-- This week summary -->
+  <div class="g4" id="spend-kpis"></div>
+
+  <!-- Weekly budget bar -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">This Week vs Budget</div>
+    <div id="spend-budget-bar" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Category breakdown -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">Spending by Category — This Month</div>
+    <div id="spend-cats" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Recent transactions -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="stitle" style="color:var(--ac);margin-bottom:0">Recent Transactions</div>
+      <button class="btn bg bsm" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+    <div id="spend-log"></div>
+  </div>
+
+</div>
+
 <!-- ══════════════════════════════════════════ GOALS ══ -->
 <div id="tab-goals" class="page hidden tc gap">
   <div class="alert-good"><strong>💡 Goals tip:</strong> Priority 1 = Emergency Fund ($2,500). This stops you reaching for credit cards when unexpected bills hit. Then attack debt.</div>
@@ -571,12 +625,13 @@ function calcPayoff(strategy, extra) {
 }
 
 // ─── Tab Navigation ───────────────────────────────────────────────────────────
-const TABS=['dashboard','chat','strategy','debts','bills','goals','networth','forecast','playbook','insights'];
+const TABS=['dashboard','chat','strategy','debts','bills','spending','goals','networth','forecast','playbook','insights'];
 function showTab(id){
   TABS.forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.classList.add('hidden');});
   document.querySelectorAll('.nt').forEach((el,i)=>el.classList.toggle('active',TABS[i]===id));
   const tab=document.getElementById('tab-'+id);if(tab)tab.classList.remove('hidden');
   render();
+  if(id==='spending') rSpending();
 }
 
 function render(){rHdr();rDash();rStrategy();rDebts();rBills();rGoals();rNW();rFore();rPlaybook();}
@@ -1153,9 +1208,163 @@ function proc(msg){
   return `🤖 I didn't catch that.\n\nType "help" to see all 25+ commands.\n\nQuick actions:\n• "best strategy" — personalised plan\n• "debt free date" — your actual timeline\n• "pay day $2250 fortnightly" — log pay\n• "what if I pay $300 extra" — simulate it\n• "interest today" — see daily cost`;
 }
 
+// ─── Spending Log (localStorage) ──────────────────────────────────────────────
+let selectedCat = 'Food';
+
+function selCat(btn, cat) {
+  selectedCat = cat;
+  document.querySelectorAll('.ql-cat-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text2)';
+  });
+  btn.style.background = 'var(--ac3)';
+  btn.style.borderColor = 'var(--ac)';
+  btn.style.color = 'var(--ac)';
+}
+
+function getLog() {
+  try { return JSON.parse(localStorage.getItem('financeOS_spend') || '[]'); } catch { return []; }
+}
+
+function saveLog(log) {
+  localStorage.setItem('financeOS_spend', JSON.stringify(log));
+}
+
+function logSpend() {
+  const amt = parseFloat(document.getElementById('ql-amt').value);
+  if (!amt || amt <= 0) { alert('Enter a valid amount'); return; }
+  const merchant = document.getElementById('ql-merchant').value.trim() || '—';
+  const entry = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    merchant,
+    amount: amt,
+    cat: selectedCat
+  };
+  const log = getLog();
+  log.unshift(entry);
+  saveLog(log);
+  document.getElementById('ql-amt').value = '';
+  document.getElementById('ql-merchant').value = '';
+  const confirm = document.getElementById('ql-confirm');
+  confirm.style.display = 'block';
+  confirm.textContent = `✅ Logged $${amt.toFixed(2)} — ${selectedCat} — ${merchant}`;
+  setTimeout(() => { confirm.style.display = 'none'; }, 3000);
+  rSpending();
+}
+
+function deleteEntry(id) {
+  saveLog(getLog().filter(e => e.id !== id));
+  rSpending();
+}
+
+function exportCSV() {
+  const log = getLog();
+  if (!log.length) { alert('No entries to export yet.'); return; }
+  const rows = ['Date,Merchant,Amount,Category', ...log.map(e =>
+    `${new Date(e.date).toLocaleDateString('en-AU')},${e.merchant},${e.amount.toFixed(2)},${e.cat}`)];
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'spending_log.csv'; a.click();
+}
+
+function rSpending() {
+  const log = getLog();
+  const now = new Date();
+  const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay() + 1); startOfWeek.setHours(0,0,0,0);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const thisWeek = log.filter(e => new Date(e.date) >= startOfWeek);
+  const thisMonth = log.filter(e => new Date(e.date) >= startOfMonth);
+
+  const weekTotal = thisWeek.reduce((s, e) => s + e.amount, 0);
+  const monthTotal = thisMonth.reduce((s, e) => s + e.amount, 0);
+  const weekBudget = 342; // 30% of monthly income ÷ 4
+
+  // KPIs
+  const kpis = document.getElementById('spend-kpis');
+  if (kpis) {
+    kpis.innerHTML = `
+      <div class="kpi"><div class="kl" style="color:var(--wn)">THIS WEEK</div><div class="kv" style="color:var(--wn)">$${weekTotal.toFixed(0)}</div><div class="ks">of $${weekBudget} budget</div></div>
+      <div class="kpi"><div class="kl" style="color:var(--bl)">THIS MONTH</div><div class="kv" style="color:var(--bl)">$${monthTotal.toFixed(0)}</div><div class="ks">${thisMonth.length} transactions</div></div>
+      <div class="kpi"><div class="kl" style="color:var(--ac)">DAILY AVG</div><div class="kv" style="color:var(--ac)">$${thisWeek.length ? (weekTotal / Math.max(1, Math.ceil((now - startOfWeek) / 86400000))).toFixed(0) : '0'}</div><div class="ks">this week</div></div>
+      <div class="kpi"><div class="kl" style="color:${weekTotal > weekBudget ? 'var(--rd)' : 'var(--ac)'}">BUDGET</div><div class="kv" style="color:${weekTotal > weekBudget ? 'var(--rd)' : 'var(--ac)'}">${weekTotal > weekBudget ? '⚠️ Over' : '✅ OK'}</div><div class="ks">$${Math.abs(weekBudget - weekTotal).toFixed(0)} ${weekTotal > weekBudget ? 'over' : 'left'}</div></div>`;
+  }
+
+  // Budget bar
+  const bb = document.getElementById('spend-budget-bar');
+  if (bb) {
+    const pct = Math.min((weekTotal / weekBudget) * 100, 100);
+    const over = weekTotal > weekBudget;
+    bb.innerHTML = `
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:6px;font-family:var(--mono)">
+        <span>$${weekTotal.toFixed(0)} spent</span><span>$${weekBudget} weekly budget</span>
+      </div>
+      <div style="background:var(--bg3);border-radius:4px;height:12px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${over ? 'var(--rd)' : 'var(--ac)'};border-radius:4px;transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:11px;color:${over ? 'var(--rd)' : 'var(--text3)'};margin-top:6px;font-family:var(--mono)">
+        ${over ? `⚠️ $${(weekTotal - weekBudget).toFixed(0)} over budget this week` : `✅ $${(weekBudget - weekTotal).toFixed(0)} remaining in weekly budget`}
+      </div>`;
+  }
+
+  // Category breakdown (this month)
+  const cats = document.getElementById('spend-cats');
+  if (cats) {
+    if (!thisMonth.length) {
+      cats.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">No purchases logged this month yet — tap ⚡ Log Purchase above!</div>';
+    } else {
+      const bycat = {};
+      thisMonth.forEach(e => { bycat[e.cat] = (bycat[e.cat] || 0) + e.amount; });
+      const sorted = Object.entries(bycat).sort((a, b) => b[1] - a[1]);
+      const max = sorted[0][1];
+      cats.innerHTML = sorted.map(([cat, total]) => {
+        const pct = (total / max) * 100;
+        const col = catC[cat] || '#6b7fa3';
+        return `<div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:${col};font-weight:600">${cat}</span>
+            <span style="font-family:var(--mono);color:var(--text2)">$${total.toFixed(0)}</span>
+          </div>
+          <div style="background:var(--bg3);border-radius:3px;height:6px">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:3px"></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Recent transactions
+  const sl = document.getElementById('spend-log');
+  if (sl) {
+    if (!log.length) {
+      sl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:16px 0;text-align:center">No purchases logged yet.<br>Hit ⚡ Log Purchase after your next Apple Pay!</div>';
+    } else {
+      sl.innerHTML = log.slice(0, 30).map(e => {
+        const d = new Date(e.date);
+        const dateStr = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+        const timeStr = d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+        const col = catC[e.cat] || '#6b7fa3';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-weight:500;font-size:13px">${e.merchant}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--mono)">${dateStr} · ${timeStr} · <span style="color:${col}">${e.cat}</span></div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="font-family:var(--display);font-weight:700;color:var(--wn)">$${e.amount.toFixed(2)}</div>
+            <button class="btn bd bsm" onclick="deleteEntry(${e.id})">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 setMethod('avalanche');
 render();
+rSpending();
 </script>
 
 <div class="footer">FINANCEOS v2 &nbsp;·&nbsp; DEWAANSH &amp; BISAKHA &nbsp;·&nbsp; AUD &nbsp;·&nbsp; ALL DATA STAYS ON YOUR DEVICE</div>
