@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="FinanceOS"/>
+<meta name="theme-color" content="#0a0a0f"/>
+<title>FinanceOS v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overscroll-behavior:none}
+:root{
+  --bg:#0a0a0f;--bg1:#0f0f17;--bg2:#13131e;--bg3:#181826;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.10);
+  --text:#f0f0f8;--text2:#8888aa;--text3:#44445a;
+  --ac:#c8f06e;--ac2:rgba(200,240,110,0.12);--ac3:rgba(200,240,110,0.06);
+  --bl:#7eb8ff;--bl2:rgba(126,184,255,0.12);
+  --wn:#ffc97a;--wn2:rgba(255,201,122,0.12);
+  --dg:#ff7b9c;--dg2:rgba(255,123,156,0.12);
+  --pu:#c4a3ff;--pu2:rgba(196,163,255,0.12);
+  --tl:#5ef0e8;--tl2:rgba(94,240,232,0.12);
+  --go:#ffd97a;--go2:rgba(255,217,122,0.12);
+  --r:10px;--r2:14px;--r3:18px;
+  --sans:'DM Sans',sans-serif;--display:'Syne',sans-serif;--mono:'DM Mono',monospace;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.hdr{background:rgba(10,10,15,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.logo-mark{width:32px;height:32px;background:var(--ac);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:14px;color:#0a0a0f;flex-shrink:0}
+.logo-text{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-0.3px}
+.logo-sub{font-size:9px;color:var(--text3);letter-spacing:0.5px;margin-top:1px;font-family:var(--mono)}
+.hdr-stats{display:flex;gap:20px}
+.hdr-stat .v{font-family:var(--display);font-size:15px;font-weight:700;line-height:1}
+.hdr-stat .l{font-size:9px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-top:3px;font-family:var(--mono)}
+.nav{background:var(--bg1);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:0 20px;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nt{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--text3);background:transparent;border:none;border-bottom:2px solid transparent;padding:13px 15px;cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.nt:hover{color:var(--text2)}
+.nt.active{color:var(--ac);border-bottom-color:var(--ac)}
+.page{padding:24px;max-width:1000px;margin:0 auto}
+.hidden{display:none!important}
+.gap{display:flex;flex-direction:column;gap:16px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px}
+.ga{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px 22px}
+.stitle{font-family:var(--display);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:16px}
+.kpi{padding:18px 20px;border-radius:var(--r2);background:var(--bg2);border:1px solid var(--border)}
+.kpi .kl{font-size:9px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px}
+.kpi .kv{font-family:var(--display);font-size:22px;font-weight:700;line-height:1}
+.kpi .ks{font-size:11px;color:var(--text3);margin-top:5px}
+.prog{width:100%;background:var(--border);border-radius:99px;overflow:hidden}
+.pf{border-radius:99px;transition:width 0.6s cubic-bezier(.4,0,.2,1)}
+.tag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;padding:3px 8px;border-radius:99px;font-family:var(--mono)}
+input,select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;width:100%;transition:border-color 0.2s;-webkit-appearance:none}
+input:focus,select:focus{border-color:var(--ac)}
+label{font-size:11px;color:var(--text3);display:block;margin-bottom:5px}
+select{cursor:pointer;appearance:auto;-webkit-appearance:auto}
+select option{background:#1a1a28}
+.btn{font-family:var(--display);font-size:13px;font-weight:600;border-radius:var(--r);padding:10px 20px;cursor:pointer;border:none;transition:all 0.15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:active{transform:scale(0.97)}
+.bp{background:var(--ac);color:#0a0a0f}
+.bp:hover{background:#d4f47a}
+.bg{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.bg:hover{background:var(--bg3)}
+.bd{background:var(--dg2);color:var(--dg);border:1px solid rgba(255,123,156,0.2)}
+.bsm{padding:5px 12px;font-size:11px;border-radius:7px}
+.alert{background:rgba(255,123,156,0.06);border:1px solid rgba(255,123,156,0.2);border-radius:var(--r2);padding:14px 18px;font-size:12px;line-height:1.7;color:var(--text2)}
+.alert strong{color:var(--dg)}
+.alert-good{background:rgba(200,240,110,0.06);border:1px solid rgba(200,240,110,0.2);border-radius:var(--r2);padding:14px 18px;font-size:12px;line-height:1.7;color:var(--text2)}
+.alert-good strong{color:var(--ac)}
+.chat-log{height:440px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.mb{display:flex;gap:10px;align-items:flex-end}
+.mu{display:flex;justify-content:flex-end}
+.bav{width:28px;height:28px;border-radius:8px;background:var(--ac2);border:1px solid rgba(200,240,110,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.bb{background:var(--bg3);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:12px 16px;font-size:12px;line-height:1.75;white-space:pre-wrap;max-width:85%;font-family:var(--mono)}
+.bu{background:var(--ac2);border:1px solid rgba(200,240,110,0.2);border-radius:14px 14px 4px 14px;padding:12px 16px;font-size:12px;max-width:85%;color:var(--ac)}
+.cir{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;background:var(--bg2);border-radius:0 0 var(--r2) var(--r2)}
+.qb{background:var(--ac3);border:1px solid rgba(200,240,110,0.15);color:var(--ac);border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:var(--sans);font-weight:500;transition:all 0.15s;margin:3px}
+.qb:hover{background:var(--ac2)}
+.wg{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.dc{background:var(--bg3);border-radius:10px;padding:8px 6px;min-height:78px;border:1px solid var(--border)}
+.dl{font-size:9px;color:var(--text3);font-weight:600;text-align:center;margin-bottom:6px;letter-spacing:0.8px;text-transform:uppercase;font-family:var(--mono)}
+.di{border-radius:6px;padding:3px 5px;margin-bottom:3px}
+.fr{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)}
+.fm{width:32px;font-size:11px;color:var(--text3);font-family:var(--mono)}
+.ft{flex:1;height:5px;background:var(--border);border-radius:99px;overflow:hidden}
+.ff{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ac),var(--bl))}
+.fv{width:72px;text-align:right;font-size:12px;font-weight:600;color:var(--ac);font-family:var(--mono)}
+.ins{border-radius:var(--r);padding:14px 16px;margin-bottom:8px}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:600;font-family:var(--mono)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.tc{animation:fadeUp 0.22s ease}
+.footer{text-align:center;padding:24px;font-size:10px;color:var(--text3);letter-spacing:1px;font-family:var(--mono);border-top:1px solid var(--border);margin-top:32px}
+.inc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.inc-row:last-child{border-bottom:none}
+.inc-label{flex:1;font-size:13px;font-weight:500}
+.inc-sub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.inc-val{font-family:var(--display);font-weight:700;font-size:15px;color:var(--ac)}
+.rule-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.rule-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+@media(max-width:640px){
+  .page{padding:14px}.hdr{padding:12px 14px}.hdr-stats{gap:14px}.hdr-stat .v{font-size:13px}
+  .g2,.g3{grid-template-columns:1fr}.kpi .kv{font-size:18px}.chat-log{height:320px}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo-mark">F</div>
+    <div>
+      <div class="logo-text">FinanceOS <span style="font-size:10px;color:var(--ac);font-family:var(--mono)">v2</span></div>
+      <div class="logo-sub">DEWAANSH &amp; BISAKHA · DARWIN NT</div>
+    </div>
+  </div>
+  <div class="hdr-stats">
+    <div class="hdr-stat"><div class="v" id="hdr-nw" style="color:var(--dg)">−$16k</div><div class="l">Net Worth</div></div>
+    <div class="hdr-stat"><div class="v" id="hdr-debt" style="color:var(--dg)">$39.6k</div><div class="l">Total Debt</div></div>
+    <div class="hdr-stat"><div class="v" id="hdr-int" style="color:var(--wn)">$19/day</div><div class="l">Interest Cost</div></div>
+    <div class="hdr-stat"><div class="v" id="hdr-score" style="color:var(--wn)">42</div><div class="l">Health</div></div>
+  </div>
+</header>
+
+<nav class="nav">
+  <button class="nt active" onclick="showTab('dashboard')">📊 Dashboard</button>
+  <button class="nt" onclick="showTab('chat')">🤖 AI Chat</button>
+  <button class="nt" onclick="showTab('strategy')">🎯 Strategy</button>
+  <button class="nt" onclick="showTab('debts')">💳 Debts</button>
+  <button class="nt" onclick="showTab('bills')">🧾 Bills</button>
+  <button class="nt" onclick="showTab('goals')">🏆 Goals</button>
+  <button class="nt" onclick="showTab('networth')">💰 Net Worth</button>
+  <button class="nt" onclick="showTab('forecast')">📈 Forecast</button>
+  <button class="nt" onclick="showTab('playbook')">📋 Playbook</button>
+  <button class="nt" onclick="showTab('insights')">💡 Insights</button>
+</nav>
+
+<!-- ══════════════════════════════════════════ DASHBOARD ══ -->
+<div id="tab-dashboard" class="page gap tc">
+  <div class="alert"><strong>⚡ Real data from your 4 statements · Apr 2026.</strong> You're paying <strong id="dash-int-day">$19.13</strong>/day in interest. Log your pay in AI Chat to unlock your personalised allocation plan.</div>
+
+  <!-- Income Setup -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">Income Setup — Update Your Pay</div>
+    <div class="g2" style="margin-bottom:14px">
+      <div>
+        <label>Dewaansh — Fortnightly pay ($)</label>
+        <input type="number" id="inc-d" value="2250" oninput="recalcIncome()" placeholder="2250"/>
+      </div>
+      <div>
+        <label>Bisakha — Weekly pay ($)</label>
+        <input type="number" id="inc-b" value="1150" oninput="recalcIncome()" placeholder="1150"/>
+      </div>
+    </div>
+    <div class="g4" id="inc-summary"></div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="g4">
+    <div class="kpi" style="border-top:2px solid var(--ac)"><div class="kl">Monthly Surplus</div><div class="kv" id="d-surplus" style="color:var(--ac)">—</div><div class="ks">After all bills + minimums</div></div>
+    <div class="kpi" style="border-top:2px solid var(--wn)"><div class="kl">Monthly Expenses</div><div class="kv" id="d-exp" style="color:var(--wn)">—</div><div class="ks">Bills + debt minimums</div></div>
+    <div class="kpi" style="border-top:2px solid var(--dg)"><div class="kl">Monthly Interest</div><div class="kv" id="d-int" style="color:var(--dg)">—</div><div class="ks">Money burned on interest</div></div>
+    <div class="kpi" style="border-top:2px solid var(--pu)"><div class="kl">Debt-Free ETA</div><div class="kv" id="d-eta" style="color:var(--pu)">—</div><div class="ks">Avalanche method</div></div>
+  </div>
+
+  <!-- Health + Spending -->
+  <div class="g2">
+    <div class="card">
+      <div class="stitle">Financial Health Score</div>
+      <div style="display:flex;align-items:center;gap:20px">
+        <div style="position:relative;display:inline-block;flex-shrink:0">
+          <svg width="90" height="90" style="transform:rotate(-90deg)">
+            <circle cx="45" cy="45" r="36" fill="none" stroke="var(--border)" stroke-width="9"/>
+            <circle cx="45" cy="45" r="36" fill="none" stroke="var(--wn)" stroke-width="9" stroke-dasharray="95 226" stroke-linecap="round"/>
+          </svg>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+            <div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--wn)" id="score-val">42</div>
+            <div style="font-size:9px;color:var(--text3);font-family:var(--mono)">/100</div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+          <div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text3)">Savings rate</span><span id="sr-pct" style="color:var(--ac);font-family:var(--mono)">0%</span></div><div class="prog" style="height:3px"><div class="pf" id="sr-bar" style="width:0%;background:var(--ac);height:3px"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text3)">Credit util.</span><span style="color:var(--dg);font-family:var(--mono)">89%</span></div><div class="prog" style="height:3px"><div class="pf" style="width:89%;background:var(--dg);height:3px"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text3)">Emergency fund</span><span style="color:var(--dg);font-family:var(--mono)" id="ef-pct">2%</span></div><div class="prog" style="height:3px"><div class="pf" id="ef-bar" style="width:2%;background:var(--dg);height:3px"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--text3)">Goals progress</span><span style="color:var(--bl);font-family:var(--mono)">12%</span></div><div class="prog" style="height:3px"><div class="pf" style="width:12%;background:var(--bl);height:3px"></div></div></div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:10px;background:var(--wn2);border-radius:var(--r);border:1px solid rgba(255,201,122,0.2);font-size:11px;color:var(--text2)">⚠️ Score drops from: 89% Amex utilisation, no emergency fund, AfterPay $450/mo</div>
+    </div>
+    <div class="card"><div class="stitle">Spending by Category</div><div id="cat-list"></div></div>
+  </div>
+
+  <!-- Debt Priority -->
+  <div class="card"><div class="stitle" style="color:var(--dg)">Active Debts — Avalanche Order (Highest Rate First)</div><div id="dash-debts"></div></div>
+
+  <!-- Week Calendar -->
+  <div class="card"><div class="stitle">This Week — Payments &amp; Bills</div><div class="wg" id="week-cal"></div></div>
+
+  <!-- Goals -->
+  <div class="card"><div class="stitle" style="color:var(--ac)">Savings Goals</div><div id="dash-goals"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════ CHAT ══ -->
+<div id="tab-chat" class="page hidden tc">
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+    <div style="padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--bg2)">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--ac)"></div>
+      <span style="font-size:11px;font-weight:600;color:var(--ac);letter-spacing:1px;font-family:var(--mono)">AI FINANCE ASSISTANT — ONLINE · 30+ COMMANDS</span>
+    </div>
+    <div class="chat-log" id="chat-log">
+      <div class="mb"><div class="bav">🤖</div><div class="bb">Hey Dewaansh! I've loaded all your real data.
+
+💳 Current debt snapshot:
+• NAB Loan:       $31,579  @ 17.5%  ← $19.13/day interest
+• Amex Essential: $5,436   @ 18.99% ← 89% utilised ⚠️
+• Qantas Amex:    $1,770   @ 23.99% ← highest rate
+• Plan It:        $767     @ ~12%   ← 4 months left
+
+Total: $39,552 across 4 debts
+You're paying ~$573/month just in interest.
+
+Try any command below ↓</div></div>
+    </div>
+    <div class="cir">
+      <input id="chat-inp" placeholder='Try: "pay day $2250" or "best strategy" or "help"' onkeydown="if(event.key==='Enter')sendChat()" style="border-radius:8px"/>
+      <button class="btn bp" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:2px">
+    <button class="qb" onclick="setQ('pay day $2250 fortnightly')">💵 Log Dewaansh pay</button>
+    <button class="qb" onclick="setQ('partner pay $1150 weekly')">💵 Log Bisakha pay</button>
+    <button class="qb" onclick="setQ('best strategy')">🎯 Best strategy</button>
+    <button class="qb" onclick="setQ('debt free date')">📅 Debt-free date</button>
+    <button class="qb" onclick="setQ('what if I pay $500 extra')">🔮 What-if $500 extra</button>
+    <button class="qb" onclick="setQ('interest today')">💸 Interest today</button>
+    <button class="qb" onclick="setQ('emergency fund')">🛡️ Emergency fund</button>
+    <button class="qb" onclick="setQ('spending audit')">📊 Spending audit</button>
+    <button class="qb" onclick="setQ('afterpay freeze')">🧊 AfterPay freeze</button>
+    <button class="qb" onclick="setQ('subscription audit')">📱 Subscriptions</button>
+    <button class="qb" onclick="setQ('50 30 20 rule')">📐 50/30/20 rule</button>
+    <button class="qb" onclick="setQ('can I afford $1000')">❓ Can I afford $X</button>
+    <button class="qb" onclick="setQ('consolidation')">🔀 Consolidation</button>
+    <button class="qb" onclick="setQ('pay myself first')">💰 Pay myself first</button>
+    <button class="qb" onclick="setQ('next milestone')">🏁 Next milestone</button>
+    <button class="qb" onclick="setQ('health score')">❤️ Health score</button>
+    <button class="qb" onclick="setQ('savings rate')">📈 Savings rate</button>
+    <button class="qb" onclick="setQ('net worth')">💎 Net worth</button>
+    <button class="qb" onclick="setQ('daily challenge')">⚡ Daily challenge</button>
+    <button class="qb" onclick="setQ('help')">📖 All commands</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ STRATEGY ══ -->
+<div id="tab-strategy" class="page hidden tc gap">
+  <div class="alert-good"><strong>🎯 Strategy uses real amortization math</strong> — actual month-by-month simulation with interest rolling over. Adjust extra payment to see your exact debt-free date.</div>
+
+  <!-- Strategy Picker -->
+  <div class="card">
+    <div class="stitle">Choose Your Strategy</div>
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+      <button id="btn-av" class="btn bp" onclick="setMethod('avalanche')">❄ Avalanche</button>
+      <button id="btn-sb" class="btn bg" onclick="setMethod('snowball')">⛄ Snowball</button>
+      <button id="btn-hy" class="btn bg" onclick="setMethod('hybrid')">⚡ Hybrid</button>
+    </div>
+    <div id="strategy-desc" style="background:var(--bg3);border-radius:var(--r);padding:14px;font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:20px"></div>
+
+    <!-- Comparison Grid -->
+    <div class="g3" id="strat-compare" style="margin-bottom:20px"></div>
+
+    <!-- Extra Payment Slider -->
+    <div style="background:var(--bl2);border:1px solid rgba(126,184,255,0.2);border-radius:var(--r2);padding:16px 18px">
+      <div style="font-size:11px;font-weight:600;color:var(--bl);margin-bottom:14px;font-family:var(--mono);letter-spacing:1px">🔮 WHAT-IF CALCULATOR — REAL MATH</div>
+      <div style="margin-bottom:14px">
+        <label>Extra monthly payment ($) — slides from $0 to $3,000</label>
+        <input type="range" id="extra-slider" min="0" max="3000" step="50" value="500" oninput="updateExtra(this.value)" style="background:var(--bg3);border:1px solid var(--border2);padding:6px;accent-color:var(--bl)"/>
+        <div style="display:flex;justify-content:space-between;margin-top:4px">
+          <span style="font-size:11px;color:var(--text3)">$0</span>
+          <span style="font-size:13px;font-weight:600;color:var(--bl);font-family:var(--display)" id="extra-label">$500/month extra</span>
+          <span style="font-size:11px;color:var(--text3)">$3,000</span>
+        </div>
+      </div>
+      <div class="g3" id="whatif-result"></div>
+    </div>
+  </div>
+
+  <!-- Month-by-Month Timeline -->
+  <div class="card">
+    <div class="stitle" style="color:var(--pu)">Debt Payoff Timeline — Per Debt</div>
+    <div id="payoff-timeline"></div>
+  </div>
+
+  <!-- Debt Order -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">Attack Order &amp; Monthly Breakdown</div>
+    <div id="attack-order"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ DEBTS ══ -->
+<div id="tab-debts" class="page hidden tc gap">
+  <div class="card">
+    <div class="stitle">Payoff Strategy</div>
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <button id="dbtn-av" class="btn bp" onclick="setMethod('avalanche')">❄ Avalanche</button>
+      <button id="dbtn-sb" class="btn bg" onclick="setMethod('snowball')">⛄ Snowball</button>
+    </div>
+    <div class="g3" style="margin-bottom:20px">
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--dg2)"><div style="font-size:9px;color:var(--dg);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:6px">AVALANCHE</div><div id="av-yrs" style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--dg)">—</div><div id="av-int" style="font-size:11px;color:var(--text3);margin-top:4px">calculating…</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--bl2)"><div style="font-size:9px;color:var(--bl);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:6px">SNOWBALL</div><div id="sb-yrs" style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--bl)">—</div><div id="sb-int" style="font-size:11px;color:var(--text3);margin-top:4px">calculating…</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--ac3)"><div style="font-size:9px;color:var(--ac);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:6px">AVALANCHE SAVES</div><div id="av-save" style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--ac)">—</div><div style="font-size:11px;color:var(--text3);margin-top:4px">vs snowball</div></div>
+    </div>
+    <div style="background:var(--bl2);border:1px solid rgba(126,184,255,0.2);border-radius:var(--r2);padding:16px 18px">
+      <div style="font-size:11px;font-weight:600;color:var(--bl);margin-bottom:14px;font-family:var(--mono);letter-spacing:1px">🔮 EXTRA PAYMENT SIMULATOR</div>
+      <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:5px"><label>Extra per month ($)</label><input type="number" id="extra-pay" value="500" oninput="updateWhatIf()" style="width:160px"/></div>
+      </div>
+      <div class="g3" id="wi-grid"></div>
+    </div>
+  </div>
+  <div id="debt-list"></div>
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">Add New Debt</div>
+    <div class="g4" style="margin-bottom:14px">
+      <div><label>Name</label><input id="nd-name" placeholder="Car loan"/></div>
+      <div><label>Balance ($)</label><input type="number" id="nd-bal" placeholder="0"/></div>
+      <div><label>Min Payment ($)</label><input type="number" id="nd-min" placeholder="0"/></div>
+      <div><label>Rate (% p.a.)</label><input type="number" id="nd-rate" placeholder="0"/></div>
+    </div>
+    <button class="btn bp" onclick="addDebt()">+ Add Debt</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ BILLS ══ -->
+<div id="tab-bills" class="page hidden tc gap">
+  <!-- Upcoming bills -->
+  <div class="card">
+    <div class="stitle" style="color:var(--wn)">⏰ Due in the Next 7 Days</div>
+    <div id="upcoming-bills" style="margin-top:6px"></div>
+  </div>
+  <!-- Category summary -->
+  <div id="env-grid" class="g4"></div>
+  <!-- All bills list -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">All Bills &amp; Expenses</div>
+    <div id="bill-list"></div>
+  </div>
+  <!-- Add new bill — due date is first field -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">+ Add New Bill</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;font-family:var(--mono)">
+      DUE DATE: enter a number for day of month (e.g. <strong style="color:var(--ac)">15</strong> = 15th) or a day name (e.g. <strong style="color:var(--ac)">Friday</strong>)
+    </div>
+    <div class="g4" style="margin-bottom:14px">
+      <div><label>Bill Name</label><input id="nb-name" placeholder="e.g. Rent, Netflix, Gym"/></div>
+      <div><label>Amount ($)</label><input type="number" id="nb-amt" placeholder="0"/></div>
+      <div><label>Due Date ⭐</label><input id="nb-due" placeholder="e.g. 1, 15, Friday"/></div>
+      <div><label>Frequency</label><select id="nb-freq"><option>weekly</option><option selected>monthly</option><option>fortnightly</option><option>yearly</option></select></div>
+      <div><label>Category</label><select id="nb-cat"><option>Housing</option><option>Utilities</option><option>Food</option><option>Transport</option><option>Health</option><option>Insurance</option><option>Entertainment</option><option>Shopping</option><option>Family</option><option>Other</option></select></div>
+    </div>
+    <button class="btn bp" onclick="addBill()">+ Add Bill</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ GOALS ══ -->
+<div id="tab-goals" class="page hidden tc gap">
+  <div class="alert-good"><strong>💡 Goals tip:</strong> Priority 1 = Emergency Fund ($2,500). This stops you reaching for credit cards when unexpected bills hit. Then attack debt.</div>
+  <div id="goals-grid" class="ga"></div>
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">Add New Goal</div>
+    <div class="g4" style="margin-bottom:14px">
+      <div><label>Goal Name</label><input id="ng-name" placeholder="Emergency Fund"/></div>
+      <div><label>Target ($)</label><input type="number" id="ng-target" placeholder="0"/></div>
+      <div><label>Already Saved ($)</label><input type="number" id="ng-saved" placeholder="0"/></div>
+      <div><label>Emoji</label><input id="ng-emoji" placeholder="🎯" value="🎯"/></div>
+    </div>
+    <button class="btn bp" onclick="addGoal()">+ Add Goal</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ NET WORTH ══ -->
+<div id="tab-networth" class="page hidden tc gap">
+  <div class="g3">
+    <div class="card" style="text-align:center"><div style="font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:8px">TOTAL ASSETS</div><div id="nw-a" style="font-family:var(--display);font-size:26px;font-weight:700;color:var(--ac)">$23,117</div><div style="font-size:11px;color:var(--text3);margin-top:4px">cash + super + car + investments</div></div>
+    <div class="card" style="text-align:center"><div style="font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:8px">TOTAL DEBTS</div><div id="nw-d" style="font-family:var(--display);font-size:26px;font-weight:700;color:var(--dg)">$39,552</div><div style="font-size:11px;color:var(--text3);margin-top:4px">all liabilities</div></div>
+    <div class="card" style="text-align:center"><div style="font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:8px">NET WORTH</div><div id="nw-v" style="font-family:var(--display);font-size:26px;font-weight:700;color:var(--dg)">−$16,435</div><div style="font-size:11px;color:var(--text3);margin-top:4px" id="nw-trend">track monthly</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="stitle" style="color:var(--ac)">Assets</div>
+      <div id="asset-list"></div>
+      <div style="margin-top:14px;display:grid;grid-template-columns:2fr 1fr auto;gap:8px;align-items:flex-end">
+        <div><label>Asset name</label><input id="na-name" placeholder="Savings account"/></div>
+        <div><label>Value ($)</label><input type="number" id="na-val" placeholder="0"/></div>
+        <button class="btn bp" onclick="addAsset()" style="align-self:flex-end">+</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="stitle" style="color:var(--dg)">Liabilities</div>
+      <div id="liab-list"></div>
+      <div style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:var(--r);font-size:11px;color:var(--text3);line-height:1.7">
+        💡 <strong style="color:var(--text2)">Net worth improves</strong> every time you pay down debt. At minimum payments you improve by ~$1,673/month. With extra payments, faster.
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════ FORECAST ══ -->
+<div id="tab-forecast" class="page hidden tc gap">
+  <div id="fore-alert" class="alert">Update your income in Dashboard to activate accurate forecasting.</div>
+  <div class="card"><div class="stitle" style="color:var(--bl)">12-Month Savings Forecast</div><div id="fore-bars"></div></div>
+  <div class="g3">
+    <div class="kpi" style="border-top:2px solid var(--ac)"><div class="kl">3-Month</div><div id="fore-3" class="kv" style="color:var(--ac)">—</div><div class="ks">Projected savings</div></div>
+    <div class="kpi" style="border-top:2px solid var(--bl)"><div class="kl">6-Month</div><div id="fore-6" class="kv" style="color:var(--bl)">—</div><div class="ks">Projected savings</div></div>
+    <div class="kpi" style="border-top:2px solid var(--pu)"><div class="kl">12-Month</div><div id="fore-12" class="kv" style="color:var(--pu)">—</div><div class="ks">Projected savings</div></div>
+  </div>
+  <div class="card"><div class="stitle" style="color:var(--pu)">Debt-Free Countdown (at current minimums)</div><div id="countdown-list" class="ga"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════ PLAYBOOK ══ -->
+<div id="tab-playbook" class="page hidden tc gap">
+  <div class="alert-good"><strong>📋 Your Personal Money Playbook</strong> — built from your actual statements. Follow this system and you can be debt-free years earlier while still saving.</div>
+
+  <!-- 50/30/20 Rule -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">50 / 30 / 20 Budget Rule — Applied to Your Income</div>
+    <div id="rule-breakdown"></div>
+  </div>
+
+  <!-- Debt Blitz Plan -->
+  <div class="card">
+    <div class="stitle" style="color:var(--dg)">🔥 Debt Blitz — Your Monthly Action Plan</div>
+    <div id="blitz-plan"></div>
+  </div>
+
+  <!-- The 3-Account System -->
+  <div class="card">
+    <div class="stitle" style="color:var(--bl)">🏦 The 3-Account System</div>
+    <div class="rule-row">
+      <div class="rule-icon" style="background:var(--dg2)">🏠</div>
+      <div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Bills Account (NAB)</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Auto-transfer fixed bills here on pay day: Rent $1,240 · Electricity $147 · Internet $147 · Insurance $166 · Debt minimums. NEVER touch this account for spending.</div></div>
+    </div>
+    <div class="rule-row">
+      <div class="rule-icon" style="background:var(--wn2)">💳</div>
+      <div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Living Account (new debit card)</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Groceries + fuel + eating out budget only. Load a fixed amount each fortnight — when it's gone, it's gone. Stops overspending.</div></div>
+    </div>
+    <div class="rule-row" style="border-bottom:none">
+      <div class="rule-icon" style="background:var(--ac2)">💰</div>
+      <div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Savings/Emergency Account (ING or UBank — high interest)</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Auto-transfer $500/fortnight. First goal: $2,500 emergency fund. Then keep building. Use ING Savings Maximiser (5.5% p.a.) — your NAB savings earns almost nothing.</div></div>
+    </div>
+  </div>
+
+  <!-- Spending DNA -->
+  <div class="card">
+    <div class="stitle" style="color:var(--wn)">🧬 Your Spending DNA — Jan–Apr 2026</div>
+    <div id="spend-dna"></div>
+  </div>
+
+  <!-- Money Rules -->
+  <div class="card">
+    <div class="stitle" style="color:var(--pu)">⚡ Your 10 Money Rules</div>
+    <div id="money-rules"></div>
+  </div>
+
+  <!-- Challenges -->
+  <div class="card">
+    <div class="stitle" style="color:var(--tl)">🏆 Active Challenges</div>
+    <div id="challenges"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ INSIGHTS ══ -->
+<div id="tab-insights" class="page hidden tc gap">
+  <div class="card" style="border:1px solid rgba(255,123,156,0.2)">
+    <div class="stitle" style="color:var(--dg)">Priority Actions</div>
+    <div class="ins" style="background:var(--dg2);border:1px solid rgba(255,123,156,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(255,123,156,0.2);color:var(--dg);flex-shrink:0">URGENT</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">Build $2,500 Emergency Fund First</div><div style="font-size:12px;color:var(--text2);line-height:1.6">You have $117 in your account. One car repair or medical bill will force you to use credit cards, making debt worse. Stash $500/fortnight into a high-interest savings account until you have $2,500.</div></div></div></div>
+    <div class="ins" style="background:var(--dg2);border:1px solid rgba(255,123,156,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(255,123,156,0.2);color:var(--dg);flex-shrink:0">URGENT</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">Amex Essential — 89% Utilisation Kills Credit Score</div><div style="font-size:12px;color:var(--text2);line-height:1.6">$5,436 on a $6,100 limit. Target: below $1,830 (30%). Paying only $135/month minimum means 19 years to clear + $7,924 in interest. Need $274/month to clear in 2 years.</div></div></div></div>
+    <div class="ins" style="background:var(--wn2);border:1px solid rgba(255,201,122,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(255,201,122,0.2);color:var(--wn);flex-shrink:0">HIGH</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">AfterPay $450/Month — Biggest Budget Drain</div><div style="font-size:12px;color:var(--text2);line-height:1.6">That's $5,400/year on split payments — most on non-essentials. Cutting to $150/month frees $300 to attack debt. In 12 months that's $3,600 less debt.</div></div></div></div>
+    <div class="ins" style="background:var(--wn2);border:1px solid rgba(255,201,122,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(255,201,122,0.2);color:var(--wn);flex-shrink:0">HIGH</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">NAB Loan — $474/Month in Interest</div><div style="font-size:12px;color:var(--text2);line-height:1.6">17.5% on $31,579. Every extra $100/fortnight saves ~$180 in total interest. Minimum payments don't touch the principal fast enough.</div></div></div></div>
+    <div class="ins" style="background:var(--pu2);border:1px solid rgba(196,163,255,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(196,163,255,0.2);color:var(--pu);flex-shrink:0">MEDIUM</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">Two Gym Memberships — $120/Month</div><div style="font-size:12px;color:var(--text2);line-height:1.6">Snap Fitness $88/mo + Viva Leisure $31/mo = $119/month. Pick one. Save $480–$1,000/year.</div></div></div></div>
+    <div class="ins" style="background:var(--pu2);border:1px solid rgba(196,163,255,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(196,163,255,0.2);color:var(--pu);flex-shrink:0">MEDIUM</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">Overseas Transfers $730/Month Avg</div><div style="font-size:12px;color:var(--text2);line-height:1.6">Jan $759 · Feb $1,434 · Mar $434. Review timing — batch transfers and use Wise (cheaper than bank rates). Even saving 3% on $730 = $26/month.</div></div></div></div>
+    <div class="ins" style="background:var(--bl2);border:1px solid rgba(126,184,255,0.2)"><div style="display:flex;gap:10px;align-items:flex-start"><span class="tag" style="background:rgba(126,184,255,0.2);color:var(--bl);flex-shrink:0">OPPORTUNITY</span><div><div style="font-weight:600;font-size:13px;margin-bottom:4px;font-family:var(--display)">Balance Transfer — Cut Interest Rate</div><div style="font-size:12px;color:var(--text2);line-height:1.6">Amex Essential at 18.99% — consider a 0% balance transfer card (ANZ, CommBank, NAB all offer 12–28 months 0% with 1–3% transfer fee). On $5,436 that's ~$86/month in saved interest.</div></div></div></div>
+  </div>
+  <div class="card" style="border:1px solid rgba(200,240,110,0.15)">
+    <div class="stitle" style="color:var(--ac)">What You're Doing Well ✅</div>
+    <div style="padding:12px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:600;color:var(--ac);margin-bottom:3px;font-family:var(--display)">✓ Never missed a loan repayment</div><div style="font-size:12px;color:var(--text2);line-height:1.6">7 × $500 NAB repayments in Jan–Apr. Consistent discipline is your biggest asset.</div></div>
+    <div style="padding:12px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:600;color:var(--ac);margin-bottom:3px;font-family:var(--display)">✓ Partner's Amex dropped $5,933 in one month</div><div style="font-size:12px;color:var(--text2);line-height:1.6">From $6,626 → $1,770. That's the aggressive payoff mindset you need to apply to other debts.</div></div>
+    <div style="padding:12px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:600;color:var(--ac);margin-bottom:3px;font-family:var(--display)">✓ Started Pearler investing — $500 in</div><div style="font-size:12px;color:var(--text2);line-height:1.6">The habit matters more than the amount right now. Keep going even at $50/month.</div></div>
+    <div style="padding:12px 0"><div style="font-size:13px;font-weight:600;color:var(--ac);margin-bottom:3px;font-family:var(--display)">✓ Dual income household</div><div style="font-size:12px;color:var(--text2);line-height:1.6">Combined ~$9,800+/month is a strong base. Channel the surplus with discipline.</div></div>
+  </div>
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────────────────────
+const AUD=n=>'$'+Math.abs(Math.round(n||0)).toLocaleString('en-AU');
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const dayMap={Monday:0,Tuesday:1,Wednesday:2,Thursday:3,Friday:4,Saturday:5,Sunday:6};
+const catC={Housing:'#c8f06e',Utilities:'#7eb8ff',Food:'#ffc97a',Transport:'#c4a3ff',Health:'#5ef0e8',Insurance:'#ff7b9c',Entertainment:'#ffd97a',Shopping:'#34d399',Family:'#fb923c',Other:'#6b7fa3'};
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+// ── SABIN (Dewaansh) debts ──────────────────────────────────────────────────
+// ── BISHAKHA debts ──────────────────────────────────────────────────────────
+// Updated 21/03/2026 from handwritten notes
+let debts=[
+  // Sabin's debts
+  {id:1,name:'NAB Loan (Sabin)',bal:32000,orig:33673.91,min:500,freq:'fortnightly',rate:17.5,due:'Monday',color:'#ff7b9c',note:'Sabin · BSB 083-758 · ~$480/mo interest · $15/mo fee'},
+  {id:2,name:'Amex (Sabin)',bal:5500,orig:6100,min:138,freq:'monthly',rate:18.99,due:'16',color:'#ffc97a',note:'Sabin · high utilisation ⚠️'},
+  {id:3,name:'ANZ (Sabin)',bal:5700,orig:5700,min:114,freq:'monthly',rate:20.99,due:'varies',color:'#f97316',note:'Sabin · update min payment when known'},
+  // Bishakha's debts
+  {id:4,name:'Amex (Bishakha)',bal:1000,orig:1000,min:25,freq:'monthly',rate:23.99,due:'varies',color:'#c4a3ff',note:'Bishakha · update min payment when known'},
+  {id:5,name:'NAB Loan (Bishakha)',bal:8700,orig:8700,min:200,freq:'monthly',rate:17.5,due:'varies',color:'#a78bfa',note:'Bishakha · update min payment when known'},
+  {id:6,name:'New Finance (Bishakha)',bal:3000,orig:3000,min:100,freq:'monthly',rate:15,due:'varies',color:'#34d399',note:'Bishakha · update rate & min when known'},
+  {id:7,name:'Hospital Bill (Bishakha)',bal:1300,orig:1300,min:100,freq:'monthly',rate:0,due:'varies',color:'#5ef0e8',note:'Bishakha · likely 0% — confirm with hospital'},
+];
+let bills=[
+  // Add your bills manually using the form below — set the due date as a number (e.g. 15 = 15th of month) or a day name (e.g. Friday)
+];
+let goals=[
+  {id:1,name:'Emergency Fund',target:11000,saved:0,color:'#c8f06e',emoji:'🛡️',note:'Target: Sep–Oct 2026 · $3,500 × 6 months = $21,000 full goal'},
+  {id:2,name:'Bali Trip',target:7000,saved:0,color:'#7eb8ff',emoji:'✈️',note:'Target: June 2026'},
+  {id:3,name:'Digital/Metal Savings',target:10000,saved:0,color:'#c4a3ff',emoji:'💰',note:'Target: October 2026'},
+];
+let assets=[
+  {id:1,name:'NAB Transaction Account',val:117.24,type:'cash'},
+  {id:2,name:'Pearler Investments',val:500,type:'investment'},
+  {id:3,name:'Car (est.)',val:14000,type:'asset'},
+  {id:4,name:'Super (est.)',val:8500,type:'super'},
+];
+let debtMethod='avalanche', extraMonthly=500;
+let dewaanshFn=2250, bisakhaWk=1150;
+
+// ─── Utility helpers ──────────────────────────────────────────────────────────
+const toWeekly=(a,f)=>({weekly:1,fortnightly:.5,monthly:12/52,yearly:1/52}[f]||0)*(a||0);
+const toMonthly=(a,f)=>({weekly:52/12,fortnightly:26/12,monthly:1,yearly:1/12}[f]||0)*(a||0);
+const pct=(a,b)=>b?Math.min(Math.round(a/b*100),100):0;
+const monthlyExpenses=()=>bills.filter(b=>b.active).reduce((s,b)=>s+toMonthly(b.amt,b.freq),0);
+const monthlyDebtMin=()=>debts.reduce((s,d)=>s+toMonthly(d.min,d.freq),0);
+const totalDebt=()=>debts.reduce((s,d)=>s+(d.bal||0),0);
+const totalAssets=()=>assets.reduce((s,a)=>s+(a.val||0),0);
+const monthlyIncome=()=>(dewaanshFn*26/12)+(bisakhaWk*52/12);
+const monthlySurplus=()=>monthlyIncome()-monthlyExpenses()-monthlyDebtMin();
+const dailyInterest=()=>debts.reduce((s,d)=>s+(d.bal*d.rate/100/365),0);
+
+// ─── Real Amortization Calculator ────────────────────────────────────────────
+function calcPayoff(strategy, extra) {
+  let ds = debts.filter(d=>d.bal>0).map(d=>({
+    id:d.id, name:d.name, color:d.color, rate:d.rate, bal:d.bal, orig:d.bal,
+    mmin: d.freq==='fortnightly' ? d.min*26/12 : d.min,
+    freed:false, payoffMonth:null
+  }));
+  if(strategy==='avalanche'||strategy==='hybrid') ds.sort((a,b)=>b.rate-a.rate);
+  else ds.sort((a,b)=>a.bal-b.bal);
+  let totalInt=0, months=0, rolledMin=0;
+  while(ds.some(d=>!d.freed) && months<360){
+    months++;
+    ds.filter(d=>!d.freed).forEach(d=>{const i=d.bal*d.rate/100/12;totalInt+=i;d.bal+=i;});
+    ds.filter(d=>!d.freed).forEach(d=>{const p=Math.min(d.mmin,d.bal);d.bal=Math.max(d.bal-p,0);});
+    let ex=extra+rolledMin; rolledMin=0;
+    for(const d of ds){if(!d.freed&&d.bal>0&&ex>0){const p=Math.min(ex,d.bal);d.bal=Math.max(d.bal-p,0);ex-=p;break;}}
+    ds.filter(d=>!d.freed&&d.bal<0.5).forEach(d=>{d.bal=0;d.freed=true;d.payoffMonth=months;rolledMin+=d.mmin;});
+  }
+  return {months,totalInt:Math.round(totalInt),years:(months/12).toFixed(1),debts:ds};
+}
+
+// ─── Tab Navigation ───────────────────────────────────────────────────────────
+const TABS=['dashboard','chat','strategy','debts','bills','goals','networth','forecast','playbook','insights'];
+function showTab(id){
+  TABS.forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.classList.add('hidden');});
+  document.querySelectorAll('.nt').forEach((el,i)=>el.classList.toggle('active',TABS[i]===id));
+  const tab=document.getElementById('tab-'+id);if(tab)tab.classList.remove('hidden');
+  render();
+}
+
+function render(){rHdr();rDash();rStrategy();rDebts();rBills();rGoals();rNW();rFore();rPlaybook();}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+function rHdr(){
+  const nw=totalAssets()-totalDebt();
+  const nwEl=document.getElementById('hdr-nw');
+  nwEl.textContent=(nw<0?'−':'')+AUD(Math.abs(nw));
+  nwEl.style.color=nw>=0?'var(--ac)':'var(--dg)';
+  document.getElementById('hdr-debt').textContent=AUD(totalDebt());
+  document.getElementById('hdr-int').textContent='$'+dailyInterest().toFixed(2)+'/day';
+}
+
+// ─── Income Recalc ────────────────────────────────────────────────────────────
+function recalcIncome(){
+  dewaanshFn=parseFloat(document.getElementById('inc-d').value)||0;
+  bisakhaWk=parseFloat(document.getElementById('inc-b').value)||0;
+  render();
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+function rDash(){
+  const mi=monthlyIncome(), me=monthlyExpenses(), md=monthlyDebtMin(), sur=mi-me-md;
+  document.getElementById('d-surplus').textContent=AUD(sur)+'/mo';
+  document.getElementById('d-surplus').style.color=sur>1000?'var(--ac)':sur>0?'var(--wn)':'var(--dg)';
+  document.getElementById('d-exp').textContent=AUD(me+md)+'/mo';
+  const monthInt=debts.reduce((s,d)=>s+d.bal*d.rate/100/12,0);
+  document.getElementById('d-int').textContent=AUD(monthInt)+'/mo';
+  document.getElementById('dash-int-day').textContent='$'+dailyInterest().toFixed(2);
+
+  // ETA via avalanche
+  const res=calcPayoff('avalanche',Math.max(sur*0.5,0));
+  document.getElementById('d-eta').textContent=res.years+' yrs';
+
+  // Income summary
+  const is=document.getElementById('inc-summary');
+  if(is) is.innerHTML=`
+    <div class="kpi" style="border-top:2px solid var(--ac)"><div class="kl">Dewaansh /fn</div><div class="kv" style="color:var(--ac)">${AUD(dewaanshFn)}</div><div class="ks">${AUD(dewaanshFn*26/12)}/month</div></div>
+    <div class="kpi" style="border-top:2px solid var(--bl)"><div class="kl">Bisakha /wk</div><div class="kv" style="color:var(--bl)">${AUD(bisakhaWk)}</div><div class="ks">${AUD(bisakhaWk*52/12)}/month</div></div>
+    <div class="kpi" style="border-top:2px solid var(--pu)"><div class="kl">Combined /mo</div><div class="kv" style="color:var(--pu)">${AUD(mi)}</div><div class="ks">~${AUD(mi/52*7)}/week</div></div>
+    <div class="kpi" style="border-top:2px solid var(--wn)"><div class="kl">Savings Rate</div><div class="kv" style="color:${sur/mi>0.1?'var(--ac)':'var(--wn)'}">${Math.round(Math.max(sur,0)/mi*100)}%</div><div class="ks">target: 20%+</div></div>`;
+
+  // Savings rate bar
+  const sr=Math.max(sur,0)/mi*100;
+  document.getElementById('sr-pct').textContent=Math.round(sr)+'%';
+  document.getElementById('sr-bar').style.width=Math.min(sr*2,100)+'%';
+
+  // EF progress
+  const ef=goals.find(g=>g.name.includes('Emergency'));
+  if(ef){const efp=pct(ef.saved,ef.target);document.getElementById('ef-pct').textContent=efp+'%';document.getElementById('ef-bar').style.width=efp+'%;background:'+(efp<30?'var(--dg)':'var(--ac)');}
+
+  // Category list
+  const cats={};bills.filter(b=>b.active).forEach(b=>{cats[b.cat]=(cats[b.cat]||0)+toMonthly(b.amt,b.freq)});
+  const cl=document.getElementById('cat-list');cl.innerHTML='';
+  Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([c,v])=>{
+    const col=catC[c]||'#6b7fa3';
+    cl.innerHTML+=`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:${col}">● ${c}</span><span style="font-family:var(--mono)">${AUD(v)}/mo</span></div><div class="prog" style="height:3px"><div class="pf" style="width:${pct(v,me)}%;background:${col};height:3px"></div></div></div>`;
+  });
+
+  // Debt list
+  const dd=document.getElementById('dash-debts');dd.innerHTML='';
+  [...debts].filter(d=>d.bal>0).sort((a,b)=>b.rate-a.rate).forEach((d,i)=>{
+    const p=pct(d.orig-d.bal,d.orig);
+    dd.innerHTML+=`<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div style="width:22px;height:22px;border-radius:6px;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:11px;font-weight:700;color:${d.color};flex-shrink:0">${i+1}</div><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-weight:500;font-size:13px">${d.name}</span><span style="font-family:var(--display);font-weight:700;color:${d.color}">${AUD(d.bal)}</span></div><div class="prog" style="height:3px"><div class="pf" style="width:${p}%;background:${d.color};height:3px"></div></div><div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--mono)">${d.rate}% p.a. · ${p}% paid · ${AUD(d.bal*d.rate/100/12)}/mo interest</div></div></div>`;
+  });
+
+  // Week cal
+  const wc=document.getElementById('week-cal');wc.innerHTML='';
+  const wd=Array(7).fill(0).map(()=>[]);
+  [...bills,...debts].filter(i=>i.active!==false).forEach(item=>{const d=dayMap[item.due];if(d!==undefined)wd[d].push({name:item.name,amt:item.min||item.amt,isDebt:!!item.bal})});
+  DAYS.forEach((day,i)=>{
+    let inner=wd[i].map(it=>`<div class="di" style="background:${it.isDebt?'rgba(255,123,156,0.1)':'rgba(255,201,122,0.1)'};border:1px solid ${it.isDebt?'rgba(255,123,156,0.2)':'rgba(255,201,122,0.2)'}"><div style="font-size:8px;color:${it.isDebt?'var(--dg)':'var(--wn)'};font-weight:600;font-family:var(--mono)">${it.name.slice(0,9)}</div><div style="font-size:8px;color:var(--text3);font-family:var(--mono)">${AUD(it.amt)}</div></div>`).join('');
+    if(!wd[i].length)inner='<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px">—</div>';
+    wc.innerHTML+=`<div class="dc"><div class="dl">${day}</div>${inner}</div>`;
+  });
+
+  // Goals
+  const dg=document.getElementById('dash-goals');
+  dg.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px">';
+  goals.forEach(g=>{const p=pct(g.saved,g.target);dg.innerHTML+=`<div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid ${g.color}22"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:14px">${g.emoji}</span><span class="tag" style="background:${g.color}18;color:${g.color}">${p}%</span></div><div style="font-family:var(--display);font-weight:600;font-size:13px;margin-bottom:8px">${g.name}</div><div class="prog" style="height:4px"><div class="pf" style="width:${p}%;background:${g.color};height:4px"></div></div><div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10px;font-family:var(--mono)"><span style="color:${g.color}">${AUD(g.saved)}</span><span style="color:var(--text3)">${AUD(g.target)}</span></div></div>`;});
+  dg.innerHTML+='</div>';
+}
+
+// ─── Strategy Tab ─────────────────────────────────────────────────────────────
+function rStrategy(){
+  const extra=extraMonthly;
+  const avRes=calcPayoff('avalanche',extra);
+  const sbRes=calcPayoff('snowball',extra);
+  const avResNone=calcPayoff('avalanche',0);
+  const saves=avRes.totalInt<sbRes.totalInt?sbRes.totalInt-avRes.totalInt:avRes.totalInt-sbRes.totalInt;
+  const faster=avRes.months<sbRes.months?sbRes.months-avRes.months:0;
+
+  const descs={
+    avalanche:`❄ AVALANCHE: Pay minimums on ALL debts, throw every extra dollar at the HIGHEST interest rate debt first. Order: Qantas Amex (23.99%) → Amex Essential (18.99%) → NAB Loan (17.5%) → Plan It (12%). Saves the most money overall — recommended for your situation.`,
+    snowball:`⛄ SNOWBALL: Pay minimums on ALL debts, throw every extra dollar at the SMALLEST balance first. Order: Plan It ($767) → Qantas Amex ($1,770) → Amex Essential ($5,436) → NAB Loan ($31,579). Gives quick psychological wins as debts disappear faster.`,
+    hybrid:`⚡ HYBRID: Avalanche order for debt, but you simultaneously save 20% of your surplus. Best of both worlds — you pay off debt AND build savings at the same time.`
+  };
+  const sd=document.getElementById('strategy-desc');if(sd)sd.textContent=descs[debtMethod]||descs.avalanche;
+
+  const sc=document.getElementById('strat-compare');
+  if(sc) sc.innerHTML=`
+    <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--dg2)"><div style="font-size:9px;color:var(--dg);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:6px">AVALANCHE</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--dg)">${avRes.years} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${AUD(avRes.totalInt)} interest paid</div></div>
+    <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--bl2)"><div style="font-size:9px;color:var(--bl);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:6px">SNOWBALL</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--bl)">${sbRes.years} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${AUD(sbRes.totalInt)} interest paid</div></div>
+    <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--ac3)"><div style="font-size:9px;color:var(--ac);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:6px">AVALANCHE SAVES</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--ac)">${AUD(saves)}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${faster} months sooner</div></div>`;
+
+  // What-if result
+  const noExtraRes=calcPayoff('avalanche',0);
+  const wg=document.getElementById('whatif-result');
+  if(wg) wg.innerHTML=`
+    <div style="background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid var(--border)"><div style="font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:4px">MIN PAYMENTS ONLY</div><div style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--text3)">${noExtraRes.years} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${AUD(noExtraRes.totalInt)} interest</div></div>
+    <div style="background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid rgba(126,184,255,0.2)"><div style="font-size:9px;color:var(--bl);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:4px">WITH +${AUD(extra)}/MO EXTRA</div><div style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--bl)">${avRes.years} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${AUD(avRes.totalInt)} interest</div></div>
+    <div style="background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid rgba(200,240,110,0.2)"><div style="font-size:9px;color:var(--ac);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:4px">YOU SAVE</div><div style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--ac)">${AUD(noExtraRes.totalInt-avRes.totalInt)}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${noExtraRes.months-avRes.months} months sooner</div></div>`;
+
+  // Timeline
+  const tl=document.getElementById('payoff-timeline');
+  if(tl){
+    const res=calcPayoff(debtMethod,extra);
+    const now=new Date(2026,3,1);
+    tl.innerHTML='';
+    res.debts.forEach(d=>{
+      const m=d.payoffMonth||0;
+      const dt=new Date(now);dt.setMonth(dt.getMonth()+m);
+      const bar=Math.min(Math.round(m/res.months*100),100);
+      tl.innerHTML+=`<div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-weight:500;font-size:13px">${d.name}</span><span style="font-family:var(--display);font-weight:700;color:${d.color};font-size:13px">${MONTHS[dt.getMonth()]} ${dt.getFullYear()}</span></div>
+        <div class="prog" style="height:6px"><div class="pf" style="width:${bar}%;background:${d.color};height:6px"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--mono)">${m} months · ${d.rate}% p.a.</div></div></div>`;
+    });
+  }
+
+  // Attack order
+  const ao=document.getElementById('attack-order');
+  if(ao){
+    const res=calcPayoff(debtMethod,extra);
+    ao.innerHTML='';
+    res.debts.forEach((d,i)=>{
+      const mInt=d.orig*d.rate/100/12;
+      ao.innerHTML+=`<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);align-items:center">
+        <div style="width:28px;height:28px;border-radius:8px;background:${d.color}22;border:1px solid ${d.color}44;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:13px;font-weight:700;color:${d.color};flex-shrink:0">${i+1}</div>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px;font-family:var(--display)">${d.name}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">${AUD(d.orig)} · ${d.rate}% · ~${AUD(mInt)}/mo interest</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${i===0?'← Attack this':'Pay minimum'}</div></div></div>`;
+    });
+  }
+}
+
+function updateExtra(v){
+  extraMonthly=parseFloat(v)||0;
+  document.getElementById('extra-label').textContent='$'+extraMonthly.toLocaleString()+'/month extra';
+  rStrategy();rDebts();
+}
+
+// ─── Debts Tab ────────────────────────────────────────────────────────────────
+function rDebts(){
+  const av=calcPayoff('avalanche',extraMonthly);
+  const sb=calcPayoff('snowball',extraMonthly);
+  const saves=Math.abs(av.totalInt-sb.totalInt);
+  const avEl=document.getElementById('av-yrs');if(avEl){avEl.textContent=av.years+' yrs';document.getElementById('av-int').textContent=AUD(av.totalInt)+' total interest';}
+  const sbEl=document.getElementById('sb-yrs');if(sbEl){sbEl.textContent=sb.years+' yrs';document.getElementById('sb-int').textContent=AUD(sb.totalInt)+' total interest';}
+  const asEl=document.getElementById('av-save');if(asEl)asEl.textContent=AUD(saves);
+
+  const extra=parseFloat(document.getElementById('extra-pay')?.value)||500;
+  const wg=document.getElementById('wi-grid');
+  if(wg){
+    const noEx=calcPayoff('avalanche',0);const withEx=calcPayoff('avalanche',extra);
+    wg.innerHTML=`
+      <div style="background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid var(--border)"><div style="font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:4px">MINIMUMS ONLY</div><div style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--text3)">${noEx.years} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${AUD(noEx.totalInt)} interest</div></div>
+      <div style="background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid rgba(126,184,255,0.2)"><div style="font-size:9px;color:var(--bl);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:4px">WITH +${AUD(extra)}/MO</div><div style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--bl)">${withEx.years} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${AUD(withEx.totalInt)} interest</div></div>
+      <div style="background:var(--bg2);border-radius:var(--r);padding:12px;border:1px solid rgba(200,240,110,0.2)"><div style="font-size:9px;color:var(--ac);font-family:var(--mono);letter-spacing:0.8px;margin-bottom:4px">SAVING</div><div style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--ac)">${AUD(noEx.totalInt-withEx.totalInt)}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">${noEx.months-withEx.months} months sooner</div></div>`;
+  }
+
+  const dl=document.getElementById('debt-list');if(!dl)return;dl.innerHTML='';
+  [...debts].filter(d=>d.bal>0).sort((a,b)=>debtMethod==='avalanche'?b.rate-a.rate:a.bal-b.bal).forEach((d,i)=>{
+    const p=pct(d.orig-d.bal,d.orig);const mInt=d.bal*d.rate/100/12;
+    dl.innerHTML+=`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${d.color};border-radius:var(--r2);padding:18px 20px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;gap:10px">
+        <div><div style="font-family:var(--display);font-size:15px;font-weight:700">#${i+1} ${d.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)">${d.freq} · ${d.rate}% p.a. · Due: ${d.due}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic">${d.note}</div></div>
+        <div style="text-align:right;flex-shrink:0"><div style="font-family:var(--display);font-size:20px;font-weight:700;color:${d.color}">${AUD(d.bal)}</div>
+        <div style="font-size:11px;color:var(--dg);font-family:var(--mono)">${AUD(mInt)}/mo interest</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">min ${AUD(d.min)}/${d.freq==='monthly'?'mo':'fn'}</div></div></div>
+      <div class="prog" style="height:5px"><div class="pf" style="width:${p}%;background:${d.color};height:5px"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:5px;font-family:var(--mono)"><span>Paid: ${AUD(d.orig-d.bal)} (${p}%)</span><span>Original: ${AUD(d.orig)}</span></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:11px;color:var(--text3);margin:0">Update balance:</label><input type="number" value="${Math.round(d.bal)}" onchange="updDebt(${d.id},this.value)" style="width:110px"/><button class="btn bd bsm" onclick="rmDebt(${d.id})">Remove</button></div></div>`;
+  });
+}
+function setMethod(m){
+  debtMethod=m;
+  ['btn-av','btn-sb','btn-hy','dbtn-av','dbtn-sb'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='btn bg';});
+  ['btn-av','dbtn-av'].forEach(id=>{if(m==='avalanche'){const el=document.getElementById(id);if(el)el.className='btn bp';}});
+  ['btn-sb','dbtn-sb'].forEach(id=>{if(m==='snowball'){const el=document.getElementById(id);if(el)el.className='btn bp';}});
+  if(m==='hybrid'){const el=document.getElementById('btn-hy');if(el)el.className='btn bp';}
+  rDebts();rStrategy();
+}
+function updateWhatIf(){rDebts();}
+function updDebt(id,v){debts=debts.map(d=>d.id===id?{...d,bal:Math.max(parseFloat(v)||0,0)}:d);render();}
+function rmDebt(id){debts=debts.filter(d=>d.id!==id);render();}
+function addDebt(){
+  const n=document.getElementById('nd-name').value.trim(),b=parseFloat(document.getElementById('nd-bal').value)||0;
+  if(!n||!b)return;
+  const c=['#ff7b9c','#ffc97a','#c4a3ff','#7eb8ff','#5ef0e8'];
+  debts.push({id:Date.now(),name:n,bal:b,orig:b,min:parseFloat(document.getElementById('nd-min').value)||0,freq:'monthly',rate:parseFloat(document.getElementById('nd-rate').value)||0,due:'varies',color:c[debts.length%c.length],note:''});
+  ['nd-name','nd-bal','nd-min','nd-rate'].forEach(id=>document.getElementById(id).value='');render();
+}
+
+// ─── Bills Tab ────────────────────────────────────────────────────────────────
+function rBills(){
+  const me=monthlyExpenses(),cats={};
+  bills.filter(b=>b.active).forEach(b=>{cats[b.cat]=(cats[b.cat]||0)+toMonthly(b.amt,b.freq)});
+  // ── Upcoming bills ───────────────────────────────────────────────────────
+  const ub=document.getElementById('upcoming-bills');
+  if(ub){
+    const today=new Date(),dom=today.getDate(),dow=today.toLocaleDateString('en-AU',{weekday:'long'});
+    const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const todayIdx=today.getDay();
+    const upcoming=bills.filter(b=>b.active).map(b=>{
+      let daysUntil=999,label='';
+      const d=b.due.toString().trim();
+      const dayIdx=days.findIndex(x=>x.toLowerCase()===d.toLowerCase());
+      if(dayIdx>=0){// day of week
+        daysUntil=((dayIdx-todayIdx)+7)%7;
+        if(daysUntil===0)daysUntil=0;
+        label=daysUntil===0?'TODAY':daysUntil===1?'TOMORROW':`in ${daysUntil} days`;
+      } else if(!isNaN(parseInt(d))){// day of month
+        const dueDay=parseInt(d);
+        daysUntil=dueDay>=dom?dueDay-dom:dueDay+(new Date(today.getFullYear(),today.getMonth()+1,0).getDate()-dom);
+        label=daysUntil===0?'TODAY':daysUntil===1?'TOMORROW':`in ${daysUntil} days`;
+      }
+      return {...b,daysUntil,label};
+    }).filter(b=>b.daysUntil<=7&&b.daysUntil!==999).sort((a,c)=>a.daysUntil-c.daysUntil);
+    if(bills.length===0){
+      ub.innerHTML='<div style="font-size:12px;color:var(--text3);padding:10px 0">Add your first bill below ↓ — set a due date to see it here.</div>';
+    } else if(upcoming.length===0){
+      ub.innerHTML='<div style="font-size:12px;color:var(--ac);padding:8px 0">✅ Nothing due in the next 7 days!</div>';
+    } else {
+      ub.innerHTML=upcoming.map(b=>{
+        const urgent=b.daysUntil===0,soon=b.daysUntil===1;
+        const color=urgent?'var(--rd)':soon?'var(--wn)':'var(--ac)';
+        const badge=urgent?'🔴 TODAY':soon?'🟠 TOMORROW':`🟡 in ${b.daysUntil} days`;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-weight:600;font-size:13px">${b.name}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)">${b.cat} · ${b.freq} · due ${b.due}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:var(--display);font-weight:700;font-size:16px;color:${color}">${AUD(b.amt)}</div>
+            <div style="font-size:10px;font-family:var(--mono);color:${color};margin-top:3px;font-weight:600">${badge}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+  const eg=document.getElementById('env-grid');
+  if(eg){
+    if(bills.length===0){eg.innerHTML='';}
+    else{eg.innerHTML='';Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,v])=>{const col=catC[c]||'#6b7fa3';eg.innerHTML+=`<div class="kpi" style="border-top:2px solid ${col}"><div class="kl" style="color:${col}">${c}</div><div class="kv" style="color:${col}">${AUD(v)}</div><div class="ks">${AUD(v/4.33)}/week</div></div>`;});}
+  }
+  const bl=document.getElementById('bill-list');if(!bl)return;
+  if(bills.length===0){
+    bl.innerHTML='<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:12px">No bills yet — add your first one using the form below ↓</div>';
+    return;
+  }
+  // Sort by due date (soonest first), then by name
+  const today2=new Date(),dom2=today2.getDate(),todayIdx2=today2.getDay();
+  const days2=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const withDays=bills.map(b=>{
+    let sort=999;const d=b.due.toString().trim();
+    const di=days2.findIndex(x=>x.toLowerCase()===d.toLowerCase());
+    if(di>=0)sort=((di-todayIdx2)+7)%7;
+    else if(!isNaN(parseInt(d))){const dd=parseInt(d);sort=dd>=dom2?dd-dom2:dd+(new Date(today2.getFullYear(),today2.getMonth()+1,0).getDate()-dom2);}
+    return {...b,_sort:sort};
+  }).sort((a,b)=>a._sort-b._sort);
+  withDays.forEach(b=>{
+    const dueColor=b._sort===0?'var(--rd)':b._sort===1?'var(--wn)':'var(--text3)';
+    bl.innerHTML+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);opacity:${b.active?1:0.4}">
+      <div>
+        <div style="font-weight:500;font-size:13px">${b.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--mono)">${b.cat} · ${b.freq} · <span style="color:${dueColor};font-weight:600">Due: ${b.due}</span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="text-align:right">
+          <div style="font-family:var(--display);font-weight:700;color:var(--wn)">${AUD(b.amt)}</div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${AUD(toMonthly(b.amt,b.freq))}/mo</div>
+        </div>
+        <button class="btn bg bsm" onclick="tglBill(${b.id})">${b.active?'Pause':'On'}</button>
+        <button class="btn bd bsm" onclick="rmBill(${b.id})">✕</button>
+      </div>
+    </div>`;
+  });
+}
+function tglBill(id){bills=bills.map(b=>b.id===id?{...b,active:!b.active}:b);render();}
+function rmBill(id){bills=bills.filter(b=>b.id!==id);render();}
+function addBill(){
+  const n=document.getElementById('nb-name').value.trim(),a=parseFloat(document.getElementById('nb-amt').value)||0;
+  if(!n||!a)return;
+  const due=document.getElementById('nb-due').value.trim()||'varies';
+  bills.push({id:Date.now(),name:n,amt:a,freq:document.getElementById('nb-freq').value,cat:document.getElementById('nb-cat').value,due,active:true});
+  document.getElementById('nb-name').value='';document.getElementById('nb-amt').value='';document.getElementById('nb-due').value='';render();
+}
+
+// ─── Goals Tab ────────────────────────────────────────────────────────────────
+function rGoals(){
+  const gg=document.getElementById('goals-grid');if(!gg)return;gg.innerHTML='';
+  const sur=monthlySurplus();
+  goals.forEach(g=>{
+    const p=pct(g.saved,g.target),rem=g.target-g.saved,wks=sur>0?Math.ceil(rem/(sur*0.3)):'∞';
+    gg.innerHTML+=`<div style="background:var(--bg2);border:1px solid var(--border);border-top:3px solid ${g.color};border-radius:var(--r2);padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:22px">${g.emoji}</span><span class="tag" style="background:${g.color}18;color:${g.color}">${p>=100?'✓ Done':p+'%'}</span></div>
+      <div><div style="font-family:var(--display);font-weight:700;font-size:15px">${g.name}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${g.note||''}</div></div>
+      <div><div class="prog" style="height:5px"><div class="pf" style="width:${p}%;background:${g.color};height:5px"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:11px;font-family:var(--mono)"><span style="color:${g.color};font-weight:600">${AUD(g.saved)}</span><span style="color:var(--text3)">${AUD(g.target)}</span></div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:11px;color:var(--text3)">Still need: <strong style="color:var(--text)">${AUD(rem)}</strong> · ~${wks} months at 30% surplus</div>
+      <div style="display:flex;gap:8px"><input type="number" placeholder="Update saved ($)" style="flex:1;font-size:12px" onblur="updGoal(${g.id},this.value)"/><button class="btn bd bsm" onclick="rmGoal(${g.id})">✕</button></div></div>`;
+  });
+}
+function updGoal(id,v){goals=goals.map(g=>g.id===id?{...g,saved:Math.min(parseFloat(v)||0,g.target)}:g);render();}
+function rmGoal(id){goals=goals.filter(g=>g.id!==id);render();}
+function addGoal(){
+  const n=document.getElementById('ng-name').value.trim(),t=parseFloat(document.getElementById('ng-target').value)||0;
+  if(!n||!t)return;
+  const c=['#c8f06e','#7eb8ff','#c4a3ff','#ffc97a','#5ef0e8'];
+  goals.push({id:Date.now(),name:n,target:t,saved:parseFloat(document.getElementById('ng-saved').value)||0,color:c[goals.length%c.length],emoji:document.getElementById('ng-emoji').value||'🎯',note:''});
+  ['ng-name','ng-target','ng-saved'].forEach(id=>document.getElementById(id).value='');render();
+}
+
+// ─── Net Worth Tab ────────────────────────────────────────────────────────────
+function rNW(){
+  const ta=totalAssets(),td=totalDebt(),nw=ta-td;
+  document.getElementById('nw-a').textContent=AUD(ta);
+  document.getElementById('nw-d').textContent=AUD(td);
+  const el=document.getElementById('nw-v');el.textContent=(nw<0?'−':'')+AUD(Math.abs(nw));el.style.color=nw>=0?'var(--ac)':'var(--dg)';
+  const al=document.getElementById('asset-list');if(al){al.innerHTML='';assets.forEach(a=>{al.innerHTML+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:500;font-size:13px">${a.name}</div><span class="tag" style="background:var(--ac2);color:var(--ac)">${a.type}</span></div><div style="font-family:var(--display);font-weight:700;color:var(--ac)">${AUD(a.val)}</div></div>`;});}
+  const ll=document.getElementById('liab-list');if(ll){ll.innerHTML='';debts.forEach(d=>{ll.innerHTML+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:500;font-size:13px">${d.name}</div><div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${d.rate}% p.a. · ${AUD(d.bal*d.rate/100/12)}/mo interest</div></div><div style="font-family:var(--display);font-weight:700;color:var(--dg)">${AUD(d.bal)}</div></div>`;});}
+}
+function addAsset(){const n=document.getElementById('na-name').value.trim(),v=parseFloat(document.getElementById('na-val').value)||0;if(!n||!v)return;assets.push({id:Date.now(),name:n,val:v,type:'savings'});document.getElementById('na-name').value='';document.getElementById('na-val').value='';render();}
+
+// ─── Forecast Tab ─────────────────────────────────────────────────────────────
+function rFore(){
+  const sur=monthlySurplus(),savePct=0.3;
+  const monthlySave=Math.max(sur*savePct,0);
+  const fa=document.getElementById('fore-alert');if(fa)fa.classList.toggle('hidden',monthlyIncome()>0);
+  const f3=document.getElementById('fore-3');const f6=document.getElementById('fore-6');const f12=document.getElementById('fore-12');
+  if(f3)f3.textContent=AUD(monthlySave*3);if(f6)f6.textContent=AUD(monthlySave*6);if(f12)f12.textContent=AUD(monthlySave*12);
+  const fb=document.getElementById('fore-bars');
+  if(fb){fb.innerHTML='';const now=new Date().getMonth(),mx=monthlySave*12||1;
+  Array.from({length:12},(_,i)=>{const sv=monthlySave*(i+1);fb.innerHTML+=`<div class="fr"><div class="fm">${MONTHS[(now+i)%12]}</div><div class="ft"><div class="ff" style="width:${Math.min(sv/mx*100,100)}%"></div></div><div class="fv">${AUD(sv)}</div></div>`;});}
+  const cl=document.getElementById('countdown-list');
+  if(cl){cl.innerHTML='';const now=new Date(2026,3,1);
+  debts.filter(d=>d.bal>0).forEach(d=>{
+    const res=calcPayoff('avalanche',0);
+    const match=res.debts.find(rd=>rd.id===d.id);
+    const m=match?.payoffMonth||0;
+    const dt=new Date(now);dt.setMonth(dt.getMonth()+m);
+    cl.innerHTML+=`<div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid ${d.color}22"><div style="font-size:11px;color:${d.color};font-weight:600;font-family:var(--mono);margin-bottom:5px">${d.name}</div><div style="font-family:var(--display);font-size:22px;font-weight:700;color:${d.color}">${(m/12).toFixed(1)} yrs</div><div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)">~${MONTHS[dt.getMonth()]} ${dt.getFullYear()}</div><div class="prog" style="height:3px;margin-top:8px"><div class="pf" style="width:${pct(d.orig-d.bal,d.orig)}%;background:${d.color};height:3px"></div></div></div>`;
+  });}
+}
+
+// ─── Playbook Tab ─────────────────────────────────────────────────────────────
+function rPlaybook(){
+  const mi=monthlyIncome(),me=monthlyExpenses(),md=monthlyDebtMin(),sur=mi-me-md;
+  const needs=mi*0.5,wants=mi*0.3,savingsDebt=mi*0.2;
+
+  // 50/30/20
+  const rb=document.getElementById('rule-breakdown');
+  if(rb) rb.innerHTML=`
+    <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:var(--r);font-size:12px;color:var(--text2);line-height:1.7">The 50/30/20 rule: <strong style="color:var(--text)">50%</strong> on needs, <strong style="color:var(--text)">30%</strong> on wants, <strong style="color:var(--text)">20%</strong> on savings & extra debt. Here's how your ${AUD(mi)}/month stacks up:</div>
+    <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:var(--ac)">🏠 NEEDS (50% = ${AUD(needs)})</span><span style="font-family:var(--mono);color:${me+md<=needs?'var(--ac)':'var(--dg)'}">${AUD(me+md)} actual</span></div><div class="prog" style="height:6px"><div class="pf" style="width:${pct(me+md,mi)}%;background:${me+md<=needs?'var(--ac)':'var(--dg)'};height:6px"></div></div><div style="font-size:11px;color:var(--text3);margin-top:3px">Rent · utilities · insurance · groceries · debt minimums</div></div>
+    <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:var(--wn)">🎯 WANTS (30% = ${AUD(wants)})</span><span style="font-family:var(--mono);color:var(--wn)">~${AUD(mi*0.28)} est.</span></div><div class="prog" style="height:6px"><div class="pf" style="width:28%;background:var(--wn);height:6px"></div></div><div style="font-size:11px;color:var(--text3);margin-top:3px">AfterPay · eating out · entertainment · overseas transfers</div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:var(--bl)">💰 SAVINGS + EXTRA DEBT (20% = ${AUD(savingsDebt)})</span><span style="font-family:var(--mono);color:var(--bl)">${AUD(Math.max(sur,0))} available</span></div><div class="prog" style="height:6px"><div class="pf" style="width:${pct(Math.max(sur,0),mi)}%;background:var(--bl);height:6px"></div></div><div style="font-size:11px;color:var(--text3);margin-top:3px">Emergency fund · extra debt payments · Pearler investing</div></div>`;
+
+  // Blitz plan
+  const bp=document.getElementById('blitz-plan');
+  if(bp){
+    const efNeeded=Math.max(2500-117,0);
+    const efMonths=Math.ceil(efNeeded/500);
+    bp.innerHTML=`
+      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px">With ${AUD(mi)}/month income and ${AUD(Math.max(sur,0))}/month surplus, here's your attack plan:</div>
+      <div class="rule-row"><div class="rule-icon" style="background:var(--dg2);font-family:var(--display);font-weight:700;color:var(--dg)">1</div><div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Build Emergency Fund — ${AUD(efNeeded)} needed</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Transfer $500/fortnight to ING Savings Maximiser (5.5%). Done in ~${efMonths} months. This is your financial safety net — skip this and the next car repair hits the credit card.</div></div></div>
+      <div class="rule-row"><div class="rule-icon" style="background:var(--pu2);font-family:var(--display);font-weight:700;color:var(--pu)">2</div><div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Attack Qantas Amex — $1,770 @ 23.99%</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Highest rate debt. Put EVERY extra dollar here. At ${AUD(Math.min(800,Math.max(sur,0)))}/month extra: cleared in ${Math.ceil(1770/Math.max(800-35,1))} months. Then roll that payment to the next debt.</div></div></div>
+      <div class="rule-row"><div class="rule-icon" style="background:var(--wn2);font-family:var(--display);font-weight:700;color:var(--wn)">3</div><div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Kill Amex Essential — $5,436 @ 18.99%</div><div style="font-size:12px;color:var(--text2);margin-top:2px">This one is killing your credit score (89% utilisation). Once Qantas Amex is gone, roll all its payments here. Also gets your credit score moving up, which opens better loan rates.</div></div></div>
+      <div class="rule-row"><div class="rule-icon" style="background:var(--dg2);font-family:var(--display);font-weight:700;color:var(--dg)">4</div><div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Demolish NAB Loan — $31,579 @ 17.5%</div><div style="font-size:12px;color:var(--text2);margin-top:2px">When the credit cards are gone, you'll have ~${AUD(254+136+215)}/month freed up from those minimums. Add that to your NAB payment. Combined: ~${AUD(1083+254+136+215)}/month — clears years faster.</div></div></div>
+      <div class="rule-row" style="border-bottom:none"><div class="rule-icon" style="background:var(--ac2);font-family:var(--display);font-weight:700;color:var(--ac)">5</div><div><div style="font-weight:600;font-size:13px;font-family:var(--display)">Invest Aggressively — debt-free runway</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Once NAB is gone you'll have ~${AUD(1083+254+136+215)}/month in freed cashflow. Put this straight into Pearler ETFs. In 5 years that's a serious portfolio.</div></div></div>`;
+  }
+
+  // Spending DNA
+  const sd=document.getElementById('spend-dna');
+  if(sd) sd.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      <div style="background:var(--bg3);border-radius:var(--r);padding:12px;border:1px solid var(--wn2)"><div style="font-size:9px;color:var(--wn);font-family:var(--mono);margin-bottom:4px">AFTERPAY</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--wn)">$450/mo</div><div style="font-size:10px;color:var(--text3);margin-top:2px">Target: $150/mo → saves $300</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:12px;border:1px solid var(--pu2)"><div style="font-size:9px;color:var(--pu);font-family:var(--mono);margin-bottom:4px">OVERSEAS TRANSFERS</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--pu)">$730/mo</div><div style="font-size:10px;color:var(--text3);margin-top:2px">Use Wise to save fees</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:12px;border:1px solid var(--tl2)"><div style="font-size:9px;color:var(--tl);font-family:var(--mono);margin-bottom:4px">TWO GYMS</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--tl)">$119/mo</div><div style="font-size:10px;color:var(--text3);margin-top:2px">Cancel one → save $372-$744/yr</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:12px;border:1px solid var(--dg2)"><div style="font-size:9px;color:var(--dg);font-family:var(--mono);margin-bottom:4px">DAILY INTEREST BURN</div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--dg)" id="pb-daily-int">$19/day</div><div style="font-size:10px;color:var(--text3);margin-top:2px">~$573/month wasted</div></div>
+    </div>`;
+
+  // Money rules
+  const mr=document.getElementById('money-rules');
+  if(mr) mr.innerHTML=`
+    <div class="rule-row"><div class="rule-icon" style="background:var(--ac2)">💰</div><div><div style="font-weight:600;font-size:13px">Pay yourself first — $500 to savings before anything else</div><div style="font-size:12px;color:var(--text2);margin-top:2px">On pay day, auto-transfer to savings before you spend a cent. Treat it like a bill.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--dg2)">🧊</div><div><div style="font-weight:600;font-size:13px">AfterPay cap: $150/month maximum</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Current: $450/month. The $300 difference is $3,600/year straight to Qantas Amex.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--bl2)">🚫</div><div><div style="font-weight:600;font-size:13px">No new credit card spending until utilisation below 50%</div><div style="font-size:12px;color:var(--text2);margin-top:2px">89% utilisation actively hurts your credit score. Every purchase makes the hole deeper.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--pu2)">🏦</div><div><div style="font-weight:600;font-size:13px">Open ING Savings Maximiser (5.5% interest)</div><div style="font-size:12px;color:var(--text2);margin-top:2px">NAB savings earns almost nothing. Move your emergency fund there. Conditions: deposit $1,000+/month and make 5 purchases on ING card.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--wn2)">📱</div><div><div style="font-weight:600;font-size:13px">Cancel one gym membership today</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Snap Fitness $88 + Viva Leisure $31 = $119/mo. You only need one. Free up ~$372-744/year.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--tl2)">🔀</div><div><div style="font-weight:600;font-size:13px">Consider balance transfer for Amex Essential</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Move $5,436 @ 18.99% to a 0% balance transfer card. Even with a 3% fee ($163), you save $86/month in interest for 12-28 months.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--go2)">✈️</div><div><div style="font-weight:600;font-size:13px">Use Wise for overseas transfers, not bank rates</div><div style="font-size:12px;color:var(--text2);margin-top:2px">At $730/month, even saving 3% = $26/month = $312/year back in your pocket.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--ac2)">📅</div><div><div style="font-weight:600;font-size:13px">Weekly "money date" — 10 minutes every Sunday</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Review last week's spending together. Update balances here. Keeps you both accountable and aligned.</div></div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--dg2)">⛔</div><div><div style="font-weight:600;font-size:13px">$200 buffer rule — NAB account never below $200</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Account hit $0 twice in Mar. This triggers higher interest rates and dishonour fees. Keep a buffer.</div></div></div>
+    <div class="rule-row" style="border-bottom:none"><div class="rule-icon" style="background:var(--bl2)">📈</div><div><div style="font-weight:600;font-size:13px">Keep Pearler going — even at $50/month</div><div style="font-size:12px;color:var(--text2);margin-top:2px">The habit of investing is more valuable than the amount right now. Don't stop it during debt payoff — split it: $50 invest, rest to debt.</div></div></div>`;
+
+  // Challenges
+  const ch=document.getElementById('challenges');
+  if(ch) ch.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid rgba(94,240,232,0.2)"><div style="font-size:14px;margin-bottom:6px">🧊 AfterPay Freeze</div><div style="font-size:12px;color:var(--text2);margin-bottom:8px">30 days — no new AfterPay purchases. Every $150 you don't spend = $150 to debt.</div><div class="tag" style="background:var(--tl2);color:var(--tl)">SAVES $300-450</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid rgba(200,240,110,0.2)"><div style="font-size:14px;margin-bottom:6px">💰 $500 Challenge</div><div style="font-size:12px;color:var(--text2);margin-bottom:8px">Transfer $500 to savings this Friday before any spending. Just do it once to build the habit.</div><div class="tag" style="background:var(--ac2);color:var(--ac)">ONE-TIME WIN</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid rgba(255,201,122,0.2)"><div style="font-size:14px;margin-bottom:6px">🍱 Cook at Home Week</div><div style="font-size:12px;color:var(--text2);margin-bottom:8px">GYG + eating out running $200+/week. One week cooking saves ~$100. Do it once a month.</div><div class="tag" style="background:var(--wn2);color:var(--wn)">$100-200 SAVED</div></div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid rgba(196,163,255,0.2)"><div style="font-size:14px;margin-bottom:6px">📱 Subscription Audit</div><div style="font-size:12px;color:var(--text2);margin-bottom:8px">Apple $12 + LMCT+ $20 + 2 gyms $119 = $151/mo. Cancel what you don't use weekly.</div><div class="tag" style="background:var(--pu2);color:var(--pu)">$50-100 SAVED</div></div>
+    </div>`;
+
+  const pbDI=document.getElementById('pb-daily-int');
+  if(pbDI)pbDI.textContent='$'+dailyInterest().toFixed(2)+'/day';
+}
+
+// ─── Chat Bot ─────────────────────────────────────────────────────────────────
+function setQ(q){document.getElementById('chat-inp').value=q;document.getElementById('chat-inp').focus();}
+function sendChat(){
+  const inp=document.getElementById('chat-inp'),msg=inp.value.trim();
+  if(!msg)return;inp.value='';addB('user',msg);
+  setTimeout(()=>{addB('bot',proc(msg));render();},280);
+}
+function addB(f,t){
+  const log=document.getElementById('chat-log');
+  log.innerHTML+=f==='user'
+    ?`<div class="mu tc"><div class="bu">${t}</div></div>`
+    :`<div class="mb tc"><div class="bav">🤖</div><div class="bb">${t}</div></div>`;
+  log.scrollTop=log.scrollHeight;
+}
+
+function proc(msg){
+  const l=msg.toLowerCase();
+  const am=msg.match(/\$?([\d,]+(?:\.\d+)?)/);
+  const amount=am?parseFloat(am[1].replace(/,/g,'')):null;
+  const mi=monthlyIncome(),sur=monthlySurplus();
+
+  // PAY LOGGING
+  if((l.includes('pay')||l.includes('paid')||l.includes('income'))&&amount){
+    const isD=l.includes('dewaansh')||l.includes('my pay')||(!l.includes('partner')&&!l.includes('bisakha'));
+    const isB=l.includes('partner')||l.includes('bisakha');
+    const isFn=l.includes('fortnight');const isWk=l.includes('week');
+    if(isD&&isFn){dewaanshFn=amount;document.getElementById('inc-d').value=amount;}
+    if(isB&&isWk){bisakhaWk=amount;document.getElementById('inc-b').value=amount;}
+    const newMI=monthlyIncome(),newSur=monthlySurplus();
+    const efAlloc=Math.min(500,Math.max(newSur*0.15,0));
+    const debtExtra=Math.max(newSur*0.6,0);
+    const savAlloc=Math.max(newSur*0.25,0);
+    const freq=isFn?'fortnightly':isWk?'weekly':'';
+    return `💵 ${isB?'Bisakha':'Dewaansh'} — ${AUD(amount)} ${freq} logged!\n\nCombined monthly: ${AUD(newMI)}\nMonthly surplus: ${AUD(newSur)}\n\n${'─'.repeat(28)}\n📋 PAY ALLOCATION PLAN\n${'─'.repeat(28)}\n🏠 Bills & Debt Minimums   ${AUD(newMI-newSur)}\n🛡️  Emergency Fund (15%)   ${AUD(efAlloc)}\n⚡ Extra Debt Payment (60%) ${AUD(debtExtra)}\n💰 Savings/Invest (25%)    ${AUD(savAlloc)}\n${'─'.repeat(28)}\n\n👆 Put the debt extra on:\n→ Qantas Amex first (23.99%)\n\n${newSur<500?'⚠️ Surplus is tight — review bills':'✅ Good surplus. Follow the plan.'}`;
+  }
+
+  // DEBT FREE DATE
+  if(l.includes('debt free')||l.includes('when paid off')){
+    const res=calcPayoff('avalanche',Math.max(sur*0.5,0));
+    const now=new Date(2026,3,1);now.setMonth(now.getMonth()+res.months);
+    return `📅 DEBT-FREE DATE\n\nAt 50% surplus to debt (avalanche):\n→ ${MONTHS[now.getMonth()]} ${now.getFullYear()}\n→ ${res.years} years from now\n→ ${AUD(res.totalInt)} total interest paid\n\n${debts.filter(d=>d.bal>0).sort((a,b)=>b.rate-a.rate).map((d,i)=>{const r=calcPayoff('avalanche',Math.max(sur*0.5,0));const match=r.debts.find(x=>x.id===d.id);const m=match?.payoffMonth||0;const dt=new Date(2026,3,1);dt.setMonth(dt.getMonth()+m);return `${i+1}. ${d.name}: ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;}).join('\n')}\n\n💡 Pay $500 extra → cuts ${(calcPayoff('avalanche',0).months-res.months)} months off`;
+  }
+
+  // BEST STRATEGY
+  if(l.includes('best strategy')||l.includes('what should i do')||l.includes('recommend')){
+    const avR=calcPayoff('avalanche',Math.max(sur*0.5,0));
+    const sbR=calcPayoff('snowball',Math.max(sur*0.5,0));
+    return `🎯 YOUR BEST STRATEGY\n\n❄ AVALANCHE wins for you:\n→ ${avR.years} yrs to debt-free\n→ ${AUD(avR.totalInt)} total interest\n\n⛄ Snowball comparison:\n→ ${sbR.years} yrs · ${AUD(sbR.totalInt)} interest\n→ Avalanche saves ${AUD(sbR.totalInt-avR.totalInt)}\n\nATTACK ORDER:\n1. 🟣 Qantas Amex ($1,770 @ 23.99%) ← NOW\n2. 🟠 Amex Essential ($5,436 @ 18.99%)\n3. 🔴 NAB Loan ($31,579 @ 17.5%)\n4. 🟢 Plan It ($767 @ 12%) ← last\n\n💡 Put every spare dollar on #1 while\npaying minimums on everything else.`;
+  }
+
+  // WHAT-IF
+  if(l.includes('what if')&&amount){
+    const noEx=calcPayoff('avalanche',0);const withEx=calcPayoff('avalanche',amount);
+    const saved=noEx.totalInt-withEx.totalInt;const faster=noEx.months-withEx.months;
+    return `🔮 WHAT-IF: +${AUD(amount)}/month extra\n\nDebt-free: ${withEx.years} yrs (was ${noEx.years})\nInterest paid: ${AUD(withEx.totalInt)} (was ${AUD(noEx.totalInt)})\nYou save: ${AUD(saved)} in interest\n${faster} months sooner\n\n${amount>=300?`✅ ${AUD(amount)}/month is realistic from your surplus!`:'💡 Try $300+ to make a real dent.'}`;
+  }
+
+  // INTEREST TODAY
+  if(l.includes('interest today')||l.includes('interest cost')||l.includes('daily interest')){
+    const daily=dailyInterest();
+    return `💸 YOUR DAILY INTEREST COST\n\nNAB Loan:      $${(31579.65*17.5/100/365).toFixed(2)}/day\nAmex Essential: $${(5436.34*18.99/100/365).toFixed(2)}/day\nQantas Amex:   $${(1770.30*23.99/100/365).toFixed(2)}/day\nPlan It:       $${(766.78*12/100/365).toFixed(2)}/day\n${'─'.repeat(24)}\nTOTAL:         $${daily.toFixed(2)}/day\n\nPer month: ${AUD(daily*30.5)}\nPer year:  ${AUD(daily*365)}\n\n⚡ That's ${AUD(daily*365)} lost to banks annually.\nEvery $1,000 extra you pay now = ~$175/yr saved.`;
+  }
+
+  // EMERGENCY FUND
+  if(l.includes('emergency fund')||l.includes('emergency')){
+    const ef=goals.find(g=>g.name.toLowerCase().includes('emergency'));
+    const saved=ef?ef.saved:117;const target=ef?ef.target:2500;const needed=target-saved;
+    return `🛡️ EMERGENCY FUND STATUS\n\nTarget: ${AUD(target)} (1 month expenses)\nCurrently: ${AUD(saved)}\nStill need: ${AUD(needed)}\nAt $500/fn: ${Math.ceil(needed/500)} fortnights away\n\nWHY THIS MATTERS:\nYour NAB account hit near-zero 3 times.\nNext unexpected expense (car, medical, appliance)\nwill go on a credit card at 18-24% interest.\n\nHOW TO DO IT:\n1. Open ING Savings Maximiser (5.5% interest)\n2. Set up auto-transfer of $500 every pay day\n3. Don't touch it — it's your financial airbag\n\n💡 Do this BEFORE extra debt payments.`;
+  }
+
+  // SPENDING AUDIT
+  if(l.includes('spending audit')||l.includes('spending')){
+    return `📊 SPENDING AUDIT\n\nLARGEST LEAKS (from your statements):\n\n1. AfterPay avg    $450/mo ← CUT TO $150\n2. Overseas tx     $730/mo ← use Wise\n3. Two gyms        $119/mo ← cancel one\n4. Eating out est. $300/mo ← cook 1x/week\n5. Subscriptions   $151/mo ← audit each one\n\nTOTAL FIXABLE:    $1,750/mo potential\n\nIf you just fix AfterPay + gym:\n→ $419/month freed\n→ $5,028/year extra to debt\n→ Debt gone ~18 months sooner\n\n📱 Actionable today:\n1. Cancel one gym membership\n2. Delete AfterPay app for 30 days\n3. Move to Wise for overseas transfers`;
+  }
+
+  // AFTERPAY FREEZE
+  if(l.includes('afterpay')){
+    return `🧊 AFTERPAY FREEZE CHALLENGE\n\n30 days — no new AfterPay purchases.\n\nCurrent: $450/month\nTarget:  $150/month\nDifference: $300/month\n\n$300 extra/month on Qantas Amex:\n→ Qantas Amex cleared in 4-5 months\n→ Then $300 + freed $254 min = $554/mo\n→ Goes to Amex Essential next\n\n12-month impact of cutting AfterPay:\n→ ${AUD(300*12)} more to debt\n→ Saves ~${AUD(300*12*0.18)} in interest\n→ Debt-free ~12 months sooner\n\n💡 Tip: Delete the app. Pay full price or\nwait until you can afford it outright.`;
+  }
+
+  // SUBSCRIPTION AUDIT
+  if(l.includes('subscription')){
+    return `📱 SUBSCRIPTION AUDIT\n\nYour current subscriptions:\n\nApple.com/Bill    $12.12/mo\nLMCT+             $19.99/mo\nSnap Fitness      $88.00/mo\nViva Leisure      $31.46/mo\nSuperloop (NBN)   $146.56/mo  ← essential\n\nTotal: $298/mo ($151 without internet)\n\n🔍 REVIEW:\n• Snap + Viva = 2 gyms. Cancel one → $31-88 saved\n• LMCT+ — do you use it weekly? If not, cancel\n• Apple — check what's actually in it\n\nPotential savings: $51-107/month\n= $612-1,284/year straight to debt`;
+  }
+
+  // 50/30/20
+  if(l.includes('50')||l.includes('budget rule')||l.includes('rule')){
+    const n=mi*0.5,w=mi*0.3,s=mi*0.2;
+    return `📐 50/30/20 RULE — YOUR NUMBERS\n\nCombined income: ${AUD(mi)}/month\n\n50% NEEDS = ${AUD(n)}\n  (rent, bills, food, insurance, minimums)\n  Yours: ${AUD(monthlyExpenses()+monthlyDebtMin())} — ${monthlyExpenses()+monthlyDebtMin()<=n?'✅ ON TARGET':'⚠️ OVER'}\n\n30% WANTS = ${AUD(w)}\n  (AfterPay, eating out, entertainment)\n  Target: cut AfterPay to reach this\n\n20% SAVINGS+DEBT = ${AUD(s)}\n  This is ${AUD(s)}/month for building wealth\n  Split: 50% emergency fund, 50% extra debt\n\n💡 Your surplus of ${AUD(Math.max(sur,0))} is already\n${Math.round(Math.max(sur,0)/mi*100)}% of income — use it wisely!`;
+  }
+
+  // CAN I AFFORD
+  if(l.includes('can i afford')&&amount){
+    const monthly=amount>5000?amount/60:amount;
+    const affordable=sur>monthly*2;
+    return `❓ CAN YOU AFFORD ${AUD(amount)}?\n\nYour monthly surplus: ${AUD(Math.max(sur,0))}\n${amount>5000?`Monthly cost (est.): ${AUD(monthly)}`:`One-time cost: ${AUD(amount)}`}\n\n${affordable?`✅ YES — but check the opportunity cost:\nThis ${AUD(amount)} on Qantas Amex instead\nwould save ${AUD(amount*0.24)} in interest.`:`⚠️ TIGHT — this would eat ${Math.round(amount/Math.max(sur,0.1)*100)}% of your surplus.\n\nIf you really need it:\n1. Save for it over ${Math.ceil(amount/Math.max(sur*0.3,1))} months\n2. Don't put it on credit card\n3. Delay until 1 debt is paid off`}`;
+  }
+
+  // CONSOLIDATION
+  if(l.includes('consolidat')||l.includes('balance transfer')){
+    return `🔀 DEBT CONSOLIDATION OPTIONS\n\n1. BALANCE TRANSFER CARD\n   Move Amex Essential $5,436 @ 18.99%\n   To: ANZ / CommBank / NAB 0% BT card\n   Fee: ~3% = $163 upfront\n   Savings: $86/month in interest\n   Best for: 12-28 months to clear it\n\n2. PERSONAL LOAN CONSOLIDATION\n   Combine all credit card debt ~$8,740\n   Personal loan rate: ~10-14%\n   vs your card rates: 18.99-23.99%\n   Saving: ~$500-800/year\n   Risk: Cards freed up → may re-spend 🚫\n\n3. NAB LOAN REDRAW (if available)\n   If your NAB loan has redraw, check if\n   you can roll credit cards into it\n   at 17.5% vs 23.99% saves $50/mo\n\n💡 Best move: Balance transfer Amex Essential\nto a 0% card. Put the saved $86/mo\nonto Qantas Amex aggressively.`;
+  }
+
+  // PAY MYSELF FIRST
+  if(l.includes('pay myself')||l.includes('pay yourself')){
+    return `💰 PAY YOURSELF FIRST SYSTEM\n\nOn every pay day, BEFORE spending:\n\nDewaansh (fortnightly):\n→ $500 to ING Savings Maximiser\n→ $${Math.round(dewaanshFn*0.3)} to bills account\n→ Rest to living account\n\nBisakha (weekly):\n→ $125/week ($500/month) to savings\n→ Fixed bills auto-debit\n→ Rest for weekly living\n\nWHY IT WORKS:\nBy transferring savings FIRST, you can't\naccidentally spend it. Brain treats it as\n"already gone" and adjusts spending.\n\nSetup: Set up automatic transfers in\nyour NAB app to trigger on pay day.\n5-minute setup, works forever.`;
+  }
+
+  // NEXT MILESTONE
+  if(l.includes('next milestone')||l.includes('milestone')){
+    const sorted=[...debts].filter(d=>d.bal>0).sort((a,b)=>a.bal-b.bal);
+    const next=sorted[0];
+    if(!next)return '🏁 All debts cleared — congratulations!';
+    const mMin=next.freq==='fortnightly'?next.min*26/12:next.min;
+    const mInt=next.bal*next.rate/100/12;
+    const months=Math.ceil(next.bal/(mMin-mInt+Math.max(sur*0.5,0)));
+    const dt=new Date(2026,3,1);dt.setMonth(dt.getMonth()+months);
+    return `🏁 NEXT MILESTONE\n\nSmallest debt: ${next.name}\nBalance: ${AUD(next.bal)}\nAt minimums + 50% surplus:\n→ Cleared by ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}\n→ Frees up ${AUD(mMin)}/month\n\nWhen this is done, roll ${AUD(mMin)} minimum\nto the next debt — this is the power\nof the debt snowball effect.\n\nAll debts by balance:\n${sorted.map((d,i)=>`${i+1}. ${d.name}: ${AUD(d.bal)}`).join('\n')}`;
+  }
+
+  // HEALTH SCORE
+  if(l.includes('health')||l.includes('score')){
+    return `❤️ FINANCIAL HEALTH: 42/100 — FAIR\n\nSCORE BREAKDOWN:\n✅ Consistent repayments    +20\n✅ Dual income              +15\n✅ Investing started        + 7\n⚠️ 89% credit utilisation  -15\n⚠️ No emergency fund        -15\n⚠️ High AfterPay usage      -10\n⚠️ $573/mo interest burn    -10\n⚠️ No dedicated savings     - 7\n${'─'.repeat(28)}\nTOTAL: 42/100\n\nTO REACH 65 (GOOD):\n1. Build $2,500 emergency fund → +10\n2. Pay Qantas Amex → + 8\n3. Cut AfterPay to $150/mo → + 5\n4. Get credit util below 50% → + 8\n\nYou could reach 65+ within 6 months.`;
+  }
+
+  // SAVINGS RATE
+  if(l.includes('savings rate')){
+    const rate=Math.round(Math.max(sur,0)/monthlyIncome()*100);
+    return `📈 SAVINGS RATE: ${rate}%\n\nMonthly income: ${AUD(monthlyIncome())}\nMonthly surplus: ${AUD(Math.max(sur,0))}\nCurrent rate: ${rate}%\n\nBENCHMARKS:\n• 10% = basic savings\n• 20% = on track (your target)\n• 30%+ = debt destroyer mode\n\n${rate<10?'⚠️ Below 10% — review expenses urgently':rate<20?'📊 Getting there — cut AfterPay/gym to hit 20%':'✅ Solid rate — keep it consistent'}\n\nIf you cut AfterPay to $150 + cancel one gym:\n→ New surplus: ${AUD(Math.max(sur,0)+(300+88))}\n→ New savings rate: ${Math.round((Math.max(sur,0)+388)/monthlyIncome()*100)}%`;
+  }
+
+  // NET WORTH
+  if(l.includes('net worth')||l.includes('balance')){
+    const ta=totalAssets(),td=totalDebt(),nw=ta-td;
+    return `💎 NET WORTH SNAPSHOT\n\nASSETS:\nNAB Account:   ${AUD(117)}\nPearler:       ${AUD(500)}\nCar (est.):    ${AUD(14000)}\nSuper (est.):  ${AUD(8500)}\nTotal:         ${AUD(ta)}\n\nDEBTS:\nNAB Loan:      ${AUD(31579.65)}\nAmex Essential:${AUD(5436.34)}\nQantas Amex:   ${AUD(1770.30)}\nPlan It:       ${AUD(766.78)}\nTotal:         ${AUD(td)}\n${'─'.repeat(22)}\nNET WORTH: −${AUD(Math.abs(nw))}\n\n💡 Net worth improves by ~${AUD((monthlyDebtMin()+Math.max(sur*0.5,0))/monthlyDebtMin()*monthlyDebtMin())}\nper month just from paying down debt.`;
+  }
+
+  // DAILY CHALLENGE
+  if(l.includes('daily challenge')||l.includes('challenge')){
+    const challenges=['Skip one takeaway meal today — save $15-30, put it on Qantas Amex','Check your Amex balance and make a manual extra payment, even $50','Open ING savings account app if you haven\'t already','Calculate how much you\'ll save by cutting AfterPay in half','Transfer $10 to your emergency fund right now — start the habit','Cancel one subscription you haven\'t used this week','Pack lunch tomorrow instead of buying — save $15-20','Review last 3 AfterPay purchases — were they necessary?'];
+    const pick=challenges[new Date().getDate()%challenges.length];
+    return `⚡ YOUR DAILY CHALLENGE\n\n${pick}\n\nSmall wins compound.\nEvery dollar you don't spend on wants\nis a dollar that kills debt faster.\n\n💪 Completion = log it here tomorrow!`;
+  }
+
+  // HELP
+  if(l.includes('help')||l.includes('commands')){
+    return `📖 ALL COMMANDS\n\n💵 PAY LOGGING\n"pay day $2250 fortnightly"\n"partner pay $1150 weekly"\n\n🎯 STRATEGY\n"best strategy"\n"debt free date"\n"what if I pay $500 extra"\n\n💸 ANALYSIS\n"interest today"\n"spending audit"\n"spending DNA"\n"subscription audit"\n"net worth"\n"savings rate"\n"health score"\n\n💡 ADVICE\n"emergency fund"\n"afterpay freeze"\n"50 30 20 rule"\n"consolidation"\n"pay myself first"\n"next milestone"\n"can I afford $500"\n\n⚡ MOTIVATION\n"daily challenge"\n"best strategy"\n\nJust type naturally — I understand most questions!`;
+  }
+
+  return `🤖 I didn't catch that.\n\nType "help" to see all 25+ commands.\n\nQuick actions:\n• "best strategy" — personalised plan\n• "debt free date" — your actual timeline\n• "pay day $2250 fortnightly" — log pay\n• "what if I pay $300 extra" — simulate it\n• "interest today" — see daily cost`;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+setMethod('avalanche');
+render();
+</script>
+
+<div class="footer">FINANCEOS v2 &nbsp;·&nbsp; DEWAANSH &amp; BISAKHA &nbsp;·&nbsp; AUD &nbsp;·&nbsp; ALL DATA STAYS ON YOUR DEVICE</div>
+</body>
+</html>
