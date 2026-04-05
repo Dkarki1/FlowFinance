@@ -143,26 +143,36 @@ select option{background:#1a1a28}
   <button class="nt" onclick="showTab('forecast')">📈 Forecast</button>
   <button class="nt" onclick="showTab('playbook')">📋 Playbook</button>
   <button class="nt" onclick="showTab('insights')">💡 Insights</button>
+  <button class="nt" onclick="showTab('afford')">🛒 Can I Afford It?</button>
 </nav>
 
 <!-- ══════════════════════════════════════════ DASHBOARD ══ -->
 <div id="tab-dashboard" class="page gap tc">
   <div class="alert"><strong>⚡ Real data from your 4 statements · Apr 2026.</strong> You're paying <strong id="dash-int-day">$19.13</strong>/day in interest. Log your pay in AI Chat to unlock your personalised allocation plan.</div>
 
-  <!-- Income Setup -->
-  <div class="card">
-    <div class="stitle" style="color:var(--ac)">Income Setup — Update Your Pay</div>
+  <!-- Pay Logging -->
+  <div class="card" style="border:1px solid var(--ac3)">
+    <div class="stitle" style="color:var(--ac)">💰 Log Your Pay</div>
     <div class="g2" style="margin-bottom:14px">
       <div>
-        <label>Dewaansh — Fortnightly pay ($)</label>
-        <input type="number" id="inc-d" value="2250" oninput="recalcIncome()" placeholder="2250"/>
+        <label>My Pay — Dewaansh (Fortnightly $)</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <input type="number" id="inc-d" placeholder="e.g. 2250" inputmode="decimal" style="flex:1"/>
+          <button class="btn bp" onclick="logMyPay()" style="white-space:nowrap">Log ✓</button>
+        </div>
+        <div id="last-d-pay" style="font-size:10px;color:var(--text3);margin-top:5px;font-family:var(--mono)">Not logged yet</div>
       </div>
       <div>
-        <label>Bisakha — Weekly pay ($)</label>
-        <input type="number" id="inc-b" value="1150" oninput="recalcIncome()" placeholder="1150"/>
+        <label>Bisakha's Pay (Weekly $)</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <input type="number" id="inc-b" placeholder="e.g. 1150" inputmode="decimal" style="flex:1"/>
+          <button class="btn bg" onclick="logPartnerPay()" style="white-space:nowrap">Log ✓</button>
+        </div>
+        <div id="last-b-pay" style="font-size:10px;color:var(--text3);margin-top:5px;font-family:var(--mono)">Not logged yet</div>
       </div>
     </div>
-    <div class="g4" id="inc-summary"></div>
+    <!-- Smart allocation shown after pay is logged -->
+    <div id="pay-allocation"></div>
   </div>
 
   <!-- KPIs -->
@@ -589,7 +599,15 @@ let assets=[
   {id:4,name:'Super (est.)',val:8500,type:'super'},
 ];
 let debtMethod='avalanche', extraMonthly=500;
-let dewaanshFn=2250, bisakhaWk=1150;
+
+// ── Income — stored in localStorage, starts at 0 until logged ────────────────
+function loadIncome(){
+  try{ return JSON.parse(localStorage.getItem('financeOS_income')||'{}'); }catch{return {};}
+}
+function saveIncome(obj){localStorage.setItem('financeOS_income',JSON.stringify(obj));}
+let _inc=loadIncome();
+let dewaanshFn=_inc.dewaanshFn||0;
+let bisakhaWk=_inc.bisakhaWk||0;
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 const toWeekly=(a,f)=>({weekly:1,fortnightly:.5,monthly:12/52,yearly:1/52}[f]||0)*(a||0);
@@ -625,16 +643,17 @@ function calcPayoff(strategy, extra) {
 }
 
 // ─── Tab Navigation ───────────────────────────────────────────────────────────
-const TABS=['dashboard','chat','strategy','debts','bills','spending','goals','networth','forecast','playbook','insights'];
+const TABS=['dashboard','chat','strategy','debts','bills','spending','goals','networth','forecast','playbook','insights','afford'];
 function showTab(id){
   TABS.forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.classList.add('hidden');});
   document.querySelectorAll('.nt').forEach((el,i)=>el.classList.toggle('active',TABS[i]===id));
   const tab=document.getElementById('tab-'+id);if(tab)tab.classList.remove('hidden');
   render();
   if(id==='spending') rSpending();
+  if(id==='afford') rAffordSnapshot();
 }
 
-function render(){rHdr();rDash();rStrategy();rDebts();rBills();rGoals();rNW();rFore();rPlaybook();}
+function render(){rHdr();rDash();rStrategy();rDebts();rBills();rGoals();rNW();rFore();rPlaybook();rPayAllocation();}
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 function rHdr(){
@@ -806,18 +825,44 @@ function rDebts(){
 
   const dl=document.getElementById('debt-list');if(!dl)return;dl.innerHTML='';
   [...debts].filter(d=>d.bal>0).sort((a,b)=>debtMethod==='avalanche'?b.rate-a.rate:a.bal-b.bal).forEach((d,i)=>{
-    const p=pct(d.orig-d.bal,d.orig);const mInt=d.bal*d.rate/100/12;
+    const p=pct(d.orig-d.bal,d.orig);
+    const mInt=d.bal*d.rate/100/12;
+    const minOnly=calcSinglePayoff(d,0);
+    const withExtra=calcSinglePayoff(d,extraMonthly);
+    const mosavedMonths=minOnly.months-withExtra.months;
+    const moSavedInt=minOnly.totalInt-withExtra.totalInt;
     dl.innerHTML+=`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${d.color};border-radius:var(--r2);padding:18px 20px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;margin-bottom:10px;gap:10px">
         <div><div style="font-family:var(--display);font-size:15px;font-weight:700">#${i+1} ${d.name}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)">${d.freq} · ${d.rate}% p.a. · Due: ${d.due}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic">${d.note}</div></div>
-        <div style="text-align:right;flex-shrink:0"><div style="font-family:var(--display);font-size:20px;font-weight:700;color:${d.color}">${AUD(d.bal)}</div>
-        <div style="font-size:11px;color:var(--dg);font-family:var(--mono)">${AUD(mInt)}/mo interest</div>
-        <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">min ${AUD(d.min)}/${d.freq==='monthly'?'mo':'fn'}</div></div></div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:var(--display);font-size:20px;font-weight:700;color:${d.color}">${AUD(d.bal)}</div>
+          <div style="font-size:11px;color:var(--dg);font-family:var(--mono)">${AUD(mInt)}/mo interest</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">min ${AUD(d.min)}/${d.freq==='monthly'?'mo':'fn'}</div>
+        </div>
+      </div>
       <div class="prog" style="height:5px"><div class="pf" style="width:${p}%;background:${d.color};height:5px"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:5px;font-family:var(--mono)"><span>Paid: ${AUD(d.orig-d.bal)} (${p}%)</span><span>Original: ${AUD(d.orig)}</span></div>
-      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:11px;color:var(--text3);margin:0">Update balance:</label><input type="number" value="${Math.round(d.bal)}" onchange="updDebt(${d.id},this.value)" style="width:110px"/><button class="btn bd bsm" onclick="rmDebt(${d.id})">Remove</button></div></div>`;
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:5px;font-family:var(--mono);margin-bottom:12px"><span>Paid: ${AUD(d.orig-d.bal)} (${p}%)</span><span>Original: ${AUD(d.orig)}</span></div>
+      <!-- Payoff timeline -->
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px;border:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--ac);font-family:var(--mono);letter-spacing:1px;margin-bottom:10px">⏱ PAYOFF TIMELINE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="text-align:center;padding:8px;background:var(--bg2);border-radius:6px">
+            <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">MINIMUM ONLY</div>
+            <div style="font-family:var(--display);font-weight:700;font-size:16px;color:var(--text2)">${minOnly.months<600?Math.floor(minOnly.months/12)+'y '+minOnly.months%12+'m':'∞'}</div>
+            <div style="font-size:10px;color:var(--dg);font-family:var(--mono);margin-top:3px">${AUD(minOnly.totalInt)} interest</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--bg2);border-radius:6px;border:1px solid ${d.color}44">
+            <div style="font-size:10px;color:${d.color};font-family:var(--mono);margin-bottom:4px">+${AUD(extraMonthly)}/MO EXTRA</div>
+            <div style="font-family:var(--display);font-weight:700;font-size:16px;color:${d.color}">${withExtra.months<600?Math.floor(withExtra.months/12)+'y '+withExtra.months%12+'m':'∞'}</div>
+            <div style="font-size:10px;color:var(--ac);font-family:var(--mono);margin-top:3px">${mosavedMonths>0?'saves '+AUD(moSavedInt):AUD(withExtra.totalInt)+' int'}</div>
+          </div>
+        </div>
+        ${mosavedMonths>0?`<div style="text-align:center;font-size:11px;color:var(--ac);margin-top:8px;font-family:var(--mono)">⚡ ${mosavedMonths} months sooner · ${AUD(moSavedInt)} less interest</div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:11px;color:var(--text3);margin:0">Update balance:</label><input type="number" value="${Math.round(d.bal)}" onchange="updDebt(${d.id},this.value)" style="width:110px"/><button class="btn bd bsm" onclick="rmDebt(${d.id})">Remove</button></div>
+    </div>`;
   });
 }
 function setMethod(m){
@@ -1361,11 +1406,176 @@ function rSpending() {
   }
 }
 
+// ─── Income Logging ───────────────────────────────────────────────────────────
+function logMyPay(){
+  const amt=parseFloat(document.getElementById('inc-d').value);
+  if(!amt||amt<=0){alert('Enter your fortnightly pay amount');return;}
+  dewaanshFn=amt;
+  const inc=loadIncome();inc.dewaanshFn=amt;inc.dewaanshDate=new Date().toISOString();saveIncome(inc);
+  document.getElementById('last-d-pay').textContent='✅ Logged '+new Date().toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' — $'+amt.toLocaleString();
+  render();rPayAllocation();
+}
+function logPartnerPay(){
+  const amt=parseFloat(document.getElementById('inc-b').value);
+  if(!amt||amt<=0){alert('Enter Bisakha\'s weekly pay amount');return;}
+  bisakhaWk=amt;
+  const inc=loadIncome();inc.bisakhaWk=amt;inc.bisakhaDate=new Date().toISOString();saveIncome(inc);
+  document.getElementById('last-b-pay').textContent='✅ Logged '+new Date().toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' — $'+amt.toLocaleString();
+  render();rPayAllocation();
+}
+
+function rPayAllocation(){
+  const el=document.getElementById('pay-allocation');if(!el)return;
+  const inc=loadIncome();
+  // Restore last-logged labels
+  if(inc.dewaanshDate){const d=new Date(inc.dewaanshDate);document.getElementById('last-d-pay').textContent='✅ Last logged '+d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' — $'+(inc.dewaanshFn||0).toLocaleString();}
+  if(inc.bisakhaDate){const d=new Date(inc.bisakhaDate);document.getElementById('last-b-pay').textContent='✅ Last logged '+d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' — $'+(inc.bisakhaWk||0).toLocaleString();}
+  if(!dewaanshFn&&!bisakhaWk){el.innerHTML='<div style="text-align:center;padding:12px 0;color:var(--text3);font-size:12px">Log your pay above to see your smart allocation ↑</div>';return;}
+
+  const totalMo=monthlyIncome();
+  const billsMo=monthlyExpenses();
+  const debtMo=monthlyDebtMin();
+  const saveMo=totalMo*0.10;
+  const freeMo=Math.max(0,totalMo-billsMo-debtMo-saveMo);
+  const freeDay=freeMo/30;
+
+  // Upcoming bills in next 14 days
+  const today=new Date(),dom=today.getDate(),todayIdx=today.getDay();
+  const days7=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const upcomingBills=bills.filter(b=>b.active).map(b=>{
+    let du=999;const d=(b.due||'').toString().trim();
+    const di=days7.findIndex(x=>x.toLowerCase()===d.toLowerCase());
+    if(di>=0)du=((di-todayIdx)+7)%7;
+    else if(!isNaN(parseInt(d))){const dd=parseInt(d);du=dd>=dom?dd-dom:dd+(new Date(today.getFullYear(),today.getMonth()+1,0).getDate()-dom);}
+    return{...b,du};
+  }).filter(b=>b.du<=14).sort((a,c)=>a.du-c.du);
+
+  const billsThisFn=upcomingBills.reduce((s,b)=>s+b.amt,0);
+
+  el.innerHTML=`
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <div style="font-size:11px;font-weight:600;color:var(--ac);font-family:var(--mono);letter-spacing:1px;margin-bottom:12px">📊 YOUR MONTHLY BREAKDOWN</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2);font-size:13px">💰 Combined monthly income</span><span style="font-family:var(--display);font-weight:700;color:var(--ac)">$${totalMo.toFixed(0)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2);font-size:13px">🧾 Bills total</span><span style="font-family:var(--display);font-weight:700;color:var(--wn)">−$${billsMo.toFixed(0)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2);font-size:13px">💳 Debt minimums</span><span style="font-family:var(--display);font-weight:700;color:var(--dg)">−$${debtMo.toFixed(0)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2);font-size:13px">🏦 Savings (10%)</span><span style="font-family:var(--display);font-weight:700;color:var(--bl)">−$${saveMo.toFixed(0)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);background:var(--ac3);margin:0 -2px;padding:10px 6px;border-radius:6px;margin-bottom:4px">
+        <span style="color:var(--ac);font-size:14px;font-weight:700">✅ Free to spend</span>
+        <span style="font-family:var(--display);font-weight:700;font-size:18px;color:var(--ac)">$${freeMo.toFixed(0)}/mo</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text3);font-size:11px;font-family:var(--mono)">That's $${freeDay.toFixed(0)}/day spending money</span>${billsThisFn>0?`<span style="color:var(--wn);font-size:11px;font-family:var(--mono)">⚠️ $${billsThisFn.toFixed(0)} due next 14 days</span>`:''}</div>
+      ${upcomingBills.length>0?`<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--wn);font-family:var(--mono);letter-spacing:1px;margin-bottom:8px">⏰ UPCOMING BILLS — NEXT 14 DAYS</div>
+        ${upcomingBills.map(b=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">${b.name} <span style="color:var(--text3);font-size:10px">(${b.du===0?'today':b.du===1?'tomorrow':'in '+b.du+'d'})</span></span><span style="color:var(--wn);font-weight:600">$${b.amt}</span></div>`).join('')}
+      </div>`:''}
+    </div>`;
+}
+
+// ─── Per-debt Payoff Calculator ────────────────────────────────────────────────
+function calcSinglePayoff(debt,extra){
+  let bal=debt.bal,rate=debt.rate,mmin=debt.freq==='fortnightly'?debt.min*26/12:debt.min;
+  let months=0,totalInt=0;
+  const payment=mmin+(extra||0);
+  if(payment<=0||bal<=0)return{months:0,totalInt:0};
+  while(bal>0&&months<600){
+    months++;
+    const interest=bal*rate/100/12;
+    totalInt+=interest;
+    bal=bal+interest-payment;
+    if(bal<0)bal=0;
+  }
+  return{months,totalInt:Math.round(totalInt)};
+}
+
+// ─── Can I Afford It ──────────────────────────────────────────────────────────
+function rAffordSnapshot(){
+  const el=document.getElementById('afford-snapshot');if(!el)return;
+  const totalMo=monthlyIncome();
+  if(!totalMo){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">Log your pay on the Dashboard first to see your money snapshot.</div>';return;}
+  const billsMo=monthlyExpenses(),debtMo=monthlyDebtMin(),saveMo=totalMo*0.10;
+  const freeMo=Math.max(0,totalMo-billsMo-debtMo-saveMo);
+  const freeWk=freeMo/4.33;
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text3);font-size:12px">Monthly income</span><span style="font-family:var(--mono);color:var(--text2)">$${totalMo.toFixed(0)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text3);font-size:12px">Bills + debt + savings</span><span style="font-family:var(--mono);color:var(--wn)">−$${(billsMo+debtMo+saveMo).toFixed(0)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><span style="color:var(--ac);font-size:13px;font-weight:600">Free to spend / month</span><span style="font-family:var(--display);font-weight:700;color:var(--ac);font-size:16px">$${freeMo.toFixed(0)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text3);font-size:11px">Per week</span><span style="font-family:var(--mono);color:var(--text3);font-size:11px">~$${freeWk.toFixed(0)}</span></div>`;
+}
+
+function checkAfford(){
+  const item=document.getElementById('af-item').value.trim()||'This purchase';
+  const amt=parseFloat(document.getElementById('af-amt').value)||0;
+  if(!amt){alert('Enter a cost amount');return;}
+  const el=document.getElementById('afford-result');if(!el)return;
+  el.style.display='block';
+
+  const totalMo=monthlyIncome();
+  if(!totalMo){el.innerHTML='<div class="card" style="border:1px solid var(--wn)"><div style="color:var(--wn);font-weight:600">Log your pay first on the Dashboard!</div><div style="font-size:12px;color:var(--text3);margin-top:8px">I need your income to calculate if you can afford this.</div></div>';return;}
+  const billsMo=monthlyExpenses(),debtMo=monthlyDebtMin(),saveMo=totalMo*0.10;
+  const freeMo=Math.max(0,totalMo-billsMo-debtMo-saveMo);
+  const freeWk=freeMo/4.33;
+  const remaining=freeMo-amt;
+  const canAfford=freeMo>=amt;
+  const percentOfFree=((amt/freeMo)*100).toFixed(0);
+
+  // Calculate interest cost of putting it on a credit card
+  const creditCost=(amt*0.1999/12*3).toFixed(0); // 3 months at 19.99%
+
+  let verdict,color,emoji,advice;
+  if(canAfford&&amt<=freeWk){
+    verdict='YES — Easily affordable';color='var(--ac)';emoji='✅';
+    advice=`$${amt} is only ${percentOfFree}% of your monthly free spend. You can comfortably afford this without affecting your bills or debts.`;
+  } else if(canAfford&&amt<=freeMo*0.5){
+    verdict='YES — But think twice';color='var(--wn)';emoji='🟡';
+    advice=`$${amt} is ${percentOfFree}% of your monthly free spending money. You'll still have $${remaining.toFixed(0)} left this month — but consider if this delays your debt goals.`;
+  } else if(canAfford){
+    verdict='TECHNICALLY YES — Not recommended';color='var(--wn)';emoji='⚠️';
+    advice=`This is ${percentOfFree}% of your free monthly spend. You'd have only $${remaining.toFixed(0)} left. Better to wait until next pay or save up over ${Math.ceil(amt/freeWk)} weeks.`;
+  } else {
+    verdict='NO — Not right now';color='var(--rd)';emoji='❌';
+    advice=`$${amt} exceeds your free monthly spend of $${freeMo.toFixed(0)} by $${Math.abs(remaining).toFixed(0)}. If you put this on a credit card, it could cost you an extra ~$${creditCost} in interest over 3 months.`;
+  }
+
+  el.innerHTML=`<div class="card" style="border:1px solid ${color}">
+    <div style="font-size:22px;margin-bottom:8px">${emoji}</div>
+    <div style="font-family:var(--display);font-weight:700;font-size:17px;color:${color};margin-bottom:10px">${verdict}</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px">${advice}</div>
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text3)">${item}</span><span style="color:var(--wn);font-weight:600">−$${amt}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px"><span style="color:var(--text3)">Monthly free money left after</span><span style="color:${remaining>=0?'var(--ac)':'var(--rd)'};font-weight:600">$${remaining.toFixed(0)}</span></div>
+    </div>
+    ${!canAfford?`<div style="font-size:12px;color:var(--bl);padding:10px;background:var(--bg3);border-radius:6px;border:1px solid var(--bl2)">💡 Alternative: Save $${Math.ceil(amt/4)} per week for ${Math.ceil(amt/freeWk)} weeks and buy it debt-free.</div>`:''}
+    ${canAfford&&percentOfFree>30?`<div style="font-size:12px;color:var(--bl);padding:10px;background:var(--bg3);border-radius:6px;border:1px solid var(--bl2)">💡 Reminder: Every dollar not spent is a dollar that kills debt faster. Is there a cheaper alternative?</div>`:''}
+  </div>`;
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 setMethod('avalanche');
 render();
 rSpending();
 </script>
+
+<!-- ══════════════════════════════════════════ CAN I AFFORD IT ══ -->
+<div id="tab-afford" class="page hidden tc gap">
+  <div class="card" style="border:1px solid var(--ac3)">
+    <div class="stitle" style="color:var(--ac)">🛒 Can I Afford It?</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Enter what you want to buy — I'll check against your bills, debts, savings, and free money.</div>
+    <div class="g2" style="margin-bottom:14px">
+      <div><label>What do you want to buy?</label><input id="af-item" placeholder="e.g. Clothes, PS5, Flights"/></div>
+      <div><label>How much does it cost? ($)</label><input type="number" id="af-amt" placeholder="0" inputmode="decimal"/></div>
+    </div>
+    <button class="btn bp" onclick="checkAfford()" style="width:100%;font-size:14px;padding:13px">Check It →</button>
+  </div>
+
+  <!-- Result card -->
+  <div id="afford-result" style="display:none"></div>
+
+  <!-- Always-visible money snapshot -->
+  <div class="card">
+    <div class="stitle" style="color:var(--ac)">Your Money Snapshot</div>
+    <div id="afford-snapshot"></div>
+  </div>
+</div>
 
 <div class="footer">FINANCEOS v2 &nbsp;·&nbsp; DEWAANSH &amp; BISAKHA &nbsp;·&nbsp; AUD &nbsp;·&nbsp; ALL DATA STAYS ON YOUR DEVICE</div>
 </body>
