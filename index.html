@@ -6,58 +6,63 @@
     <title>FlowFinance · Darwin NT</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <style>
-        /* --- STYLES --- */
+        /* --- INTEGRATED STYLES --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; line-height: 1.6; }
         .num { font-variant-numeric: tabular-nums; }
+        .hidden { display: none !important; }
+
         header { position: sticky; top: 0; z-index: 100; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 2rem; }
         .logo-mark { width: 32px; height: 32px; background: #3B82F6; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px; }
         .header-title h1 { font-size: 20px; font-weight: 700; }
         .header-stats { display: flex; gap: 2rem; flex: 0 0 auto; }
         .stat-item { text-align: right; }
         .stat-label { font-size: 11px; color: #64748B; font-weight: 500; text-transform: uppercase; margin-bottom: 0.25rem; }
-        .stat-value { font-size: 18px; font-weight: 700; color: #0F172A; }
+        .stat-value { font-size: 18px; font-weight: 700; }
         .stat-value.positive { color: #10B981; }
         .stat-value.negative { color: #EF4444; }
+
         nav.tabs { background: #FFFFFF; border-bottom: 1px solid #E2E8F0; overflow-x: auto; padding: 0 1.5rem; display: flex; position: sticky; top: 76px; z-index: 99; }
-        .tab { padding: 1rem 1.5rem; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748B; border-bottom: 3px solid transparent; white-space: nowrap; transition: all 0.3s ease; }
+        .tab { padding: 1rem 1.5rem; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748B; white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.3s ease; }
         .tab.active { color: #3B82F6; border-bottom-color: #3B82F6; }
+
         main { padding: 2rem 1.5rem; max-width: 1400px; margin: 0 auto; }
         .card { background: #FFFFFF; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
-        .kpi-card { background: #FFFFFF; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center; }
-        .kpi-label { font-size: 12px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
-        .kpi-value { font-size: 28px; font-weight: 700; }
         .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 1.5rem; }
-        .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; }
-        .form-group { margin-bottom: 1rem; text-align: left; }
-        .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 0.5rem; }
-        input, select, textarea { width: 100%; padding: 0.75rem; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 14px; background: white; }
-        button { font-family: 'Inter', sans-serif; padding: 0.75rem 1.5rem; border: none; border-radius: 9999px; font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 0.5rem; }
-        .btn-primary { background: #3B82F6; color: white; }
-        .btn-danger { background: #EF4444; color: white; }
-        .btn-secondary { background: #E2E8F0; color: #0F172A; }
-        .btn-logout { background: #F1F5F9; color: #475569; border-radius: 6px; padding: 6px 12px; font-size: 12px; }
+        .kpi-card { background: #FFFFFF; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center; }
+        .kpi-value { font-size: 28px; font-weight: 700; }
+        
         .progress { width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; margin: 0.75rem 0; }
         .progress-fill { height: 100%; background: #3B82F6; transition: width 0.3s ease; }
+        .progress-fill.success { background: #10B981; }
+        .progress-fill.warning { background: #F59E0B; }
+        .progress-fill.danger { background: #EF4444; }
+
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; padding: 1rem; background: #F1F5F9; font-weight: 600; border-bottom: 1px solid #E2E8F0; }
         td { padding: 1rem; border-bottom: 1px solid #E2E8F0; }
-        .bill-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
-        .bill-status.paid { background: #D1FAE5; color: #065F46; }
-        .bill-status.due { background: #FEF3C7; color: #78350F; }
-        .hidden { display: none !important; }
+        .amount.income { color: #10B981; }
+        .amount.expense { color: #EF4444; }
+
+        .btn-primary { background: #3B82F6; color: white; }
+        .btn-danger { background: #EF4444; color: white; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 12px; }
+        
+        /* LOGIN UI */
+        #login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #F1F5F9; }
+        .login-card { background: white; padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; }
+        .login-input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #E2E8F0; border-radius: 8px; }
+
         .loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; gap: 1rem; }
         .spinner { width: 40px; height: 40px; border: 3px solid #E2E8F0; border-top-color: #3B82F6; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* --- LOGIN PAGE --- */
-        #login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #F1F5F9; padding: 20px; }
-        .login-card { background: white; padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; }
     </style>
 </head>
 <body>
@@ -66,30 +71,38 @@
         <div class="login-card">
             <div class="logo-mark" style="margin: 0 auto 1.5rem; width: 50px; height: 50px;">FF</div>
             <h1>FlowFinance</h1>
-            <p style="color: #64748B; margin-bottom: 2rem;">Secure Access Only</p>
-            <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"></div>
-            <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
-            <button class="btn-primary" id="btn-login" style="width: 100%; justify-content: center;">Open Vault</button>
+            <p style="color: #64748B; margin-bottom: 2rem;">Secure Vault Access</p>
+            <input type="email" id="login-email" class="login-input" placeholder="Email">
+            <input type="password" id="login-password" class="login-input" placeholder="Password">
+            <button class="btn-primary" id="btn-login" style="width: 100%; padding: 0.85rem; border-radius: 8px;">Open Vault</button>
         </div>
     </div>
 
     <div id="app-container" class="hidden">
         <header>
-            <div class="header-left"><div class="logo-mark">FF</div><div class="header-title"><h1>FlowFinance</h1></div></div>
+            <div class="header-left">
+                <div class="logo-mark">FF</div>
+                <div class="header-title"><h1>FlowFinance</h1></div>
+            </div>
             <div class="header-stats">
                 <div class="stat-item"><div class="stat-label">Net Worth</div><div class="stat-value num" id="headerNetWorth">$0</div></div>
                 <div class="stat-item"><div class="stat-label">Total Debt</div><div class="stat-value num" id="headerDebt">$0</div></div>
                 <div class="stat-item"><div class="stat-label">Monthly Surplus</div><div class="stat-value num" id="headerSurplus">$0</div></div>
-                <button class="btn-logout" onclick="firebase.auth().signOut()">Logout</button>
+                <button onclick="firebase.auth().signOut()" style="background:#F1F5F9; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px;">Logout</button>
             </div>
         </header>
+
         <nav class="tabs" id="tabNav"></nav>
         <main id="mainContent"></main>
-        <div class="loading hidden" id="loadingOverlay"><div class="spinner"></div><div>Syncing...</div></div>
+
+        <div class="loading hidden" id="loadingOverlay">
+            <div class="spinner"></div>
+            <div>Syncing...</div>
+        </div>
     </div>
 
     <script>
-        // --- CONFIG ---
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyAUj7Cxfn0eBh98Q_2fQQSyBMnSgxJrrHI",
             authDomain: "flowfinance-192b1.firebaseapp.com",
@@ -99,32 +112,35 @@
             messagingSenderId: "692128745748",
             appId: "1:692128745748:web:2b27b484c32534259fda01"
         };
+
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const _db = firebase.database();
         const MY_UID = "ZQF76LUJX5QYtN1n4soSBc79WZO2";
 
-        // --- AUTH GATE ---
+        // --- AUTH MONITOR ---
         auth.onAuthStateChanged((user) => {
             if (user && user.uid === MY_UID) {
                 document.getElementById('login-container').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
-                initApp();
+                init(); // Start original logic
             } else {
                 document.getElementById('login-container').classList.remove('hidden');
                 document.getElementById('app-container').classList.add('hidden');
                 if (user) auth.signOut();
             }
         });
+
         document.getElementById('btn-login').onclick = () => {
-            auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(e => alert(e.message));
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            auth.signInWithEmailAndPassword(email, pass).catch(e => alert(e.message));
         };
 
-        // --- CORE STATE ---
+        // --- ORIGINAL APP SCRIPT START ---
         let income = { myPay: 0, myFreq: 'fortnightly', myNextPay: '', partnerPay: 0, partnerFreq: 'weekly', partnerNextPay: '' };
         let transactions = [], debts = [], bills = [], budgets = {}, assets = [], checklistDone = {}, debtMethod = 'avalanche', currentTab = 'dashboard';
 
-        // --- HELPERS ---
         const AUD = n => '$' + Math.abs(n||0).toLocaleString('en-AU', {minimumFractionDigits:0});
         const toMonthly = (a, f) => { const freq = { 'weekly': 52/12, 'fortnightly': 26/12, 'monthly': 1, 'yearly': 1/12 }; return (freq[f] || 0) * (a || 0); };
         const monthlyIncome = () => toMonthly(income.myPay, income.myFreq) + toMonthly(income.partnerPay, income.partnerFreq);
@@ -135,12 +151,15 @@
         const totalAssets = () => assets.reduce((s,a)=>s+(a.value||0),0);
         const netWorth = () => totalAssets() - totalDebt();
         const today = () => new Date().toISOString().split('T')[0];
+        const formatDate = (d) => { if (!d) return ''; const date = new Date(d + 'T00:00:00'); return date.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }); };
+        const getMonthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        
+        async function fbGet(key) { try { const snap = await _db.ref(`flowfinance/${key}`).get(); return snap.val(); } catch (e) { return null; } }
+        async function fbSet(key, data) { try { showLoading(); await _db.ref(`flowfinance/${key}`).set(data); } finally { hideLoading(); } }
+        function showLoading() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+        function showToast(msg, type = 'default') { const t = document.createElement('div'); t.className = `toast ${type}`; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
 
-        // --- FIREBASE OPS ---
-        async function fbGet(key) { const s = await _db.ref(`flowfinance/${key}`).get(); return s.val(); }
-        async function fbSet(key, data) { document.getElementById('loadingOverlay').classList.remove('hidden'); await _db.ref(`flowfinance/${key}`).set(data); document.getElementById('loadingOverlay').classList.add('hidden'); }
-
-        // --- RENDERERS ---
         const tabs = [
             { id: 'dashboard', label: '📊 Dashboard' }, { id: 'transactions', label: '💰 Transactions' },
             { id: 'bills', label: '🧾 Bills' }, { id: 'debts', label: '💳 Debts' },
@@ -148,8 +167,7 @@
             { id: 'checklist', label: '✅ Checklist' }, { id: 'afford', label: '🛒 Afford It?' }
         ];
 
-        function initApp() { renderTabs(); loadData(); }
-        function renderTabs() { 
+        function renderTabs() {
             const nav = document.getElementById('tabNav');
             nav.innerHTML = tabs.map(t => `<button class="tab ${currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`).join('');
         }
@@ -160,57 +178,94 @@
             document.getElementById('headerSurplus').textContent = AUD(monthlySurplus());
         }
 
-        function renderMain() {
-            const container = document.getElementById('mainContent');
-            if (currentTab === 'dashboard') container.innerHTML = renderDashboard();
-            else if (currentTab === 'bills') container.innerHTML = renderBills();
-            else if (currentTab === 'debts') container.innerHTML = renderDebts();
-            else if (currentTab === 'transactions') container.innerHTML = renderTransactions();
-            else container.innerHTML = `<div class="card"><h2>${currentTab}</h2><p>Feature loading...</p></div>`;
-        }
-
         function renderDashboard() {
             return `
                 <div class="grid-4">
                     <div class="kpi-card"><div class="kpi-label">Net Worth</div><div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}">${AUD(netWorth())}</div></div>
                     <div class="kpi-card"><div class="kpi-label">Total Debt</div><div class="kpi-value num negative">${AUD(totalDebt())}</div></div>
-                    <div class="kpi-card"><div class="kpi-label">Income</div><div class="kpi-value num positive">${AUD(monthlyIncome())}</div></div>
-                    <div class="kpi-card"><div class="kpi-label">Surplus</div><div class="kpi-value num positive">${AUD(monthlySurplus())}</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Monthly Income</div><div class="kpi-value num positive">${AUD(monthlyIncome())}</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Monthly Surplus</div><div class="kpi-value num ${monthlySurplus() >= 0 ? 'positive' : 'negative'}">${AUD(monthlySurplus())}</div></div>
                 </div>
                 <div class="card">
                     <h2>Setup Income</h2>
                     <div class="form-row">
-                        <div class="form-group"><label>My Pay</label><input type="number" id="myPay" value="${income.myPay}"></div>
-                        <div class="form-group"><label>Freq</label><select id="myFreq"><option value="fortnightly" ${income.myFreq==='fortnightly'?'selected':''}>Fortnightly</option><option value="weekly" ${income.myFreq==='weekly'?'selected':''}>Weekly</option></select></div>
+                        <div class="form-group"><label>My Pay Amount</label><input type="number" id="myPay" value="${income.myPay}"></div>
+                        <div class="form-group"><label>Frequency</label><select id="myFreq"><option value="weekly" ${income.myFreq==='weekly'?'selected':''}>Weekly</option><option value="fortnightly" ${income.myFreq==='fortnightly'?'selected':''}>Fortnightly</option></select></div>
                     </div>
-                    <button class="btn-primary" onclick="saveIncomeLocal()">Save</button>
+                    <button class="btn-primary" onclick="saveDashboardIncome()">Save Income</button>
                 </div>
+                <div class="card"><h2>50 / 30 / 20 Budget Rule</h2>${renderBudgetRule()}</div>
             `;
+        }
+
+        function renderBudgetRule() {
+            const inc = monthlyIncome(); if (inc === 0) return '<p>Set up income first.</p>';
+            const needs = monthlyBillsTotal() + monthlyDebtMin();
+            const needsTarget = inc * 0.5;
+            return `<div class="flex-between"><strong>Needs (50%)</strong><span>${AUD(needs)} / ${AUD(needsTarget)}</span></div><div class="progress"><div class="progress-fill" style="width:${Math.min(100, (needs/needsTarget)*100)}%"></div></div>`;
         }
 
         function renderBills() {
             return `<div class="card"><h2>All Bills</h2><table><thead><tr><th>Name</th><th>Amount</th><th>Freq</th><th>Status</th><th>Action</th></tr></thead><tbody>
             ${bills.map(b => `<tr><td>${b.name}</td><td class="num">${AUD(b.amount)}</td><td>${b.freq}</td><td><span class="bill-status ${b.paid?'paid':'due'}">${b.paid?'PAID':'DUE'}</span></td>
-            <td><button class="btn-primary" onclick="markPaid(${b.id})">${b.paid?'Reset':'Pay'}</button></td></tr>`).join('')}
+            <td><button class="btn-primary" onclick="toggleBill(${b.id})">${b.paid?'Reset':'Pay'}</button></td></tr>`).join('')}
+            </tbody></table></div>
+            <div class="card"><h3>Add Bill</h3><input id="newBillName" placeholder="Name"><input type="number" id="newBillAmt" placeholder="Amount"><button onclick="addBillLocal()">Add</button></div>`;
+        }
+
+        function renderDebts() {
+            return `<div class="card"><h2>Debts</h2>${debts.map(d => `<div class="kpi-card" style="margin-bottom:10px;">${d.name}: ${AUD(d.balance)} (${d.rate}%)</div>`).join('')}</div>
+            <div class="card"><h3>Add Debt</h3><input id="dName" placeholder="Name"><input type="number" id="dBal" placeholder="Balance"><input type="number" id="dRate" placeholder="Rate %"><button onclick="addDebtLocal()">Add Debt</button></div>`;
+        }
+
+        function renderTransactions() {
+            return `<div class="card"><h2>Transactions</h2><table><thead><tr><th>Date</th><th>Name</th><th>Amount</th></tr></thead><tbody>
+            ${transactions.map(t => `<tr><td>${t.date}</td><td>${t.name}</td><td class="num">${AUD(t.amount)}</td></tr>`).join('')}
             </tbody></table></div>`;
         }
 
-        async function saveIncomeLocal() {
+        function renderMain() {
+            const c = document.getElementById('mainContent');
+            if (currentTab === 'dashboard') c.innerHTML = renderDashboard();
+            else if (currentTab === 'bills') c.innerHTML = renderBills();
+            else if (currentTab === 'debts') c.innerHTML = renderDebts();
+            else if (currentTab === 'transactions') c.innerHTML = renderTransactions();
+            else c.innerHTML = `<div class="card"><h2>${currentTab}</h2><p>Showing feature data...</p></div>`;
+        }
+
+        async function saveDashboardIncome() {
             income.myPay = parseFloat(document.getElementById('myPay').value) || 0;
             income.myFreq = document.getElementById('myFreq').value;
             await fbSet('income', income); renderHeader(); renderMain();
         }
 
+        async function addBillLocal() {
+            const n = document.getElementById('newBillName').value;
+            const a = parseFloat(document.getElementById('newBillAmt').value);
+            if(n && a) { bills.push({id: Date.now(), name: n, amount: a, freq: 'monthly', paid: false, active: true}); await fbSet('bills', bills); renderMain(); }
+        }
+
+        async function toggleBill(id) {
+            const b = bills.find(x => x.id === id); if(b) b.paid = !b.paid;
+            await fbSet('bills', bills); renderMain();
+        }
+
+        async function addDebtLocal() {
+            const n = document.getElementById('dName').value;
+            const b = parseFloat(document.getElementById('dBal').value);
+            const r = parseFloat(document.getElementById('dRate').value);
+            if(n && b) { debts.push({id: Date.now(), name: n, balance: b, rate: r, minPayment: 50}); await fbSet('debts', debts); renderAll(); }
+        }
+
         async function loadData() {
             const inc = await fbGet('income'); if (inc) income = inc;
             const bls = await fbGet('bills'); if (bls) bills = bls;
+            const dbs = await fbGet('debts'); if (dbs) debts = dbs;
+            const txs = await fbGet('transactions'); if (txs) transactions = txs;
             renderHeader(); renderMain();
         }
 
-        function markPaid(id) {
-            const b = bills.find(x => x.id === id); if (b) b.paid = !b.paid;
-            fbSet('bills', bills); renderMain();
-        }
+        async function init() { renderTabs(); await loadData(); }
     </script>
 </body>
 </html>
