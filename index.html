@@ -801,7 +801,6 @@
       <div class="logo-mark">FF</div>
       <div class="header-title">
         <h1>FlowFinance</h1>
-        <div class="header-subtitle">DARWIN NT</div>
       </div>
     </div>
     <div class="header-stats">
@@ -1031,8 +1030,8 @@
         `<button class="tab ${currentTab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`
       ).join('');
       nav.querySelectorAll('.tab').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          currentTab = e.target.dataset.tab;
+        btn.addEventListener('click', () => {
+          currentTab = btn.dataset.tab;
           renderTabs();
           renderMain();
         });
@@ -1708,6 +1707,7 @@
     function renderBudget() {
       const monthKey = getMonthKey();
       const categories = ['Housing', 'Utilities', 'Food', 'Transport', 'Health', 'Entertainment', 'Shopping', 'Other'];
+
       return `
         <div class="card">
           <h2>Budget Ceilings</h2>
@@ -1719,11 +1719,12 @@
               const remaining = ceiling - spent;
               const percent = ceiling > 0 ? (spent / ceiling) * 100 : 0;
               const weekly = ceiling / 4.3;
+
               return `
                 <div class="category-item">
                   <label>${cat}</label>
                   <input type="number" value="${ceiling}" onchange="setBudgetCeiling('${cat}', this.value)" min="0" placeholder="$">
-                  <div style="font-size: 12px; color: #64748B;">Spent: ${AUD(suent)} / ${AUD(ceiling)}<br>Remaining: <span class="num" style="font-weight: 600; color: ${remaining < 0 ? '#EF4444' : '#10B981'}">${AUD(remaining)}</span><br>${AUD(weekly)}/week</div>
+                  <div style="font-size: 12px; color: #64748B;">Spent: ${AUD(spent)} / ${AUD(ceiling)}<br>Remaining: <span class="num" style="font-weight: 600; color: ${remaining < 0 ? '#EF4444' : '#10B981'}">${AUD(remaining)}</span><br>${AUD(weekly)}/week</div>
                   <div class="progress"><div class="progress-fill ${percent > 100 ? 'danger' : percent > 75 ? 'warning' : 'success'}" style="width: ${Math.min(100, percent)}%"></div></div>
                 </div>
               `;
