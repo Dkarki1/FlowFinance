@@ -158,10 +158,12 @@
             const appUI = document.getElementById('app-container');
 
             if (user && user.uid === MY_UID) {
+                // Access Granted
                 loginUI.classList.add('hidden');
                 appUI.classList.remove('hidden');
                 console.log("Access Granted to UID: " + user.uid);
             } else {
+                // Access Denied
                 loginUI.classList.remove('hidden');
                 appUI.classList.add('hidden');
                 if (user) {
@@ -173,6 +175,7 @@
 
         // --- LOGIN ACTION ---
         document.getElementById('btn-login').addEventListener('click', () => {
+            // FIXED: Ensuring these IDs match the HTML exactly
             const email = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-password').value;
             const errorLabel = document.getElementById('login-error');
@@ -182,6 +185,7 @@
             auth.signInWithEmailAndPassword(email, pass)
                 .catch((error) => {
                     errorLabel.style.display = 'block';
+                    // This alert will show the exact reason for failure (e.g., domain not authorized)
                     alert("Firebase Error: " + error.code + "\n" + error.message);
                 });
         });
