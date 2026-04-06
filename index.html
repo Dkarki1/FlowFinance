@@ -747,6 +747,7 @@
     }
     // State
     let income = { myPay: 0, myFreq: 'fortnightly', myNextPay: '', partnerPay: 0, partnerFreq: 'weekly', partnerNextPay: '' };
+    let variableIncome = []; // Track actual variable pay amounts
     let transactions = [];
     let debts = [];
     let bills = [];
@@ -799,6 +800,7 @@
     }
     // Save Functions
     async function saveIncome() { await fbSet('income', income); renderHeader(); }
+    async function saveVariableIncome() { await fbSet('variableIncome', variableIncome); }
     async function saveTx() { await fbSet('transactions', transactions); renderAll(); }
     async function saveDebts() { await fbSet('debts', debts); renderAll(); }
     async function saveBills() { await fbSet('bills', bills); renderAll(); }
@@ -812,6 +814,8 @@
       try {
         const inc = await fbGet('income');
         if (inc) income = inc;
+        const varInc = await fbGet('variableIncome');
+        if (varInc) variableIncome = Array.isArray(varInc) ? varInc : [];
         const txs = await fbGet('transactions');
         if (txs) transactions = Array.isArray(txs) ? txs : [];
         const dbs = await fbGet('debts');
@@ -911,46 +915,60 @@
           </div>
         </div>
         <div class="card">
-          <h2>Setup Income</h2>
+          <h2>💰 Your Income</h2>
           <div class="form-row">
             <div class="form-group">
-              <label>My Pay Amount</label>
-              <input type="number" id="myPay" value="${income.myPay}" placeholder="0">
-            </div>
-            <div class="form-group">
-              <label>Frequency</label>
+              <label>Pay Frequency</label>
               <select id="myFreq">
                 <option value="weekly" ${income.myFreq === 'weekly' ? 'selected' : ''}>Weekly</option>
                 <option value="fortnightly" ${income.myFreq === 'fortnightly' ? 'selected' : ''}>Fortnightly</option>
                 <option value="monthly" ${income.myFreq === 'monthly' ? 'selected' : ''}>Monthly</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Next Pay Date</label>
+              <input type="date" id="myNextPay" value="${income.myNextPay}">
+            </div>
           </div>
-          <div class="form-group">
-            <label>Next Pay Date</label>
-            <input type="date" id="myNextPay" value="${income.myNextPay}">
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #E2E8F0;">
+            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Log Variable Pay Amount</label>
+            <p class="text-muted" style="font-size: 12px; margin-bottom: 0.75rem;">Track actual pay amounts for each cycle (varies each pay period)</p>
+            <div class="form-row">
+              <input type="number" id="myPayAmount" placeholder="Enter actual pay amount" min="0">
+              <input type="date" id="myPayDate" value="${today()}">
+              <button class="btn-primary" onclick="logMyPay()" style="flex: 0 0 auto;">Log</button>
+            </div>
           </div>
-          <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #E2E8F0;">
+          ${renderMyPayHistory()}
+        </div>
+        <div class="card">
+          <h2>💼 Partner Income</h2>
           <div class="form-row">
             <div class="form-group">
-              <label>Partner Pay Amount</label>
-              <input type="number" id="partnerPay" value="${income.partnerPay}" placeholder="0">
-            </div>
-            <div class="form-group">
-              <label>Frequency</label>
+              <label>Pay Frequency</label>
               <select id="partnerFreq">
                 <option value="weekly" ${income.partnerFreq === 'weekly' ? 'selected' : ''}>Weekly</option>
                 <option value="fortnightly" ${income.partnerFreq === 'fortnightly' ? 'selected' : ''}>Fortnightly</option>
                 <option value="monthly" ${income.partnerFreq === 'monthly' ? 'selected' : ''}>Monthly</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Next Pay Date</label>
+              <input type="date" id="partnerNextPay" value="${income.partnerNextPay}">
+            </div>
           </div>
-          <div class="form-group">
-            <label>Partner Next Pay Date</label>
-            <input type="date" id="partnerNextPay" value="${income.partnerNextPay}">
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #E2E8F0;">
+            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Log Variable Pay Amount</label>
+            <p class="text-muted" style="font-size: 12px; margin-bottom: 0.75rem;">Track actual pay amounts for each cycle (varies each pay period)</p>
+            <div class="form-row">
+              <input type="number" id="partnerPayAmount" placeholder="Enter actual pay amount" min="0">
+              <input type="date" id="partnerPayDate" value="${today()}">
+              <button class="btn-primary" onclick="logPartnerPay()" style="flex: 0 0 auto;">Log</button>
+            </div>
           </div>
-          <button class="btn-primary" onclick="saveDashboardIncome()">Save Income</button>
+          ${renderPartnerPayHistory()}
         </div>
+        <button class="btn-primary" onclick="saveDashboardIncome()" style="width: 100%; margin-top: 1rem;">Save Frequency & Next Pay Dates</button>
         <div class="card">
           <h2>50 / 30 / 20 Budget Rule</h2>
           ${renderBudgetRule()}
@@ -1034,36 +1052,118 @@
       `;
     }
     function renderUntilNextPay() {
-      const nextPay = income.myNextPay || income.partnerNextPay;
-      if (!nextPay) return '<p class="text-muted">Set a next pay date above.</p>';
-      const days = daysUntil(nextPay);
-      if (days === null || days < 0) return '<p class="text-muted">Next pay date has passed.</p>';
-      const dueBefore = bills.filter(b => {
-        if (!b.active || b.paid) return false;
-        const billDay = parseInt(b.dueDay) || 15;
-        const today_date = new Date();
-        const billDate = new Date(today_date.getFullYear(), today_date.getMonth(), billDay);
-        const payDate = new Date(nextPay + 'T00:00:00');
-        return billDate <= payDate && billDate >= today_date;
-      });
-      const totalDue = dueBefore.reduce((s, b) => s + b.amount, 0);
-      let html = `<p><strong>${days} days</strong> until payday</p>`;
-      if (dueBefore.length > 0) {
-        html += `<div style="margin-top: 1rem;"><h3 style="margin-bottom: 0.75rem;">Bills due:</h3>`;
-        dueBefore.forEach(b => {
-          html += `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #E2E8F0;"><span>${b.name}</span><span class="num">${AUD(b.amount)}</span></div>`;
-        });
-        html += `<div class="flex-between" style="padding: 1rem 0; font-weight: 600;"><span>You need:</span><span class="num">${AUD(totalDue)}</span></div></div>`;
-      } else {
-        html += '<p class="text-muted" style="margin-top: 1rem;">No bills due before payday.</p>';
+      const myPayDate = income.myNextPay;
+      const partnerPayDate = income.partnerNextPay;
+      if (!myPayDate && !partnerPayDate) return '<p class="text-muted">Set pay dates above.</p>';
+
+      let html = '<div style="display: grid; gap: 1.5rem;">';
+
+      // Your pay
+      if (myPayDate) {
+        const myDays = daysUntil(myPayDate);
+        html += '<div style="padding: 1rem; background: #F0F9FF; border-radius: 8px; border-left: 4px solid #3B82F6;">';
+        if (myDays !== null && myDays >= 0) {
+          html += `<div style="font-weight: 600; margin-bottom: 0.5rem;">👤 Your Pay: <span style="color: #3B82F6;"><strong>${myDays}</strong> days</span></div>`;
+          html += `<div class="text-muted" style="font-size: 13px;">Due ${myPayDate}</div>`;
+        } else {
+          html += `<div style="font-weight: 600; color: #DC2626;">⚠️ Pay date has passed</div>`;
+        }
+        html += '</div>';
       }
+
+      // Partner pay
+      if (partnerPayDate) {
+        const partnerDays = daysUntil(partnerPayDate);
+        html += '<div style="padding: 1rem; background: #FDF2F8; border-radius: 8px; border-left: 4px solid #EC4899;">';
+        if (partnerDays !== null && partnerDays >= 0) {
+          html += `<div style="font-weight: 600; margin-bottom: 0.5rem;">💼 Partner Pay: <span style="color: #EC4899;"><strong>${partnerDays}</strong> days</span></div>`;
+          html += `<div class="text-muted" style="font-size: 13px;">Due ${partnerPayDate}</div>`;
+        } else {
+          html += `<div style="font-weight: 600; color: #DC2626;">⚠️ Pay date has passed</div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+
+      // Bills due
+      const earliestPay = [myPayDate, partnerPayDate].filter(d => d && daysUntil(d) >= 0).sort((a, b) => daysUntil(a) - daysUntil(b))[0];
+      if (earliestPay) {
+        const dueBefore = bills.filter(b => {
+          if (!b.active || b.paid) return false;
+          const billDay = parseInt(b.dueDay) || 15;
+          const today_date = new Date();
+          const billDate = new Date(today_date.getFullYear(), today_date.getMonth(), billDay);
+          const payDate = new Date(earliestPay + 'T00:00:00');
+          return billDate <= payDate && billDate >= today_date;
+        });
+
+        if (dueBefore.length > 0) {
+          const totalDue = dueBefore.reduce((s, b) => s + b.amount, 0);
+          html += `<div style="margin-top: 1.5rem; padding: 1rem; background: #FEF3C7; border-radius: 8px; border-left: 4px solid #F59E0B;">`;
+          html += `<h3 style="margin-bottom: 0.75rem; color: #B45309;">📋 Bills Due</h3>`;
+          dueBefore.forEach(b => {
+            html += `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid rgba(0,0,0,0.1);"><span>${b.name}</span><span class="num" style="font-weight: 600;">${AUD(b.amount)}</span></div>`;
+          });
+          html += `<div class="flex-between" style="padding: 1rem 0; font-weight: 700; color: #B45309;"><span>Total needed:</span><span class="num">${AUD(totalDue)}</span></div>`;
+          html += '</div>';
+        } else {
+          html += '<div style="margin-top: 1.5rem; padding: 1rem; background: #F0FDF4; border-radius: 8px; border-left: 4px solid #22C55E;"><p class="text-muted" style="margin: 0;">✓ No bills due before payday</p></div>';
+        }
+      }
+
       return html;
     }
+    function renderMyPayHistory() {
+      const myPays = variableIncome.filter(v => v.type === 'my');
+      if (myPays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
+      return `<div style="margin-top: 1rem;"><div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>
+        ${myPays.slice(-5).reverse().map(p => `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #E2E8F0; font-size: 13px;">
+          <span>${p.date}</span><span class="num" style="font-weight: 600;">${AUD(p.amount)}</span>
+          <button onclick="deleteVariablePay(${p.id})" style="background: none; border: none; color: #999; cursor: pointer; padding: 0;">✕</button>
+        </div>`).join('')}
+      </div>`;
+    }
+    function renderPartnerPayHistory() {
+      const partnerPays = variableIncome.filter(v => v.type === 'partner');
+      if (partnerPays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
+      return `<div style="margin-top: 1rem;"><div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>
+        ${partnerPays.slice(-5).reverse().map(p => `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #E2E8F0; font-size: 13px;">
+          <span>${p.date}</span><span class="num" style="font-weight: 600;">${AUD(p.amount)}</span>
+          <button onclick="deleteVariablePay(${p.id})" style="background: none; border: none; color: #999; cursor: pointer; padding: 0;">✕</button>
+        </div>`).join('')}
+      </div>`;
+    }
+    function logMyPay() {
+      const amount = parseFloat(document.getElementById('myPayAmount').value);
+      const date = document.getElementById('myPayDate').value;
+      if (!amount || amount <= 0 || !date) { showToast('Enter pay amount and date', 'error'); return; }
+      variableIncome.push({ id: Date.now(), type: 'my', date, amount });
+      saveVariableIncome();
+      document.getElementById('myPayAmount').value = '';
+      document.getElementById('myPayDate').value = today();
+      renderAll();
+      showToast('✓ Pay logged', 'success');
+    }
+    function logPartnerPay() {
+      const amount = parseFloat(document.getElementById('partnerPayAmount').value);
+      const date = document.getElementById('partnerPayDate').value;
+      if (!amount || amount <= 0 || !date) { showToast('Enter pay amount and date', 'error'); return; }
+      variableIncome.push({ id: Date.now(), type: 'partner', date, amount });
+      saveVariableIncome();
+      document.getElementById('partnerPayAmount').value = '';
+      document.getElementById('partnerPayDate').value = today();
+      renderAll();
+      showToast('✓ Pay logged', 'success');
+    }
+    function deleteVariablePay(id) {
+      variableIncome = variableIncome.filter(v => v.id !== id);
+      saveVariableIncome();
+      renderAll();
+    }
     function saveDashboardIncome() {
-      income.myPay = parseFloat(document.getElementById('myPay').value) || 0;
       income.myFreq = document.getElementById('myFreq').value;
       income.myNextPay = document.getElementById('myNextPay').value;
-      income.partnerPay = parseFloat(document.getElementById('partnerPay').value) || 0;
       income.partnerFreq = document.getElementById('partnerFreq').value;
       income.partnerNextPay = document.getElementById('partnerNextPay').value;
       saveIncome();
