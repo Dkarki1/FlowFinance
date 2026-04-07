@@ -754,6 +754,8 @@
     let budgets = {};
     let assets = [];
     let goals = [];
+    let goalContributions = {}; // { goalId: { 'fortnightKey': true } }
+    let netWorthHistory = []; // [{ month: 'YYYY-MM', netWorth: N }]
     let checklistDone = {};
     let debtMethod = 'avalanche';
     let currentTab = 'dashboard';
@@ -763,8 +765,50 @@
       const freq = { 'weekly': 52/12, 'fortnightly': 26/12, 'monthly': 1, 'yearly': 1/12 };
       return (freq[f] || 0) * (a || 0);
     };
-    const monthlyIncome = () => toMonthly(income.myPay, income.myFreq) + toMonthly(income.partnerPay, income.partnerFreq);
-    const monthlyBillsTotal = () => bills.filter(b=>b.active).reduce((s,b)=>s+toMonthly(b.amount,b.freq),0);
+    // Returns total actual logged pay for current calendar month by type ('my' or 'partner')
+    const currentMonthLoggedPay = (type) => {
+      const key = getMonthKey();
+      return variableIncome
+        .filter(v => v.type === type && getMonthKey(new Date(v.date + 'T00:00:00')) === key)
+        .reduce((s, v) => s + (v.amount || 0), 0);
+    };
+    // Monthly income: use actual logged pay for this month if available, else fall back to frequency estimate
+    const monthlyIncome = () => {
+      const myLogged = currentMonthLoggedPay('my');
+      const partnerLogged = currentMonthLoggedPay('partner');
+      const myAmount = myLogged > 0 ? myLogged : toMonthly(income.myPay, income.myFreq);
+      const partnerAmount = partnerLogged > 0 ? partnerLogged : toMonthly(income.partnerPay, income.partnerFreq);
+      return myAmount + partnerAmount;
+    };
+    // Count how many times a bill with given frequency falls in the current calendar month
+    const billOccurrencesThisMonth = (freq, dueDay) => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      if (freq === 'monthly') return 1;
+      if (freq === 'yearly') {
+        // only once if the due day falls in this month (we treat dueDay as day-of-month, no month info stored)
+        return 1 / 12; // approximate for yearly bills
+      }
+      if (freq === 'weekly') {
+        // Count Mondays (or any anchor) — approximate: count weeks that contain a day <= daysInMonth
+        // Simpler: count how many of the 7-day intervals from dueDay land in this month
+        let count = 0;
+        for (let day = parseInt(dueDay) || 1; day <= daysInMonth; day += 7) count++;
+        return count;
+      }
+      if (freq === 'fortnightly') {
+        let count = 0;
+        for (let day = parseInt(dueDay) || 1; day <= daysInMonth; day += 14) count++;
+        return count;
+      }
+      return 1;
+    };
+    // Bills total: exact amount due THIS calendar month based on frequency and due day
+    const monthlyBillsTotal = () => bills.filter(b => b.active).reduce((s, b) => {
+      return s + (b.amount || 0) * billOccurrencesThisMonth(b.freq, b.dueDay);
+    }, 0);
     const monthlyDebtMin = () => debts.reduce((s,d)=>s+toMonthly(d.minPayment,d.minFreq||'monthly'),0);
     const monthlySurplus = () => monthlyIncome() - monthlyBillsTotal() - monthlyDebtMin();
     const totalDebt = () => debts.reduce((s,d)=>s+(d.balance||0),0);
@@ -800,7 +844,7 @@
     }
     // Save Functions
     async function saveIncome() { await fbSet('income', income); renderHeader(); }
-    async function saveVariableIncome() { await fbSet('variableIncome', variableIncome); }
+    async function saveVariableIncome() { await fbSet('variableIncome', variableIncome); renderAll(); }
     async function saveTx() { await fbSet('transactions', transactions); renderAll(); }
     async function saveDebts() { await fbSet('debts', debts); renderAll(); }
     async function saveBills() { await fbSet('bills', bills); renderAll(); }
@@ -808,6 +852,9 @@
     async function saveAssets() { await fbSet('assets', assets); renderAll(); }
     async function saveChecklistDone() { await fbSet('checklistDone', checklistDone); }
     async function saveDebtMethod() { await fbSet('debtMethod', debtMethod); }
+    async function saveGoals() { await fbSet('goals', goals); renderAll(); }
+    async function saveGoalContributions() { await fbSet('goalContributions', goalContributions); }
+    async function saveNetWorthHistory() { await fbSet('netWorthHistory', netWorthHistory); }
     // Load Data
     async function loadData() {
       showLoading();
@@ -830,6 +877,14 @@
         if (cd) checklistDone = cd;
         const dm = await fbGet('debtMethod');
         if (dm) debtMethod = dm;
+        const gl = await fbGet('goals');
+        if (gl) goals = Array.isArray(gl) ? gl : [];
+        const gc = await fbGet('goalContributions');
+        if (gc) goalContributions = gc || {};
+        const nwh = await fbGet('netWorthHistory');
+        if (nwh) netWorthHistory = Array.isArray(nwh) ? nwh : [];
+        // Record net worth for this month
+        recordNetWorthSnapshot();
       } catch (e) {
         console.error('Load error:', e);
       } finally {
@@ -872,13 +927,16 @@
     // Tab Navigation
     const tabs = [
       { id: 'dashboard', label: '📊 Dashboard' },
+      { id: 'payplan', label: '💡 Pay Plan' },
       { id: 'transactions', label: '💰 Transactions' },
       { id: 'bills', label: '🧾 Bills' },
       { id: 'debts', label: '💳 Debts' },
       { id: 'budget', label: '🎯 Budget' },
+      { id: 'goals', label: '🏁 Goals' },
       { id: 'networth', label: '📈 Net Worth' },
       { id: 'checklist', label: '✅ Checklist' },
-      { id: 'afford', label: '🛒 Afford It?' }
+      { id: 'afford', label: '🛒 Afford It?' },
+      { id: 'windfall', label: '⚡ Windfall' }
     ];
     function renderTabs() {
       const nav = document.getElementById('tabNav');
@@ -1114,26 +1172,30 @@
 
       return html;
     }
-    function renderMyPayHistory() {
-      const myPays = variableIncome.filter(v => v.type === 'my');
-      if (myPays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
-      return `<div style="margin-top: 1rem;"><div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>
-        ${myPays.slice(-5).reverse().map(p => `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #E2E8F0; font-size: 13px;">
-          <span>${p.date}</span><span class="num" style="font-weight: 600;">${AUD(p.amount)}</span>
-          <button onclick="deleteVariablePay(${p.id})" style="background: none; border: none; color: #999; cursor: pointer; padding: 0;">✕</button>
-        </div>`).join('')}
-      </div>`;
+    function renderPayHistory(type) {
+      const pays = variableIncome.filter(v => v.type === type);
+      if (pays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
+      const key = getMonthKey();
+      const thisMonthTotal = pays.filter(p => getMonthKey(new Date(p.date + 'T00:00:00')) === key).reduce((s, p) => s + p.amount, 0);
+      const monthLabel = new Date().toLocaleDateString('en-AU', { month: 'long' });
+      const rows = pays.slice(-6).reverse().map(p => {
+        const isThisMonth = getMonthKey(new Date(p.date + 'T00:00:00')) === key;
+        return '<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #E2E8F0; font-size: 13px; ' + (isThisMonth ? 'font-weight: 600;' : 'opacity: 0.65;') + '">'
+          + '<span>' + p.date + (isThisMonth ? ' <span style="font-size:10px;color:#3B82F6;margin-left:4px;">THIS MONTH</span>' : '') + '</span>'
+          + '<span class="num" style="font-weight: 700;">' + AUD(p.amount) + '</span>'
+          + '<button onclick="deleteVariablePay(' + p.id + ')" style="background: none; border: none; color: #999; cursor: pointer; padding: 0 0.25rem;">✕</button>'
+          + '</div>';
+      }).join('');
+      const monthBanner = thisMonthTotal > 0
+        ? '<div style="padding: 0.6rem 0.9rem; background: #EFF6FF; border-radius: 8px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">'
+          + '<span style="font-size: 13px; color: #1D4ED8; font-weight: 600;">📅 ' + monthLabel + ' total</span>'
+          + '<span class="num" style="font-size: 15px; font-weight: 700; color: #1D4ED8;">' + AUD(thisMonthTotal) + '</span>'
+          + '</div>'
+        : '';
+      return '<div style="margin-top: 1rem;">' + monthBanner + '<div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>' + rows + '</div>';
     }
-    function renderPartnerPayHistory() {
-      const partnerPays = variableIncome.filter(v => v.type === 'partner');
-      if (partnerPays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
-      return `<div style="margin-top: 1rem;"><div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>
-        ${partnerPays.slice(-5).reverse().map(p => `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #E2E8F0; font-size: 13px;">
-          <span>${p.date}</span><span class="num" style="font-weight: 600;">${AUD(p.amount)}</span>
-          <button onclick="deleteVariablePay(${p.id})" style="background: none; border: none; color: #999; cursor: pointer; padding: 0;">✕</button>
-        </div>`).join('')}
-      </div>`;
-    }
+    function renderMyPayHistory() { return renderPayHistory('my'); }
+    function renderPartnerPayHistory() { return renderPayHistory('partner'); }
     function logMyPay() {
       const amount = parseFloat(document.getElementById('myPayAmount').value);
       const date = document.getElementById('myPayDate').value;
@@ -1637,8 +1699,17 @@
     }
     // Net Worth
     function renderNetWorth() {
+      const history = [...netWorthHistory].sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
       return `
-        <div class="card"><h2 style="text-align: center;">Net Worth<div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}" style="margin-top: 0.5rem;">${AUD(netWorth())}</div></h2></div>
+        <div class="card" style="text-align:center;">
+          <div class="kpi-label">Current Net Worth</div>
+          <div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}" style="font-size:36px; margin-top:0.5rem;">${AUD(netWorth())}</div>
+        </div>
+        ${history.length > 1 ? `
+        <div class="card">
+          <h2>📈 Net Worth Trend</h2>
+          <canvas id="nwTrendChart" height="80"></canvas>
+        </div>` : ''}
         <div class="grid-2">
           <div class="card">
             <h2>Assets</h2>
@@ -1671,6 +1742,41 @@
         </div>
         <div class="card"><h2>Summary</h2><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;"><div style="text-align: center;"><div class="text-muted">Assets</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: #10B981;" class="num">${AUD(totalAssets())}</div></div><div style="text-align: center;"><div class="text-muted">Liabilities</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: #EF4444;" class="num">${AUD(totalDebt())}</div></div><div style="text-align: center;"><div class="text-muted">Net Worth</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: ${netWorth() >= 0 ? '#10B981' : '#EF4444'};" class="num">${AUD(netWorth())}</div></div></div></div>
       `;
+    }
+    function renderNetWorthChart() {
+      const history = [...netWorthHistory].sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
+      if (history.length < 2) return;
+      const ctx = document.getElementById('nwTrendChart')?.getContext('2d');
+      if (!ctx) return;
+      if (window.nwChart) window.nwChart.destroy();
+      const labels = history.map(h => new Date(h.month + '-01').toLocaleDateString('en-AU', { month: 'short', year: '2-digit' }));
+      const data = history.map(h => h.netWorth);
+      const positive = data[data.length - 1] >= 0;
+      window.nwChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Net Worth',
+            data,
+            borderColor: positive ? '#10B981' : '#EF4444',
+            backgroundColor: positive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+            borderWidth: 2.5,
+            pointBackgroundColor: positive ? '#10B981' : '#EF4444',
+            pointRadius: 4,
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { color: '#64748B', callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#E2E8F0' } },
+            x: { ticks: { color: '#64748B' }, grid: { display: false } }
+          }
+        }
+      });
     }
     function addAsset() { const name = document.getElementById('assetName').value.trim(); const value = parseFloat(document.getElementById('assetValue').value); const type = document.getElementById('assetType').value; if (!name || !value || value <= 0) { showToast('Fill all fields', 'error'); return; } assets.push({ id: Date.now(), name, value, type }); saveAssets(); document.getElementById('assetName').value = ''; showToast('✓ Added', 'success'); }
     function updateAssetValue(id, value) { const asset = assets.find(a => a.id === id); if (asset) { asset.value = parseFloat(value) || 0; saveAssets(); } }
@@ -1785,18 +1891,436 @@
       document.getElementById('affordResult').innerHTML = resultHTML;
     }
     function getMonthlyWants() { const monthKey = getMonthKey(); return transactions.filter(t => t.type === 'expense' && getMonthKey(new Date(t.date + 'T00:00:00')) === monthKey && ['Food', 'Transport', 'Entertainment', 'Shopping', 'Other'].includes(t.category)).reduce((s, t) => s + t.amount, 0); }
+    // ── NET WORTH HISTORY ────────────────────────────────────────────────────
+    function recordNetWorthSnapshot() {
+      const key = getMonthKey();
+      const existing = netWorthHistory.find(h => h.month === key);
+      const nw = netWorth();
+      if (!existing) {
+        netWorthHistory.push({ month: key, netWorth: nw });
+        saveNetWorthHistory();
+      } else {
+        existing.netWorth = nw; // update current month
+        saveNetWorthHistory();
+      }
+    }
+
+    // ── HELPERS ──────────────────────────────────────────────────────────────
+    function getFortnightKey(date = new Date()) {
+      // Returns a unique key per 14-day period from a fixed epoch
+      const epoch = new Date('2024-01-01');
+      const diff = Math.floor((date - epoch) / (14 * 24 * 60 * 60 * 1000));
+      return String(diff);
+    }
+    function fortnightLabel(key) {
+      const epoch = new Date('2024-01-01');
+      const start = new Date(epoch.getTime() + parseInt(key) * 14 * 24 * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 13 * 24 * 60 * 60 * 1000);
+      return start.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' }) + ' – ' + end.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
+    }
+    function fortnightsUntil(dateStr) {
+      if (!dateStr) return null;
+      const target = new Date(dateStr + 'T00:00:00');
+      const now = new Date();
+      const days = Math.max(0, Math.ceil((target - now) / (24 * 60 * 60 * 1000)));
+      return Math.ceil(days / 14);
+    }
+    function totalGoalSavingsPerFortnight() {
+      return goals.filter(g => !g.achieved).reduce((s, g) => {
+        const fn = fortnightsUntil(g.dueDate);
+        if (!fn || fn <= 0) return s;
+        const remaining = Math.max(0, (g.targetAmount || 0) - (g.savedAmount || 0));
+        return s + remaining / fn;
+      }, 0);
+    }
+    // Fortnightly surplus (income per fortnight minus bills/debts per fortnight)
+    const fortnightlyIncome = () => {
+      const myLogged = currentMonthLoggedPay('my');
+      const partnerLogged = currentMonthLoggedPay('partner');
+      const myAmt = myLogged > 0 ? myLogged / 2 : toMonthly(income.myPay, income.myFreq) / 2;
+      const partnerAmt = partnerLogged > 0 ? partnerLogged / 2 : toMonthly(income.partnerPay, income.partnerFreq) / 2;
+      return myAmt + partnerAmt;
+    };
+    const fortnightlyBills = () => monthlyBillsTotal() / 2;
+    const fortnightlyDebtMin = () => monthlyDebtMin() / 2;
+    const fortnightlySurplus = () => fortnightlyIncome() - fortnightlyBills() - fortnightlyDebtMin();
+
+    // ── PAY PLAN TAB ─────────────────────────────────────────────────────────
+    function renderPayPlan() {
+      const surplus = fortnightlySurplus();
+      const goalSavings = totalGoalSavingsPerFortnight();
+      const sorted = getSortedDebts();
+      const focusDebt = sorted[0];
+      const extraForDebt = Math.max(0, surplus - goalSavings);
+      const debtFreeDate = calcDebtFreeDate(extraForDebt);
+      const splits = buildPaySplit(surplus, goalSavings, extraForDebt);
+
+      // Spending leak detection
+      const leaks = detectSpendingLeaks();
+
+      return `
+        <div class="card" style="background: linear-gradient(135deg, #1E3A5F 0%, #1D4ED8 100%); color: white; border-radius: 16px;">
+          <h2 style="color: white; margin-bottom: 0.5rem;">💡 Your Fortnightly Pay Plan</h2>
+          <p style="opacity: 0.8; font-size: 13px; margin-bottom: 1.5rem;">Based on your actual income and bills this month</p>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+            <div style="text-align: center; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1rem;">
+              <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">Fortnightly Income</div>
+              <div style="font-size: 22px; font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(fortnightlyIncome())}</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1rem;">
+              <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">Bills + Debts</div>
+              <div style="font-size: 22px; font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(fortnightlyBills() + fortnightlyDebtMin())}</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1rem;">
+              <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">Free Surplus</div>
+              <div style="font-size: 22px; font-weight: 700; margin-top: 0.25rem; color: ${surplus >= 0 ? '#6EE7B7' : '#FCA5A5'};" class="num">${AUD(surplus)}</div>
+            </div>
+          </div>
+          ${debtFreeDate ? `<div style="text-align: center; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 0.75rem;"><span style="opacity:0.8; font-size:13px;">🏁 Debt-free target: </span><strong style="font-size:16px;">${debtFreeDate}</strong></div>` : ''}
+        </div>
+
+        <div class="card">
+          <h2>📋 This Fortnight — Exact Instructions</h2>
+          <p class="text-muted" style="margin-bottom: 1.5rem; font-size: 13px;">${fortnightLabel(getFortnightKey())}</p>
+          ${splits.map((s, i) => `
+            <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 10px; background: ${s.bg}; margin-bottom: 0.75rem;">
+              <div style="font-size: 24px; flex-shrink: 0;">${s.icon}</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: #0F172A;">${s.label}</div>
+                <div style="font-size: 12px; color: #64748B; margin-top: 0.2rem;">${s.desc}</div>
+              </div>
+              <div style="font-size: 18px; font-weight: 700; color: ${s.color};" class="num">${AUD(s.amount)}</div>
+            </div>
+          `).join('')}
+          ${focusDebt && extraForDebt > 0 ? `
+            <div style="margin-top: 1.5rem; padding: 1rem; background: #FFF7ED; border-radius: 10px; border-left: 4px solid #F97316;">
+              <div style="font-weight: 700; color: #C2410C; margin-bottom: 0.5rem;">🔥 FOCUS DEBT: ${focusDebt.name}</div>
+              <div style="font-size: 13px; color: #64748B;">Throw <strong style="color:#C2410C;">${AUD(extraForDebt)}</strong> extra at this debt each fortnight. Every dollar here saves you interest.</div>
+            </div>
+          ` : ''}
+        </div>
+
+        ${leaks.length > 0 ? `
+        <div class="card">
+          <h2>🕳️ Spending Leaks Detected</h2>
+          <p class="text-muted" style="font-size: 13px; margin-bottom: 1rem;">Small recurring costs that silently drain your surplus:</p>
+          ${leaks.map(l => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1rem; border-bottom: 1px solid #E2E8F0;">
+              <div>
+                <div style="font-weight: 600;">${l.name}</div>
+                <div style="font-size: 12px; color: #64748B;">${l.count} transactions · avg ${AUD(l.avg)} each</div>
+              </div>
+              <div style="text-align: right;">
+                <div class="num" style="font-weight: 700; color: #EF4444;">${AUD(l.monthly)}/mo</div>
+                <div style="font-size: 11px; color: #94A3B8;">${AUD(l.annual)}/yr</div>
+              </div>
+            </div>
+          `).join('')}
+          <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #FEF2F2; border-radius: 8px;">
+            <div class="flex-between"><span style="font-weight: 600;">Total annual leakage</span><span class="num" style="font-weight: 700; color: #EF4444;">${AUD(leaks.reduce((s, l) => s + l.annual, 0))}</span></div>
+          </div>
+        </div>
+        ` : ''}
+
+        <div class="card">
+          <h2>💸 Pay Yourself First — How It Works</h2>
+          <div style="display: grid; gap: 0.75rem;">
+            ${[
+              { step: '1', label: 'Debt minimums come out first', color: '#EF4444' },
+              { step: '2', label: 'Goal savings transferred to buckets', color: '#8B5CF6' },
+              { step: '3', label: 'Extra debt attack on focus debt', color: '#F97316' },
+              { step: '4', label: 'Remainder is your spending money', color: '#10B981' }
+            ].map(s => `
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 28px; height: 28px; background: ${s.color}; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;">${s.step}</div>
+                <div style="font-weight: 500;">${s.label}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function buildPaySplit(surplus, goalSavings, extraDebt) {
+      const billsAmt = fortnightlyBills();
+      const debtMin = fortnightlyDebtMin();
+      const spendingMoney = Math.max(0, surplus - goalSavings - extraDebt);
+      const splits = [];
+      if (debtMin > 0) splits.push({ icon: '💳', label: 'Debt Minimums', desc: 'Pay ALL minimum repayments on time', amount: debtMin, bg: '#FEF2F2', color: '#EF4444' });
+      if (billsAmt > 0) splits.push({ icon: '🧾', label: 'Bills', desc: 'Cover all active recurring bills', amount: billsAmt, bg: '#FFF7ED', color: '#F97316' });
+      if (goalSavings > 0) splits.push({ icon: '🎯', label: 'Goal Savings', desc: 'Transfer to savings buckets — do this TODAY', amount: goalSavings, bg: '#F5F3FF', color: '#8B5CF6' });
+      if (extraDebt > 0) splits.push({ icon: '🔥', label: 'Extra Debt Attack', desc: 'Throw at your focus debt immediately', amount: extraDebt, bg: '#FFF7ED', color: '#EA580C' });
+      if (spendingMoney > 0) splits.push({ icon: '🟢', label: 'Spending Money', desc: 'Your guilt-free living budget', amount: spendingMoney, bg: '#F0FDF4', color: '#10B981' });
+      if (surplus < 0) splits.push({ icon: '⚠️', label: 'Shortfall', desc: 'Income doesn\'t cover bills + debts — review urgently', amount: Math.abs(surplus), bg: '#FEF2F2', color: '#EF4444' });
+      return splits;
+    }
+
+    function detectSpendingLeaks() {
+      const monthKey = getMonthKey();
+      const expenses = transactions.filter(t => t.type === 'expense' && getMonthKey(new Date(t.date + 'T00:00:00')) === monthKey);
+      const grouped = {};
+      expenses.forEach(t => {
+        const key = t.name.toLowerCase().trim();
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(t.amount);
+      });
+      const leaks = [];
+      Object.entries(grouped).forEach(([name, amounts]) => {
+        if (amounts.length >= 2) {
+          const total = amounts.reduce((s, a) => s + a, 0);
+          leaks.push({ name: name.charAt(0).toUpperCase() + name.slice(1), count: amounts.length, avg: total / amounts.length, monthly: total, annual: total * 12 });
+        }
+      });
+      return leaks.sort((a, b) => b.monthly - a.monthly).slice(0, 6);
+    }
+
+    // ── GOALS TAB ────────────────────────────────────────────────────────────
+    function renderGoals() {
+      const fk = getFortnightKey();
+      const goalsNeeded = totalGoalSavingsPerFortnight();
+      return `
+        <div class="card" style="background: linear-gradient(135deg, #4C1D95 0%, #7C3AED 100%); color: white; border-radius: 16px;">
+          <h2 style="color: white;">🏁 Savings Goals</h2>
+          <p style="opacity: 0.8; font-size: 13px; margin-top: 0.25rem;">Each fortnight, set aside the required amount and tick it off.</p>
+          ${goalsNeeded > 0 ? `<div style="margin-top: 1rem; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 0.75rem 1rem;" class="flex-between"><span style="font-size:13px;">Total needed this fortnight:</span><span class="num" style="font-weight:700;font-size:18px;">${AUD(goalsNeeded)}</span></div>` : ''}
+        </div>
+
+        ${goals.length === 0 ? '<div class="card"><p class="text-muted text-center">No goals yet — add one below!</p></div>' : goals.map(g => renderGoalCard(g, fk)).join('')}
+
+        <div class="card">
+          <h2>Add New Goal</h2>
+          <div class="form-group"><label>Goal Name</label><input type="text" id="goalName" placeholder="e.g. Emergency Fund, Holiday, Car"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Target Amount</label><input type="number" id="goalTarget" placeholder="0" min="0"></div>
+            <div class="form-group"><label>Due Date</label><input type="date" id="goalDue"></div>
+          </div>
+          <div class="form-group"><label>Already Saved</label><input type="number" id="goalSaved" placeholder="0" min="0"></div>
+          <button class="btn-primary" onclick="addGoal()">Add Goal</button>
+        </div>
+      `;
+    }
+
+    function renderGoalCard(g, fk) {
+      const fn = fortnightsUntil(g.dueDate);
+      const remaining = Math.max(0, (g.targetAmount || 0) - (g.savedAmount || 0));
+      const perFortnight = fn && fn > 0 ? remaining / fn : remaining;
+      const percent = g.targetAmount > 0 ? Math.min(100, (g.savedAmount / g.targetAmount) * 100) : 0;
+      const contribs = goalContributions[g.id] || {};
+      const thisFnDone = !!contribs[fk];
+      const totalDone = Object.values(contribs).filter(Boolean).length;
+      const color = g.achieved ? '#10B981' : '#7C3AED';
+      return `
+        <div class="card" style="border-left: 4px solid ${color}; ${g.achieved ? 'opacity: 0.75;' : ''}">
+          <div class="flex-between" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h3 style="margin:0; color: ${color};">${g.achieved ? '✅ ' : ''}${g.name}</h3>
+              ${g.dueDate ? `<div style="font-size: 12px; color: #64748B; margin-top: 0.2rem;">Due: ${formatDate(g.dueDate)} · ${fn !== null ? (fn > 0 ? fn + ' fortnights left' : 'overdue') : ''}</div>` : ''}
+            </div>
+            <button class="btn-danger btn-small" onclick="deleteGoal(${g.id})">Delete</button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+            <div style="text-align: center; background: #F8FAFC; border-radius: 8px; padding: 0.75rem;">
+              <div style="font-size: 11px; color: #64748B; text-transform: uppercase;">Target</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem;" class="num">${AUD(g.targetAmount)}</div>
+            </div>
+            <div style="text-align: center; background: #F0FDF4; border-radius: 8px; padding: 0.75rem;">
+              <div style="font-size: 11px; color: #64748B; text-transform: uppercase;">Saved</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem; color: #10B981;" class="num">${AUD(g.savedAmount || 0)}</div>
+            </div>
+            <div style="text-align: center; background: #F5F3FF; border-radius: 8px; padding: 0.75rem;">
+              <div style="font-size: 11px; color: #64748B; text-transform: uppercase;">Per Fortnight</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem; color: #7C3AED;" class="num">${AUD(perFortnight)}</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <div class="flex-between" style="margin-bottom: 0.4rem;"><span style="font-size:13px;">${Math.round(percent)}% complete</span><span class="num" style="font-size:13px; color:#64748B;">${AUD(remaining)} to go</span></div>
+            <div class="progress"><div class="progress-fill ${g.achieved ? 'success' : ''}" style="width: ${percent}%; background: ${color};"></div></div>
+          </div>
+
+          ${!g.achieved ? `
+          <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 10px; background: ${thisFnDone ? '#F0FDF4' : '#F8FAFC'}; border: 2px solid ${thisFnDone ? '#10B981' : '#E2E8F0'};">
+            <button onclick="toggleGoalFortnight(${g.id}, '${fk}')" style="width: 36px; height: 36px; border-radius: 50%; background: ${thisFnDone ? '#10B981' : 'white'}; border: 2px solid ${thisFnDone ? '#10B981' : '#CBD5E1'}; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: all 0.2s;">${thisFnDone ? '✓' : ''}</button>
+            <div style="flex:1;">
+              <div style="font-weight: 600; font-size: 14px; color: ${thisFnDone ? '#059669' : '#0F172A'};">${thisFnDone ? '✅ Saved this fortnight!' : '💜 Set aside ' + AUD(perFortnight) + ' this fortnight'}</div>
+              <div style="font-size: 11px; color: #64748B; margin-top: 0.2rem;">${fortnightLabel(fk)} · ${totalDone} fortnight${totalDone !== 1 ? 's' : ''} completed total</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; align-items: center;">
+            <input type="number" id="goalDeposit_${g.id}" placeholder="Add to saved amount" min="0" style="flex:1; min-width: 120px;">
+            <button class="btn-success btn-small" onclick="addToGoalSaved(${g.id})">+ Add Savings</button>
+            <button class="btn-secondary btn-small" onclick="markGoalAchieved(${g.id})">🏆 Mark Achieved</button>
+          </div>
+          ` : `<div style="text-align:center; padding: 1rem; background: #F0FDF4; border-radius: 8px; color: #059669; font-weight: 600;">🏆 Goal Achieved!</div>`}
+        </div>
+      `;
+    }
+
+    function addGoal() {
+      const name = document.getElementById('goalName').value.trim();
+      const targetAmount = parseFloat(document.getElementById('goalTarget').value) || 0;
+      const dueDate = document.getElementById('goalDue').value;
+      const savedAmount = parseFloat(document.getElementById('goalSaved').value) || 0;
+      if (!name || targetAmount <= 0) { showToast('Enter a name and target amount', 'error'); return; }
+      goals.push({ id: Date.now(), name, targetAmount, dueDate, savedAmount, achieved: false, createdAt: today() });
+      saveGoals();
+      document.getElementById('goalName').value = '';
+      document.getElementById('goalTarget').value = '';
+      document.getElementById('goalDue').value = '';
+      document.getElementById('goalSaved').value = '';
+      showToast('✓ Goal added', 'success');
+    }
+
+    function deleteGoal(id) {
+      goals = goals.filter(g => g.id !== id);
+      delete goalContributions[id];
+      saveGoals();
+      saveGoalContributions();
+    }
+
+    function toggleGoalFortnight(goalId, fk) {
+      if (!goalContributions[goalId]) goalContributions[goalId] = {};
+      goalContributions[goalId][fk] = !goalContributions[goalId][fk];
+      // If ticking ON, also add the required amount to saved
+      const goal = goals.find(g => g.id === goalId);
+      if (goal && goalContributions[goalId][fk]) {
+        const fn = fortnightsUntil(goal.dueDate);
+        const remaining = Math.max(0, (goal.targetAmount || 0) - (goal.savedAmount || 0));
+        const perFn = fn && fn > 0 ? remaining / fn : remaining;
+        goal.savedAmount = Math.min(goal.targetAmount, (goal.savedAmount || 0) + perFn);
+        saveGoals();
+      }
+      saveGoalContributions();
+      renderMain();
+    }
+
+    function addToGoalSaved(goalId) {
+      const input = document.getElementById('goalDeposit_' + goalId);
+      const amount = parseFloat(input.value) || 0;
+      if (amount <= 0) { showToast('Enter an amount', 'error'); return; }
+      const goal = goals.find(g => g.id === goalId);
+      if (goal) {
+        goal.savedAmount = Math.min(goal.targetAmount, (goal.savedAmount || 0) + amount);
+        if (goal.savedAmount >= goal.targetAmount) goal.achieved = true;
+        saveGoals();
+        showToast('✓ Savings added', 'success');
+      }
+    }
+
+    function markGoalAchieved(goalId) {
+      const goal = goals.find(g => g.id === goalId);
+      if (goal) { goal.achieved = true; goal.savedAmount = goal.targetAmount; saveGoals(); showToast('🏆 Goal achieved!', 'success'); }
+    }
+
+    // ── WINDFALL SPLITTER TAB ─────────────────────────────────────────────
+    function renderWindfall() {
+      return `
+        <div class="card">
+          <h2>⚡ Windfall Splitter</h2>
+          <p class="text-muted" style="margin-bottom: 1.5rem;">Got a bonus, tax refund, or gift? Find the smartest way to split it.</p>
+          <div class="form-row">
+            <div class="form-group"><label>Windfall Amount</label><input type="number" id="windfallAmount" placeholder="e.g. 2000" min="0" oninput="calcWindfall()"></div>
+            <div class="form-group"><label>Your Savings Rate Goal (%)</label><input type="number" id="windfallSavingsRate" placeholder="20" min="0" max="100" value="20" oninput="calcWindfall()"></div>
+          </div>
+          <div id="windfallResult"></div>
+        </div>
+        <div class="card">
+          <h2>📖 The Rules</h2>
+          <div style="display: grid; gap: 0.75rem;">
+            <div style="padding: 0.75rem; background: #FEF2F2; border-radius: 8px; border-left: 3px solid #EF4444;"><strong>High-interest debt (&gt;10%)</strong> — pay it down first. The interest saved is a guaranteed return.</div>
+            <div style="padding: 0.75rem; background: #FFF7ED; border-radius: 8px; border-left: 3px solid #F97316;"><strong>Emergency fund gap</strong> — top it up if below 3 months of expenses.</div>
+            <div style="padding: 0.75rem; background: #F5F3FF; border-radius: 8px; border-left: 3px solid #8B5CF6;"><strong>Goals</strong> — accelerate your savings goals.</div>
+            <div style="padding: 0.75rem; background: #F0FDF4; border-radius: 8px; border-left: 3px solid #10B981;"><strong>Remainder</strong> — low-interest debt or invest.</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function calcWindfall() {
+      const amount = parseFloat(document.getElementById('windfallAmount').value) || 0;
+      const savingsRate = parseFloat(document.getElementById('windfallSavingsRate').value) || 20;
+      if (amount <= 0) { document.getElementById('windfallResult').innerHTML = ''; return; }
+
+      const highDebt = debts.filter(d => (d.rate || 0) > 10).sort((a, b) => b.rate - a.rate);
+      const totalHighDebt = highDebt.reduce((s, d) => s + d.balance, 0);
+      const monthlyExpenses = monthlyBillsTotal() + monthlyDebtMin();
+      const emergencyTarget = monthlyExpenses * 3;
+      const emergencyAsset = assets.find(a => a.type === 'Savings' || a.name.toLowerCase().includes('emergency'));
+      const emergencyGap = Math.max(0, emergencyTarget - (emergencyAsset ? emergencyAsset.value : 0));
+
+      let left = amount;
+      const allocations = [];
+
+      // 1. High interest debt
+      if (highDebt.length > 0 && left > 0) {
+        const toDebt = Math.min(left, totalHighDebt);
+        allocations.push({ icon: '💳', label: 'High-Interest Debt', desc: highDebt.map(d => d.name + ' (' + d.rate + '%)').join(', '), amount: toDebt, color: '#EF4444', bg: '#FEF2F2' });
+        left -= toDebt;
+      }
+
+      // 2. Emergency fund gap
+      if (emergencyGap > 0 && left > 0) {
+        const toEmerg = Math.min(left, emergencyGap);
+        allocations.push({ icon: '🏦', label: 'Emergency Fund', desc: '3 months of expenses = ' + AUD(emergencyTarget), amount: toEmerg, color: '#F97316', bg: '#FFF7ED' });
+        left -= toEmerg;
+      }
+
+      // 3. Goals with the most urgency
+      const urgentGoals = goals.filter(g => !g.achieved && g.dueDate).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+      urgentGoals.forEach(g => {
+        if (left <= 0) return;
+        const gap = Math.max(0, g.targetAmount - (g.savedAmount || 0));
+        if (gap > 0) {
+          const toGoal = Math.min(left, gap);
+          allocations.push({ icon: '🎯', label: g.name, desc: 'Closes the gap on this goal', amount: toGoal, color: '#8B5CF6', bg: '#F5F3FF' });
+          left -= toGoal;
+        }
+      });
+
+      // 4. Savings portion
+      const savingsAlloc = amount * (savingsRate / 100);
+      if (left > 0) {
+        const toSave = Math.min(left, savingsAlloc);
+        allocations.push({ icon: '💰', label: 'Savings / Invest', desc: savingsRate + '% of windfall — invest or offset', amount: toSave, color: '#10B981', bg: '#F0FDF4' });
+        left -= toSave;
+      }
+
+      if (left > 0) allocations.push({ icon: '🟢', label: 'Remainder', desc: 'Low-interest debt or general savings', amount: left, color: '#3B82F6', bg: '#EFF6FF' });
+
+      // Interest saved calculation
+      const interestSaved = highDebt.reduce((s, d) => s + Math.min(d.balance, amount) * d.rate / 100, 0);
+
+      document.getElementById('windfallResult').innerHTML = `
+        <div style="margin-top: 1.5rem;">
+          <h3 style="margin-bottom: 1rem;">Recommended Split for ${AUD(amount)}</h3>
+          ${allocations.map(a => `
+            <div style="display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1rem; border-radius: 10px; background: ${a.bg}; margin-bottom: 0.75rem; border-left: 3px solid ${a.color};">
+              <div style="font-size: 22px;">${a.icon}</div>
+              <div style="flex:1;"><div style="font-weight: 600;">${a.label}</div><div style="font-size: 12px; color: #64748B;">${a.desc}</div></div>
+              <div style="font-size: 17px; font-weight: 700; color: ${a.color};" class="num">${AUD(a.amount)}</div>
+            </div>
+          `).join('')}
+          ${interestSaved > 0 ? `<div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #F0FDF4; border-radius: 8px;" class="flex-between"><span style="font-size:13px; font-weight:600; color:#059669;">💡 Estimated annual interest saved</span><span class="num" style="font-weight:700; color:#059669;">${AUD(interestSaved)}</span></div>` : ''}
+        </div>
+      `;
+    }
+
     // Main Render
     function renderMain() {
       let html = '';
       switch (currentTab) {
         case 'dashboard': html = renderDashboard(); break;
+        case 'payplan': html = renderPayPlan(); break;
         case 'transactions': html = renderTransactions(); break;
         case 'bills': html = renderBills(); break;
         case 'debts': html = renderDebts(); break;
         case 'budget': html = renderBudget(); break;
+        case 'goals': html = renderGoals(); break;
         case 'networth': html = renderNetWorth(); break;
         case 'checklist': html = renderChecklist(); break;
         case 'afford': html = renderAfford(); break;
+        case 'windfall': html = renderWindfall(); break;
       }
       const content = document.getElementById('mainContent');
       content.innerHTML = html;
@@ -1822,6 +2346,9 @@
       }
       if (currentTab === 'budget') {
         setTimeout(() => renderBudgetCharts(), 0);
+      }
+      if (currentTab === 'networth') {
+        setTimeout(() => renderNetWorthChart(), 0);
       }
     }
     function renderAll() { renderHeader(); renderMain(); }
