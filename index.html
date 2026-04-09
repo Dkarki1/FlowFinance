@@ -198,12 +198,6 @@
       gap: 1.5rem;
       margin-bottom: 1.5rem;
     }
-    .kpi-grid {
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-      gap: 1.5rem; 
-      margin-bottom: 1.5rem;
-    }
     @media (max-width: 1024px) {
       .grid-4 {
         grid-template-columns: repeat(2, 1fr);
@@ -677,6 +671,65 @@
     }
 
     /* Dark Mode */
+    body.dark {
+      background: #0F172A;
+      color: #E2E8F0;
+    }
+    body.dark header, body.dark nav.tabs {
+      background: #1E293B;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    body.dark .card, body.dark .kpi-card, body.dark .debt-card {
+      background: #1E293B;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    body.dark .card h2, body.dark .card h3, body.dark .kpi-value,
+    body.dark .header-title h1, body.dark th, body.dark .checklist-label {
+      color: #F1F5F9;
+    }
+    body.dark input, body.dark select, body.dark textarea {
+      background: #0F172A;
+      border-color: #334155;
+      color: #E2E8F0;
+    }
+    body.dark th { background: #0F172A; color: #CBD5E1; }
+    body.dark tr:hover { background: #1E293B; }
+    body.dark td { border-color: #334155; }
+    body.dark .tab { color: #94A3B8; }
+    body.dark .tab.active { color: #60A5FA; border-bottom-color: #60A5FA; }
+    body.dark .tab:hover { color: #E2E8F0; }
+    body.dark .btn-secondary { background: #334155; color: #E2E8F0; }
+    body.dark .btn-secondary:hover { background: #475569; }
+    body.dark .text-muted { color: #94A3B8; }
+    body.dark .progress { background: #334155; }
+    body.dark .category-item { background: #0F172A; }
+    body.dark .stat-label { color: #94A3B8; }
+    body.dark .stat-value { color: #F1F5F9; }
+    body.dark .toggle-btn { background: #334155; color: #94A3B8; }
+    body.dark .toggle-btn.active { background: #3B82F6; color: white; }
+    body.dark .checklist-task { border-color: #334155; }
+    body.dark .checklist-checkbox { background: #0F172A; border-color: #475569; }
+    body.dark nav.tabs { border-color: #334155; }
+    body.dark .badge-neutral { background: #334155; color: #94A3B8; }
+    body.dark .bill-status.inactive { background: #334155; color: #94A3B8; }
+    /* Calendar */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day { min-height: 70px; background: #F8FAFC; border-radius: 8px; padding: 6px; font-size: 12px; position: relative; }
+    body.dark .cal-day { background: #0F172A; }
+    .cal-day.today { border: 2px solid #3B82F6; }
+    .cal-day.other-month { opacity: 0.35; }
+    .cal-day-num { font-weight: 700; font-size: 13px; margin-bottom: 3px; color: #64748B; }
+    body.dark .cal-day-num { color: #94A3B8; }
+    .cal-day.today .cal-day-num { color: #3B82F6; }
+    .cal-bill { font-size: 10px; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Milestone badge */
+    .milestone-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 12px; font-weight: 600; background: #FEF9C3; color: #854D0E; border: 1px solid #FDE047; margin: 0.25rem; }
+    /* Savings rate ring */
+    .rate-ring { width: 120px; height: 120px; position: relative; margin: 0 auto; }
+    .rate-ring svg { transform: rotate(-90deg); }
+    .rate-ring-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+
+    /* Dark Mode */
     body.dark { background: #0F172A; color: #E2E8F0; }
     body.dark header, body.dark nav.tabs { background: #1E293B; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
     body.dark .card, body.dark .kpi-card, body.dark .debt-card { background: #1E293B; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
@@ -717,9 +770,80 @@
     .rate-ring { width: 130px; height: 130px; position: relative; margin: 0 auto; }
     .rate-ring svg { transform: rotate(-90deg); }
     .rate-ring-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+
+    /* PIN Lock Screen */
+    #pinLock {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 9999; gap: 2rem;
+    }
+    #pinLock.hidden { display: none; }
+    .pin-logo { width: 64px; height: 64px; background: #3B82F6; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 28px; margin-bottom: 0.5rem; }
+    .pin-title { color: white; font-size: 22px; font-weight: 700; }
+    .pin-sub { color: #94A3B8; font-size: 14px; margin-top: -1rem; }
+    .pin-dots { display: flex; gap: 1rem; margin: 0.5rem 0; }
+    .pin-dot { width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid #475569; background: transparent; transition: all 0.2s; }
+    .pin-dot.filled { background: #3B82F6; border-color: #3B82F6; }
+    .pin-dot.error { background: #EF4444; border-color: #EF4444; }
+    .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+    .pin-btn {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(255,255,255,0.08); border: none;
+      color: white; font-size: 22px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pin-btn:hover { background: rgba(255,255,255,0.15); }
+    .pin-btn:active { background: #3B82F6; transform: scale(0.94); }
+    .pin-btn.del { font-size: 18px; background: rgba(239,68,68,0.15); }
+    .pin-btn.del:hover { background: rgba(239,68,68,0.3); }
+    .pin-error { color: #EF4444; font-size: 13px; font-weight: 500;
+      min-height: 20px; transition: opacity 0.3s; }
+    .pin-shake { animation: pinShake 0.4s ease; }
+    @keyframes pinShake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
   </style>
 </head>
 <body>
+  <!-- PIN Lock -->
+  <div id="pinLock">
+    <div class="pin-logo">FF</div>
+    <div class="pin-title">FlowFinance</div>
+    <div class="pin-sub">Enter your PIN to continue</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="dot0"></div>
+      <div class="pin-dot" id="dot1"></div>
+      <div class="pin-dot" id="dot2"></div>
+      <div class="pin-dot" id="dot3"></div>
+      <div class="pin-dot" id="dot4"></div>
+      <div class="pin-dot" id="dot5"></div>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <div></div>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn del" onclick="pinDelete()">⌫</button>
+    </div>
+  </div>
+  <!-- Header -->
   <header>
     <div class="header-left">
       <div class="logo-mark">FF</div>
@@ -743,8 +867,11 @@
       </div>
     </div>
   </header>
+  <!-- Navigation -->
   <nav class="tabs" id="tabNav"></nav>
+  <!-- Main Content -->
   <main id="mainContent"></main>
+  <!-- Loading Overlay -->
   <div class="loading hidden" id="loadingOverlay">
     <div class="spinner"></div>
     <div>Syncing...</div>
@@ -790,6 +917,78 @@
         hideLoading();
       }
     }
+
+    // ── PIN LOCK ─────────────────────────────────────────────────────────────
+    const PIN_HASH = '54f3bf729354fd382a8b2db48cbb72f2a5812931c2465486d5fda08e946135a1'; // SHA-256 of 814403
+    let pinEntry = '';
+    let pinLocked = true;
+
+    async function hashPin(pin) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    function pinPress(digit) {
+      if (pinEntry.length >= 6) return;
+      pinEntry += digit;
+      updatePinDots();
+      if (pinEntry.length === 6) setTimeout(checkPin, 120);
+    }
+
+    function pinDelete() {
+      pinEntry = pinEntry.slice(0, -1);
+      updatePinDots();
+      document.getElementById('pinError').textContent = '';
+    }
+
+    function updatePinDots() {
+      for (let i = 0; i < 6; i++) {
+        const dot = document.getElementById('dot' + i);
+        dot.classList.toggle('filled', i < pinEntry.length);
+        dot.classList.remove('error');
+      }
+    }
+
+    async function checkPin() {
+      const entered = await hashPin(pinEntry);
+      if (entered === PIN_HASH) {
+        pinLocked = false;
+        document.getElementById('pinLock').classList.add('hidden');
+        sessionStorage.setItem('ff_unlocked', '1');
+        init(); // start app after unlock
+      } else {
+        // Wrong PIN
+        document.getElementById('pinError').textContent = 'Incorrect PIN — try again';
+        const dots = document.getElementById('pinDots');
+        dots.classList.add('pin-shake');
+        for (let i = 0; i < 6; i++) {
+          const dot = document.getElementById('dot' + i);
+          dot.classList.add('error');
+          dot.classList.remove('filled');
+        }
+        setTimeout(() => {
+          dots.classList.remove('pin-shake');
+          for (let i = 0; i < 6; i++) {
+            document.getElementById('dot' + i).classList.remove('error');
+          }
+        }, 500);
+        pinEntry = '';
+      }
+    }
+
+    // Check if already unlocked this session (survives tab refresh, not browser close)
+    if (sessionStorage.getItem('ff_unlocked') === '1') {
+      pinLocked = false;
+      document.getElementById('pinLock').classList.add('hidden');
+    }
+
+    // Keyboard support for PIN
+    document.addEventListener('keydown', (e) => {
+      if (!pinLocked) return;
+      if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+      if (e.key === 'Backspace') pinDelete();
+    });
+
     // State
     let income = { myPay: 0, myFreq: 'fortnightly', myNextPay: '', partnerPay: 0, partnerFreq: 'weekly', partnerNextPay: '' };
     let variableIncome = []; // Track actual variable pay amounts
@@ -808,9 +1007,11 @@
     let netWorthHistory = []; // [{ month: 'YYYY-MM', netWorth: N }]
     let checklistDone = {};
     let debtMethod = 'avalanche';
-    let taxCustomIncome = null; // null = use app income, number = manual override
+    let taxCustomIncome = null;
+    let netWorthMilestones = {};
+    let paydayChecklistDone = {};   // { fortnightKey: { step: true } }
+    let notificationsEnabled = false;
     let currentTab = 'dashboard';
-    
     // Helpers
     const AUD = n => '$' + Math.abs(n||0).toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0});
     const toMonthly = (a, f) => {
@@ -840,9 +1041,12 @@
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       if (freq === 'monthly') return 1;
       if (freq === 'yearly') {
-        return 1 / 12; 
+        // only once if the due day falls in this month (we treat dueDay as day-of-month, no month info stored)
+        return 1 / 12; // approximate for yearly bills
       }
       if (freq === 'weekly') {
+        // Count Mondays (or any anchor) — approximate: count weeks that contain a day <= daysInMonth
+        // Simpler: count how many of the 7-day intervals from dueDay land in this month
         let count = 0;
         for (let day = parseInt(dueDay) || 1; day <= daysInMonth; day += 7) count++;
         return count;
@@ -909,6 +1113,8 @@
     async function saveDebtMilestones() { await fbSet('debtMilestones', debtMilestones); }
     async function saveSavingsRateHistory() { await fbSet('savingsRateHistory', savingsRateHistory); }
     async function saveDarkMode() { await fbSet('darkMode', darkMode); }
+    async function saveNetWorthMilestones() { await fbSet('netWorthMilestones', netWorthMilestones); }
+    async function savePaydayChecklistDone() { await fbSet('paydayChecklistDone', paydayChecklistDone); }
     // Load Data
     async function loadData() {
       showLoading();
@@ -947,23 +1153,16 @@
         if (srh) savingsRateHistory = Array.isArray(srh) ? srh : [];
         const dk = await fbGet('darkMode');
         if (dk !== null) { darkMode = !!dk; applyDarkMode(); }
-
-        // AUTO-RESET BILLS IMPLEMENTATION
-        const currentMonth = getMonthKey();
-        let billsUpdated = false;
-        bills.forEach(b => {
-          if (b.paid && b.paidDate && b.paidDate.substring(0,7) !== currentMonth) {
-            b.paid = false;
-            b.paidDate = '';
-            billsUpdated = true;
-          }
-        });
-        if (billsUpdated) saveBills();
-
+        const nwm = await fbGet('netWorthMilestones');
+        if (nwm) netWorthMilestones = nwm || {};
+        const pcd = await fbGet('paydayChecklistDone');
+        if (pcd) paydayChecklistDone = pcd || {};
         // Record net worth for this month
         recordNetWorthSnapshot();
         recordSavingsRate();
         checkDebtMilestones();
+        checkNetWorthMilestones();
+        autoResetBills();
       } catch (e) {
         console.error('Load error:', e);
       } finally {
@@ -1021,7 +1220,11 @@
       { id: 'savingsrate', label: '📊 Savings Rate' },
       { id: 'super', label: '🦘 Super' },
       { id: 'tax', label: '🧾 Tax Estimate' },
-      { id: 'settings', label: '⚙️ Settings' }
+      { id: 'settings', label: '⚙️ Settings' },
+      { id: 'payodaychecklist', label: '⚡ Payday' },
+      { id: 'debtplan', label: '🗓️ Debt Timeline' },
+      { id: 'trends', label: '📉 Trends' },
+      { id: 'currency', label: '💱 Currency' }
     ];
     function renderTabs() {
       const nav = document.getElementById('tabNav');
@@ -1038,11 +1241,8 @@
     }
     // Dashboard
     function renderDashboard() {
-      // Interest Cost Counter Calculation
-      const dailyInt = debts.reduce((s, d) => s + ((d.balance || 0) * (d.rate || 0) / 100 / 365), 0);
-
       return `
-        <div class="kpi-grid">
+        <div class="grid-4">
           <div class="kpi-card">
             <div class="kpi-label">Net Worth</div>
             <div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}">${AUD(netWorth())}</div>
@@ -1056,13 +1256,13 @@
             <div class="kpi-value num positive">${AUD(monthlyIncome())}</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">Monthly Surplus</div>
             <div class="kpi-value num ${monthlySurplus() >= 0 ? 'positive' : 'negative'}">${AUD(monthlySurplus())}</div>
+            <div class="kpi-label">Monthly Surplus</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Daily Interest Cost</div>
-            <div class="kpi-value num negative" style="color: #EF4444;">${AUD(dailyInt)}<span style="font-size:14px;color:#64748B;">/day</span></div>
-          </div>
+          ${dailyInterest() > 0 ? `<div class="kpi-card" style="border-top:3px solid #EF4444;">
+            <div class="kpi-label" style="color:#EF4444;">Daily Interest Cost</div>
+            <div class="kpi-value num" style="color:#EF4444;">${AUD(dailyInterest())}</div>
+          </div>` : ''}
         </div>
         <div class="card">
           <h2>💰 Your Income</h2>
@@ -1375,10 +1575,10 @@
           ${renderAddTxForm()}
         </div>
         <div class="card">
-          <h2>Import CSV (Smart Categoriser)</h2>
+          <h2>Import CSV</h2>
           <input type="file" id="csvFile" accept=".csv" style="margin-bottom: 1rem;">
-          <button class="btn-primary" onclick="importCSV()">Import & Auto-Categorise</button>
-          <p class="text-muted" style="margin-top: 1rem; font-size: 13px;">Format: Date, Description, Amount. The app will automatically categorize known merchants (Woolworths, Uber, Netflix, etc.)</p>
+          <button class="btn-primary" onclick="importCSV()">Import</button>
+          <p class="text-muted" style="margin-top: 1rem;">Format: Date, Description, Amount</p>
         </div>
       `;
     }
@@ -1482,19 +1682,11 @@
         transactions.push(...rows);
         saveTx();
         document.getElementById('csvFile').value = '';
-        showToast(`✓ Imported & categorised ${rows.length} transactions`, 'success');
+        showToast(`✓ Imported ${rows.length} transactions`, 'success');
       };
       reader.readAsText(file);
     }
     function parseCSV(text) {
-      // SMART CSV CATEGORISER
-      const keywordMap = {
-        'woolworths':'Food', 'coles':'Food', 'aldi':'Food', 'mcdonalds':'Food', 'kfc':'Food', 'cafe':'Food', 'restaurant':'Food',
-        'uber':'Transport', 'shell':'Transport', 'ampol':'Transport', 'bp':'Transport', '7-eleven':'Transport', 'opal':'Transport',
-        'netflix':'Entertainment', 'spotify':'Entertainment', 'cinema':'Entertainment', 'steam':'Entertainment', 'xbox':'Entertainment',
-        'kmart':'Shopping', 'target':'Shopping', 'amazon':'Shopping', 'bunnings':'Shopping', 'ikea':'Shopping'
-      };
-
       const lines = text.trim().split('\n');
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
       const rows = [];
@@ -1506,28 +1698,15 @@
         const descCol = headers.find(h => h.includes('desc') || h.includes('name'));
         const amtCol = headers.find(h => h.includes('amount'));
         if (!obj[dateCol] || !obj[amtCol]) continue;
-        
         const amount = parseFloat(obj[amtCol]?.replace(/[$,]/g,''));
         if (isNaN(amount) || amount === 0) continue;
-        
-        const name = obj[descCol] || 'Import';
-        let category = 'Other';
-        
-        // Match logic
-        for(let key in keywordMap) {
-           if(name.toLowerCase().includes(key)) {
-              category = keywordMap[key];
-              break;
-           }
-        }
-
         rows.push({
           id: Date.now() + i,
           date: obj[dateCol],
-          name: name,
+          name: obj[descCol] || 'Import',
           amount: Math.abs(amount),
           type: amount < 0 ? 'expense' : 'income',
-          category: category,
+          category: 'Other',
           note: 'CSV import'
         });
       }
@@ -1536,26 +1715,8 @@
     // Bills
     function renderBills() {
       const monthlyTotal = monthlyBillsTotal();
-      
-      // BILL SPLIT CALCULATION
-      const myInc = monthlyIncome() > 0 ? (currentMonthLoggedPay('my') || toMonthly(income.myPay, income.myFreq)) : 0;
-      const partInc = monthlyIncome() > 0 ? (currentMonthLoggedPay('partner') || toMonthly(income.partnerPay, income.partnerFreq)) : 0;
-      const totalInc = myInc + partInc;
-      let splitHTML = '';
-      if (totalInc > 0 && partInc > 0) {
-        const myShare = monthlyBillsTotal() * (myInc / totalInc);
-        const partShare = monthlyBillsTotal() * (partInc / totalInc);
-        splitHTML = `
-          <div style="margin-top: 1rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border-left: 4px solid #3B82F6;">
-            <div style="font-weight: 600; margin-bottom: 0.5rem; color: #1E3A8A;">💡 Proportional Couple Split based on Income</div>
-            <div class="flex-between" style="font-size: 14px; margin-bottom: 0.25rem;"><span>Your Share (${Math.round(myInc/totalInc*100)}%)</span><span class="num" style="font-weight: 600;">${AUD(myShare)}</span></div>
-            <div class="flex-between" style="font-size: 14px;"><span>Partner's Share (${Math.round(partInc/totalInc*100)}%)</span><span class="num" style="font-weight: 600;">${AUD(partShare)}</span></div>
-          </div>
-        `;
-      }
-
       const upcoming = bills.filter(b => {
-        if (!b.active || b.paid) return false;
+        if (!b.active) return false;
         const dueDay = parseInt(b.dueDay) || 15;
         const dueDate = new Date();
         dueDate.setDate(dueDay);
@@ -1567,11 +1728,11 @@
         <div class="card">
           <h2>Bills Summary</h2>
           <div class="flex-between"><span>Total Monthly</span><span class="num" style="font-size: 20px; font-weight: 700;">${AUD(monthlyTotal)}</span></div>
-          ${splitHTML}
+          <div class="flex-between"><span>Due Next 14 Days</span><span class="num" style="font-size: 20px; font-weight: 700;">${upcoming.length}</span></div>
         </div>
-        ${upcoming.length > 0 ? `<div class="card"><h2>Upcoming (Next 14 Days)</h2>${upcoming.map(b => `
+        ${upcoming.length > 0 ? `<div class="card"><h2>Upcoming</h2>${upcoming.map(b => `
           <div class="flex-between" style="padding: 1rem; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 0.75rem;">
-            <div><strong>${b.name}</strong><br><span class="text-muted">Due: Day ${b.dueDay}</span></div>
+            <div><strong>${b.name}</strong><br><span class="text-muted">Due: ${b.dueDay}</span></div>
             <div style="text-align: right;"><div class="num" style="font-weight: 700;">${AUD(b.amount)}</div></div>
           </div>
         `).join('')}</div>` : ''}
@@ -1667,7 +1828,7 @@
         <div class="grid-4">
           <div class="kpi-card"><div class="kpi-label">Total Debt</div><div class="kpi-value num negative">${AUD(totalDebt())}</div></div>
           <div class="kpi-card"><div class="kpi-label">Monthly Min</div><div class="kpi-value num">${AUD(monthlyMin)}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Monthly Interest</div><div class="kpi-value num" style="color: #EF4444;">${AUD(monthlyInt)}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Daily Interest</div><div class="kpi-value num">${AUD(monthlyInt / 30)}</div></div>
           <div class="kpi-card"><div class="kpi-label">Debt-Free</div><div class="kpi-value">${debtFreeDate || '—'}</div></div>
         </div>
         <div class="card">
@@ -1832,28 +1993,10 @@
     // Net Worth
     function renderNetWorth() {
       const history = [...netWorthHistory].sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
-      
-      // Net Worth Milestone Tracker Calculation
-      const currentNW = netWorth();
-      const milestones = [0, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
-      const nextMilestone = milestones.find(m => currentNW < m) || 1000000;
-      const prevMilestone = milestones.slice().reverse().find(m => currentNW >= m) || -10000;
-      const progressToNext = Math.max(0, ((currentNW - prevMilestone) / (nextMilestone - prevMilestone)) * 100);
-
       return `
         <div class="card" style="text-align:center;">
           <div class="kpi-label">Current Net Worth</div>
-          <div class="kpi-value num ${currentNW >= 0 ? 'positive' : 'negative'}" style="font-size:36px; margin-top:0.5rem;">${AUD(currentNW)}</div>
-          
-          <div style="margin-top: 2rem; max-width: 600px; margin-left: auto; margin-right: auto; text-align:left;">
-             <div class="flex-between" style="font-size:13px; font-weight:600; color:#64748B; margin-bottom:0.5rem;">
-                <span>Next Milestone: ${AUD(nextMilestone)}</span>
-                <span>${Math.round(progressToNext)}%</span>
-             </div>
-             <div class="progress" style="height:12px; border-radius:6px; background:#E2E8F0;">
-               <div class="progress-fill success" style="width: ${Math.min(100, progressToNext)}%"></div>
-             </div>
-          </div>
+          <div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}" style="font-size:36px; margin-top:0.5rem;">${AUD(netWorth())}</div>
         </div>
         ${history.length > 1 ? `
         <div class="card">
@@ -1890,6 +2033,7 @@
             <div style="padding: 1rem; background: #FEF2F2; border-radius: 8px;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px; color: #EF4444;">${AUD(totalDebt())}</span></div></div>
           </div>
         </div>
+        <div class="card"><h2>Summary</h2><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;"><div style="text-align: center;"><div class="text-muted">Assets</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: #10B981;" class="num">${AUD(totalAssets())}</div></div><div style="text-align: center;"><div class="text-muted">Liabilities</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: #EF4444;" class="num">${AUD(totalDebt())}</div></div><div style="text-align: center;"><div class="text-muted">Net Worth</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: ${netWorth() >= 0 ? '#10B981' : '#EF4444'};" class="num">${AUD(netWorth())}</div></div></div></div>
       `;
     }
     function renderNetWorthChart() {
@@ -2108,27 +2252,6 @@
       const leaks = detectSpendingLeaks();
 
       return `
-        <div class="card" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white;">
-          <h2 style="color: white; margin-bottom: 0.5rem;">💸 Payday Action List</h2>
-          <p style="opacity: 0.9; font-size: 13px; margin-bottom: 1.5rem;">Run this checklist immediately when you get paid to automate your wealth building.</p>
-          
-          <div style="background: rgba(255,255,255,0.15); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; display:flex; justify-content:space-between; align-items:center;">
-             <div><strong>1. Transfer to Goals/Savings</strong><br><span style="font-size:12px;opacity:0.8;">Fund your sinking funds first.</span></div>
-             <button class="btn-secondary btn-small" onclick="showToast('Done!','success')">Log ${AUD(goalSavings)}</button>
-          </div>
-          
-          <div style="background: rgba(255,255,255,0.15); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; display:flex; justify-content:space-between; align-items:center;">
-             <div><strong>2. Hit Debt Minimums</strong><br><span style="font-size:12px;opacity:0.8;">Cover all baseline payments.</span></div>
-             <button class="btn-secondary btn-small" onclick="showToast('Done!','success')">Log ${AUD(fortnightlyDebtMin())}</button>
-          </div>
-
-          ${extraForDebt > 0 && debts.length > 0 ? `
-          <div style="background: rgba(255,255,255,0.15); padding: 1rem; border-radius: 8px; display:flex; justify-content:space-between; align-items:center;">
-             <div><strong>3. Attack Focus Debt</strong><br><span style="font-size:12px;opacity:0.8;">Throw your extra surplus at your primary debt.</span></div>
-             <button class="btn-secondary btn-small" onclick="showToast('Done!','success')">Log ${AUD(extraForDebt)}</button>
-          </div>` : ''}
-        </div>
-
         <div class="card" style="background: linear-gradient(135deg, #1E3A5F 0%, #1D4ED8 100%); color: white; border-radius: 16px;">
           <h2 style="color: white; margin-bottom: 0.5rem;">💡 Your Fortnightly Pay Plan</h2>
           <p style="opacity: 0.8; font-size: 13px; margin-bottom: 1.5rem;">Based on your actual income and bills this month</p>
@@ -2191,6 +2314,23 @@
           </div>
         </div>
         ` : ''}
+
+        <div class="card">
+          <h2>💸 Pay Yourself First — How It Works</h2>
+          <div style="display: grid; gap: 0.75rem;">
+            ${[
+              { step: '1', label: 'Debt minimums come out first', color: '#EF4444' },
+              { step: '2', label: 'Goal savings transferred to buckets', color: '#8B5CF6' },
+              { step: '3', label: 'Extra debt attack on focus debt', color: '#F97316' },
+              { step: '4', label: 'Remainder is your spending money', color: '#10B981' }
+            ].map(s => `
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 28px; height: 28px; background: ${s.color}; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;">${s.step}</div>
+                <div style="font-weight: 500;">${s.label}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
       `;
     }
 
@@ -2457,6 +2597,20 @@
           ${interestSaved > 0 ? `<div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #F0FDF4; border-radius: 8px;" class="flex-between"><span style="font-size:13px; font-weight:600; color:#059669;">💡 Estimated annual interest saved</span><span class="num" style="font-weight:700; color:#059669;">${AUD(interestSaved)}</span></div>` : ''}
         </div>
       `;
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // DARK MODE
+    // ═══════════════════════════════════════════════════════════════
+    function applyDarkMode() {
+      document.body.classList.toggle('dark', darkMode);
+    }
+    function toggleDarkMode() {
+      darkMode = !darkMode;
+      applyDarkMode();
+      saveDarkMode();
+      renderMain();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2727,7 +2881,7 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // RECURRING TRANSACTION TEMPLATES & SETTINGS
+    // RECURRING TRANSACTION TEMPLATES
     // ═══════════════════════════════════════════════════════════════
     function renderSettings() {
       return `
@@ -2785,6 +2939,22 @@
           <p class="text-muted" style="font-size:13px;margin-bottom:1rem;">Generate a summary of this month you can copy and save.</p>
           <button class="btn-primary" onclick="generateReport()">Generate Report</button>
           <div id="reportOutput" style="margin-top:1.5rem;"></div>
+        </div>
+        <div class="card">
+          <h2>🔔 Push Notifications</h2>
+          <p class="text-muted" style="font-size:13px;margin-bottom:1rem;">Get browser reminders for bills due, payday checklist, and monthly review.</p>
+          <div id="notifStatus"></div>
+          <button class="btn-primary" onclick="requestNotifications()" style="margin-top:0.75rem;">Enable Notifications</button>
+          <div style="margin-top:1rem;display:grid;gap:0.5rem;">
+            <button class="btn-secondary btn-small" onclick="testNotif('bill')">Test: Bill Due Reminder</button>
+            <button class="btn-secondary btn-small" onclick="testNotif('payday')">Test: Payday Reminder</button>
+            <button class="btn-secondary btn-small" onclick="scheduleMonthlyReminder()">Schedule Monthly Review</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>👫 Bill Split Calculator</h2>
+          <p class="text-muted" style="font-size:13px;margin-bottom:1rem;">Based on your income proportions, here's what each person owes on shared bills.</p>
+          ${renderBillSplit()}
         </div>`;
     }
     function addTemplate() {
@@ -3126,6 +3296,515 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       return Object.entries(debtMilestones).filter(([k]) => k.startsWith(debtId + '_')).map(([k, v]) => v);
     }
 
+
+    // ═══════════════════════════════════════════════════════════════
+    // INTEREST COST COUNTER
+    // ═══════════════════════════════════════════════════════════════
+    function dailyInterest() {
+      return debts.reduce((s, d) => s + (d.balance || 0) * (d.rate || 0) / 100 / 365, 0);
+    }
+    function weeklyInterest() { return dailyInterest() * 7; }
+    function monthlyInterestCost() {
+      return debts.reduce((s, d) => s + (d.balance || 0) * (d.rate || 0) / 100 / 12, 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NET WORTH MILESTONE CHECK
+    // ═══════════════════════════════════════════════════════════════
+    function checkNetWorthMilestones() {
+      const nw = netWorth();
+      const marks = [0, 5000, 10000, 25000, 50000, 100000, 250000, 500000];
+      marks.forEach(m => {
+        const key = 'nw_' + m;
+        if (nw >= m && !netWorthMilestones[key]) {
+          netWorthMilestones[key] = { value: m, date: today() };
+          saveNetWorthMilestones();
+          if (m === 0) showToast('🎉 Net worth crossed $0 — you\'re in the green!', 'success');
+          else showToast('🎉 Net worth hit ' + AUD(m) + '!', 'success');
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // BILL AUTO-RESET (1st of each month)
+    // ═══════════════════════════════════════════════════════════════
+    function autoResetBills() {
+      const now = new Date();
+      if (now.getDate() !== 1) return;
+      const key = getMonthKey();
+      const resetKey = 'autoReset_' + key;
+      if (localStorage.getItem(resetKey)) return;
+      let changed = false;
+      bills.forEach(b => { if (b.paid) { b.paid = false; b.paidDate = ''; changed = true; } });
+      if (changed) { saveBills(); showToast('🔄 Bills reset for new month', 'success'); }
+      localStorage.setItem(resetKey, '1');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PAYDAY AUTOMATION CHECKLIST
+    // ═══════════════════════════════════════════════════════════════
+    function renderPaydayChecklist() {
+      const fk = getFortnightKey();
+      const done = paydayChecklistDone[fk] || {};
+      const sorted = getSortedDebts();
+      const focusDebt = sorted[0];
+      const extra = Math.max(0, fortnightlySurplus() - totalGoalSavingsPerFortnight());
+      const goalItems = goals.filter(g => !g.achieved && g.dueDate).slice(0, 3).map(g => {
+        const fn = fortnightsUntil(g.dueDate);
+        const rem = Math.max(0, (g.targetAmount || 0) - (g.savedAmount || 0));
+        const perFn = fn && fn > 0 ? rem / fn : rem;
+        return { key: 'goal_' + g.id, label: 'Transfer ' + AUD(perFn) + ' → ' + g.name, amount: perFn };
+      });
+      const steps = [
+        { key: 'log_pay', icon: '💰', label: 'Log this pay in Dashboard', desc: 'Record actual amount received', color: '#3B82F6' },
+        { key: 'debt_mins', icon: '💳', label: 'Pay all debt minimums', desc: 'Total: ' + AUD(fortnightlyDebtMin()), color: '#EF4444' },
+        { key: 'bills', icon: '🧾', label: 'Check bills due this fortnight', desc: AUD(fortnightlyBills()) + ' in bills this period', color: '#F97316' },
+        ...goalItems.map(g => ({ key: g.key, icon: '🎯', label: g.label, desc: 'Move money NOW before spending', color: '#8B5CF6' })),
+        ...(extra > 50 && focusDebt ? [{ key: 'extra_debt', icon: '🔥', label: 'Extra ' + AUD(extra) + ' → ' + focusDebt.name, desc: 'Attack highest-rate debt with surplus', color: '#EA580C' }] : []),
+        { key: 'no_spend', icon: '🚫', label: 'Review discretionary spending', desc: 'Check what\'s left for the fortnight', color: '#64748B' },
+        { key: 'update_balances', icon: '🔄', label: 'Update debt balances', desc: 'Keep payoff timeline accurate', color: '#10B981' },
+        { key: 'review_bills', icon: '📅', label: 'Open Bill Calendar tab', desc: 'See what\'s coming before next pay', color: '#0EA5E9' },
+      ];
+      const completedCount = steps.filter(s => done[s.key]).length;
+      const pct = steps.length > 0 ? Math.round(completedCount / steps.length * 100) : 0;
+      return `
+        <div class="card" style="background:linear-gradient(135deg,#1E3A5F,#1D4ED8);color:white;border-radius:16px;">
+          <h2 style="color:white;">⚡ Payday Action Checklist</h2>
+          <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">${fortnightLabel(fk)} — do these IN ORDER the moment pay lands</p>
+          <div style="margin-top:1.5rem;">
+            <div class="flex-between" style="margin-bottom:0.5rem;"><span style="opacity:0.8;font-size:13px;">${completedCount} of ${steps.length} done</span><span style="font-weight:700;font-size:16px;">${pct}%</span></div>
+            <div style="height:8px;background:rgba(255,255,255,0.2);border-radius:4px;overflow:hidden;"><div style="height:100%;background:#6EE7B7;border-radius:4px;width:${pct}%;transition:width 0.4s ease;"></div></div>
+          </div>
+          ${pct === 100 ? '<div style="margin-top:1rem;text-align:center;font-size:20px;">🎉 All done — great work this fortnight!</div>' : ''}
+        </div>
+        <div class="card">
+          <h2>This Fortnight\'s Actions</h2>
+          ${steps.map((s, i) => `
+            <div onclick="togglePaydayStep('${s.key}','${fk}')" style="display:flex;align-items:center;gap:1rem;padding:1rem;border-radius:10px;background:${done[s.key] ? '#F0FDF4' : '#F8FAFC'};border:2px solid ${done[s.key] ? '#10B981' : '#E2E8F0'};margin-bottom:0.75rem;cursor:pointer;transition:all 0.2s;">
+              <div style="width:28px;height:28px;background:${done[s.key] ? '#10B981' : 'white'};border:2px solid ${done[s.key] ? '#10B981' : '#CBD5E1'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;color:${done[s.key] ? 'white' : '#64748B'};">${done[s.key] ? '✓' : (i+1)}</div>
+              <div style="font-size:20px;flex-shrink:0;">${s.icon}</div>
+              <div style="flex:1;">
+                <div style="font-weight:600;${done[s.key] ? 'text-decoration:line-through;color:#94A3B8;' : ''}">${s.label}</div>
+                <div style="font-size:12px;color:#64748B;">${s.desc}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <div class="card">
+          <h2>💡 Interest Burning Right Now</h2>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+            <div style="text-align:center;padding:1rem;background:#FEF2F2;border-radius:10px;">
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-bottom:0.25rem;">Per Day</div>
+              <div style="font-size:20px;font-weight:700;color:#EF4444;" class="num">${AUD(dailyInterest())}</div>
+            </div>
+            <div style="text-align:center;padding:1rem;background:#FEF2F2;border-radius:10px;">
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-bottom:0.25rem;">Per Week</div>
+              <div style="font-size:20px;font-weight:700;color:#EF4444;" class="num">${AUD(weeklyInterest())}</div>
+            </div>
+            <div style="text-align:center;padding:1rem;background:#FEF2F2;border-radius:10px;">
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-bottom:0.25rem;">Per Month</div>
+              <div style="font-size:20px;font-weight:700;color:#EF4444;" class="num">${AUD(monthlyInterestCost())}</div>
+            </div>
+          </div>
+          ${debts.length > 0 ? `<div style="margin-top:1rem;">` + debts.map(d => {
+            const daily = (d.balance||0)*(d.rate||0)/100/365;
+            return `<div class="flex-between" style="padding:0.5rem 0;border-bottom:1px solid #E2E8F0;font-size:13px;"><span>${d.name} (${d.rate}%)</span><span class="num" style="color:#EF4444;">${AUD(daily)}/day</span></div>`;
+          }).join('') + `</div>` : ''}
+        </div>`;
+    }
+    function togglePaydayStep(key, fk) {
+      if (!paydayChecklistDone[fk]) paydayChecklistDone[fk] = {};
+      paydayChecklistDone[fk][key] = !paydayChecklistDone[fk][key];
+      savePaydayChecklistDone();
+      renderMain();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DEBT PAYOFF TIMELINE
+    // ═══════════════════════════════════════════════════════════════
+    function renderDebtTimeline() {
+      if (debts.length === 0) return '<div class="card"><p class="text-muted text-center">No debts added yet.</p></div>';
+      const sorted = getSortedDebts();
+      const extraMonthly = Math.max(0, monthlySurplus() * 0.5);
+      let remaining = extraMonthly;
+      const timeline = [];
+      const now = new Date();
+      sorted.forEach((d, i) => {
+        let balance = d.balance || 0;
+        const minMonthly = toMonthly(d.minPayment, d.minFreq || 'monthly');
+        const extra = i === 0 ? remaining : 0;
+        const payment = minMonthly + extra;
+        const rate = (d.rate || 0) / 100 / 12;
+        let months = 0;
+        let totalInterest = 0;
+        let bal = balance;
+        while (bal > 0 && months < 600) {
+          const interest = bal * rate;
+          totalInterest += interest;
+          bal -= (payment - interest);
+          months++;
+        }
+        const payoffDate = new Date(now);
+        payoffDate.setMonth(payoffDate.getMonth() + months);
+        timeline.push({ ...d, months, totalInterest, payoffDate, payment, extra });
+        remaining += minMonthly; // snowball freed payment
+      });
+      const maxMonths = Math.max(...timeline.map(t => t.months), 1);
+      const colors = ['#EF4444','#F97316','#F59E0B','#10B981','#3B82F6','#8B5CF6'];
+      return `
+        <div class="card" style="background:linear-gradient(135deg,#1E3A5F,#1D4ED8);color:white;border-radius:16px;">
+          <h2 style="color:white;">🗓️ Debt Payoff Timeline</h2>
+          <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">${debtMethod === 'avalanche' ? '🔥 Avalanche' : '❄️ Snowball'} method · surplus rolled into next debt</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Total Debt</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(totalDebt())}</div>
+            </div>
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Total Interest</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(Math.round(timeline.reduce((s,t) => s+t.totalInterest, 0)))}</div>
+            </div>
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Debt Free</div>
+              <div style="font-size:16px;font-weight:700;margin-top:0.25rem;">${timeline.length > 0 ? timeline[timeline.length-1].payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'}) : '—'}</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Visual Timeline</h2>
+          ${timeline.map((t, i) => {
+            const widthPct = Math.min(100, (t.months / maxMonths) * 100);
+            const milestones = getMilestonesForDebt(t.id);
+            return `
+              <div style="margin-bottom:1.5rem;">
+                <div class="flex-between" style="margin-bottom:0.5rem;">
+                  <div>
+                    <span style="font-weight:700;">${i+1}. ${t.name}</span>
+                    ${milestones.map(m => `<span class="milestone-badge" style="margin-left:0.5rem;">${m.pct}% ✓</span>`).join('')}
+                  </div>
+                  <div style="text-align:right;font-size:13px;">
+                    <div class="num" style="font-weight:700;">${AUD(t.balance)}</div>
+                    <div style="color:#64748B;">${t.months}mo · ${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</div>
+                  </div>
+                </div>
+                <div style="height:28px;background:#F1F5F9;border-radius:8px;overflow:hidden;position:relative;">
+                  <div style="height:100%;width:${widthPct}%;background:${colors[i%colors.length]};border-radius:8px;display:flex;align-items:center;padding:0 0.75rem;transition:width 0.6s ease;">
+                    <span style="color:white;font-size:11px;font-weight:600;white-space:nowrap;">${t.rate}% · ${AUD(t.payment)}/mo</span>
+                  </div>
+                </div>
+                <div style="font-size:11px;color:#94A3B8;margin-top:0.3rem;">Interest cost: ${AUD(Math.round(t.totalInterest))} · freed payment after: ${AUD(t.payment)}/mo</div>
+              </div>`;
+          }).join('')}
+        </div>
+        <div class="card">
+          <h2>Month-by-Month Breakdown</h2>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Debt</th><th>Balance</th><th>Rate</th><th>Payment/mo</th><th>Payoff Date</th><th>Interest Cost</th></tr></thead>
+              <tbody>${timeline.map((t,i) => `
+                <tr>
+                  <td><strong>${i+1}. ${t.name}</strong></td>
+                  <td class="num">${AUD(t.balance)}</td>
+                  <td style="color:#EF4444;">${t.rate}%</td>
+                  <td class="num">${AUD(Math.round(t.payment))}/mo</td>
+                  <td><strong>${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</strong></td>
+                  <td class="num" style="color:#EF4444;">${AUD(Math.round(t.totalInterest))}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CATEGORY SPENDING TRENDS
+    // ═══════════════════════════════════════════════════════════════
+    function renderTrends() {
+      const categories = ['Food','Transport','Entertainment','Shopping','Housing','Utilities','Health','Other'];
+      const sixMonths = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(); d.setMonth(d.getMonth()-i);
+        sixMonths.push(getMonthKey(d));
+      }
+      const incomeVariance = () => {
+        const myPays = variableIncome.filter(v => v.type === 'my').map(v => v.amount);
+        if (myPays.length < 2) return 0;
+        const avg = myPays.reduce((s,a) => s+a, 0) / myPays.length;
+        const variance = myPays.reduce((s,a) => s + Math.pow(a-avg,2), 0) / myPays.length;
+        return Math.round(Math.sqrt(variance));
+      };
+      const variance = incomeVariance();
+      const buffer = variance * 2;
+      return `
+        <div class="card">
+          <h2>📉 6-Month Spending by Category</h2>
+          <p class="text-muted" style="font-size:13px;margin-bottom:1.5rem;">See which categories are creeping up month over month.</p>
+          <canvas id="trendsChart" height="100"></canvas>
+        </div>
+        <div class="card">
+          <h2>📊 Category Detail</h2>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Category</th>${sixMonths.map(m => `<th style="text-align:right;">${new Date(m+'-01').toLocaleDateString('en-AU',{month:'short'})}</th>`).join('')}<th style="text-align:right;">Trend</th></tr></thead>
+              <tbody>${categories.map(cat => {
+                const monthly = sixMonths.map(m => transactions.filter(t => t.type==='expense' && t.category===cat && getMonthKey(new Date(t.date+'T00:00:00'))===m).reduce((s,t)=>s+t.amount,0));
+                const first = monthly[0] || 0;
+                const last = monthly[monthly.length-1] || 0;
+                const trend = first === 0 ? 0 : Math.round(((last-first)/first)*100);
+                const hasData = monthly.some(v => v > 0);
+                if (!hasData) return '';
+                return `<tr>
+                  <td><strong>${cat}</strong></td>
+                  ${monthly.map(v => `<td style="text-align:right;" class="num">${v > 0 ? AUD(v) : '—'}</td>`).join('')}
+                  <td style="text-align:right;font-weight:700;color:${trend > 10 ? '#EF4444' : trend < -10 ? '#10B981' : '#64748B'};">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}${Math.abs(trend)}%</td>
+                </tr>`;
+              }).join('')}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h2>💪 Income Stability Score</h2>
+          ${variance === 0 ? '<p class="text-muted">Log at least 2 pay cycles to see your stability score.</p>' : `
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+            <div style="text-align:center;padding:1rem;background:#F8FAFC;border-radius:10px;">
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;">Pay Variance</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;" class="num">±${AUD(variance)}</div>
+            </div>
+            <div style="text-align:center;padding:1rem;background:#F8FAFC;border-radius:10px;">
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;">Recommended Buffer</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;color:#F59E0B;" class="num">${AUD(buffer)}</div>
+            </div>
+            <div style="text-align:center;padding:1rem;background:#F8FAFC;border-radius:10px;">
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;">Stability</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;color:${variance < 200 ? '#10B981' : variance < 500 ? '#F59E0B' : '#EF4444'};">${variance < 200 ? '🟢 Stable' : variance < 500 ? '🟡 Moderate' : '🔴 Variable'}</div>
+            </div>
+          </div>
+          <div style="padding:0.75rem 1rem;background:#FEF3C7;border-radius:8px;border-left:3px solid #F59E0B;font-size:13px;">
+            Keep <strong>${AUD(buffer)}</strong> as a buffer in your everyday account to handle low pay weeks without touching debt payments or savings.
+          </div>`}
+        </div>
+        <div class="card">
+          <h2>🏅 Net Worth Milestones</h2>
+          ${Object.keys(netWorthMilestones).length === 0 ? '<p class="text-muted">No milestones reached yet. Keep going!</p>' :
+            Object.values(netWorthMilestones).sort((a,b) => a.value - b.value).map(m => `
+              <div class="flex-between" style="padding:0.75rem 0;border-bottom:1px solid #E2E8F0;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                  <span style="font-size:20px;">🏅</span>
+                  <div><div style="font-weight:600;">Net worth hit ${AUD(m.value)}</div><div style="font-size:12px;color:#64748B;">${m.date}</div></div>
+                </div>
+              </div>`).join('')}
+        </div>`;
+    }
+    function renderTrendCharts() {
+      const categories = ['Food','Transport','Entertainment','Shopping','Housing','Utilities','Health','Other'];
+      const colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#6366F1'];
+      const sixMonths = [];
+      for (let i = 5; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth()-i); sixMonths.push(getMonthKey(d)); }
+      const labels = sixMonths.map(m => new Date(m+'-01').toLocaleDateString('en-AU',{month:'short'}));
+      const ctx = document.getElementById('trendsChart')?.getContext('2d');
+      if (!ctx) return;
+      if (window.trendsChart) window.trendsChart.destroy();
+      const datasets = categories.map((cat, i) => ({
+        label: cat,
+        data: sixMonths.map(m => transactions.filter(t => t.type==='expense' && t.category===cat && getMonthKey(new Date(t.date+'T00:00:00'))===m).reduce((s,t)=>s+t.amount,0)),
+        borderColor: colors[i], backgroundColor: colors[i]+'22',
+        borderWidth: 2, pointRadius: 3, fill: false, tension: 0.3
+      })).filter(d => d.data.some(v => v > 0));
+      window.trendsChart = new Chart(ctx, {
+        type: 'line', data: { labels, datasets },
+        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { color:'#64748B', callback: v => '$'+v }, grid: { color:'#E2E8F0' } }, x: { ticks: { color:'#64748B' }, grid: { display:false } } }, plugins: { legend: { labels: { font: { family:'Inter', size:10 }, color:'#0F172A', padding:8 } } } }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CURRENCY CONVERTER + WISE FEE CALCULATOR
+    // ═══════════════════════════════════════════════════════════════
+    function renderCurrency() {
+      return `
+        <div class="card" style="background:linear-gradient(135deg,#064E3B,#059669);color:white;border-radius:16px;">
+          <h2 style="color:white;">💱 Currency Converter</h2>
+          <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Live rates via exchangerate API · Wise fee estimate included</p>
+        </div>
+        <div class="card">
+          <h2>Convert Amount</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" id="currAmount" placeholder="e.g. 1000" min="0" value="1000" oninput="calcCurrency()">
+            </div>
+            <div class="form-group">
+              <label>From</label>
+              <select id="currFrom" onchange="calcCurrency()">
+                <option value="AUD" selected>🇦🇺 AUD — Australian Dollar</option>
+                <option value="USD">🇺🇸 USD — US Dollar</option>
+                <option value="EUR">🇪🇺 EUR — Euro</option>
+                <option value="GBP">🇬🇧 GBP — British Pound</option>
+                <option value="NZD">🇳🇿 NZD — New Zealand Dollar</option>
+                <option value="PHP">🇵🇭 PHP — Philippine Peso</option>
+                <option value="INR">🇮🇳 INR — Indian Rupee</option>
+                <option value="SGD">🇸🇬 SGD — Singapore Dollar</option>
+                <option value="JPY">🇯🇵 JPY — Japanese Yen</option>
+                <option value="CNY">🇨🇳 CNY — Chinese Yuan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>To</label>
+              <select id="currTo" onchange="calcCurrency()">
+                <option value="AUD">🇦🇺 AUD — Australian Dollar</option>
+                <option value="USD" selected>🇺🇸 USD — US Dollar</option>
+                <option value="EUR">🇪🇺 EUR — Euro</option>
+                <option value="GBP">🇬🇧 GBP — British Pound</option>
+                <option value="NZD">🇳🇿 NZD — New Zealand Dollar</option>
+                <option value="PHP">🇵🇭 PHP — Philippine Peso</option>
+                <option value="INR">🇮🇳 INR — Indian Rupee</option>
+                <option value="SGD">🇸🇬 SGD — Singapore Dollar</option>
+                <option value="JPY">🇯🇵 JPY — Japanese Yen</option>
+                <option value="CNY">🇨🇳 CNY — Chinese Yuan</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="calcCurrency()">Convert</button>
+          <div id="currResult" style="margin-top:1.5rem;"></div>
+        </div>
+        <div class="card">
+          <h2>💡 Wise vs Bank Comparison</h2>
+          <p class="text-muted" style="font-size:13px;margin-bottom:1rem;">Wise typically charges 0.4–0.9% vs banks charging 2–4% plus a flat fee.</p>
+          <div id="wiseCompare"></div>
+          <div style="margin-top:1rem;padding:0.75rem 1rem;background:#F0FDF4;border-radius:8px;border-left:3px solid #10B981;font-size:13px;">
+            Use <strong>wise.com</strong> for international transfers — it uses the real mid-market rate with transparent fees. For large transfers, savings can be significant.
+          </div>
+        </div>`;
+    }
+    async function calcCurrency() {
+      const amount = parseFloat(document.getElementById('currAmount')?.value) || 0;
+      const from = document.getElementById('currFrom')?.value || 'AUD';
+      const to = document.getElementById('currTo')?.value || 'USD';
+      if (amount <= 0) { document.getElementById('currResult').innerHTML = ''; return; }
+      document.getElementById('currResult').innerHTML = '<div style="color:#64748B;font-size:13px;">Loading rates...</div>';
+      try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/' + from);
+        const data = await res.json();
+        const rate = data.rates[to];
+        if (!rate) throw new Error('Rate not found');
+        const converted = amount * rate;
+        const wiseFee = amount * 0.006;
+        const wiseConverted = (amount - wiseFee) * rate;
+        const bankFee = amount * 0.03 + 15;
+        const bankConverted = (amount - bankFee) * rate;
+        document.getElementById('currResult').innerHTML = `
+          <div style="text-align:center;padding:1.5rem;background:#F0FDF4;border-radius:12px;margin-bottom:1rem;">
+            <div style="font-size:13px;color:#64748B;margin-bottom:0.5rem;">${amount} ${from} =</div>
+            <div style="font-size:32px;font-weight:700;color:#059669;">${converted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</div>
+            <div style="font-size:12px;color:#94A3B8;margin-top:0.5rem;">Rate: 1 ${from} = ${rate.toFixed(4)} ${to}</div>
+          </div>`;
+        document.getElementById('wiseCompare').innerHTML = `
+          <div style="display:grid;gap:0.75rem;">
+            <div style="padding:1rem;background:#F0FDF4;border-radius:10px;border-left:3px solid #10B981;">
+              <div class="flex-between"><span style="font-weight:600;">🟢 Wise</span><span class="num" style="font-weight:700;color:#059669;">${wiseConverted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span></div>
+              <div style="font-size:12px;color:#64748B;margin-top:0.25rem;">Fee: ~${AUD(wiseFee)} (0.6%) · Real mid-market rate</div>
+            </div>
+            <div style="padding:1rem;background:#FEF2F2;border-radius:10px;border-left:3px solid #EF4444;">
+              <div class="flex-between"><span style="font-weight:600;">🔴 Typical Bank</span><span class="num" style="font-weight:700;color:#EF4444;">${bankConverted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span></div>
+              <div style="font-size:12px;color:#64748B;margin-top:0.25rem;">Fee: ~${AUD(Math.round(bankFee))} (3% + $15 flat) · Marked-up rate</div>
+            </div>
+            <div style="padding:0.75rem 1rem;background:#FEF9C3;border-radius:8px;font-size:13px;" class="flex-between">
+              <span style="font-weight:600;">💰 Wise saves you approx.</span>
+              <span class="num" style="font-weight:700;color:#92400E;">${((wiseConverted - bankConverted)).toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span>
+            </div>
+          </div>`;
+      } catch (e) {
+        document.getElementById('currResult').innerHTML = '<div style="padding:0.75rem;background:#FEF2F2;border-radius:8px;font-size:13px;color:#EF4444;">Could not load live rates. Check your internet connection.</div>';
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // PUSH NOTIFICATIONS
+    // ═══════════════════════════════════════════════════════════════
+    async function requestNotifications() {
+      if (!('Notification' in window)) {
+        showToast('Notifications not supported in this browser', 'error'); return;
+      }
+      const perm = await Notification.requestPermission();
+      notificationsEnabled = perm === 'granted';
+      const el = document.getElementById('notifStatus');
+      if (el) el.innerHTML = perm === 'granted'
+        ? '<div style="padding:0.5rem 0.75rem;background:#F0FDF4;border-radius:6px;font-size:13px;color:#059669;">✅ Notifications enabled</div>'
+        : '<div style="padding:0.5rem 0.75rem;background:#FEF2F2;border-radius:6px;font-size:13px;color:#EF4444;">❌ Notifications blocked — check browser settings</div>';
+      if (perm === 'granted') {
+        showToast('✓ Notifications enabled', 'success');
+        checkUpcomingBillNotifs();
+      }
+    }
+    function testNotif(type) {
+      if (Notification.permission !== 'granted') { showToast('Enable notifications first', 'error'); return; }
+      if (type === 'bill') new Notification('FlowFinance 🧾', { body: 'Rent is due in 3 days — $1,800', icon: '' });
+      if (type === 'payday') new Notification('FlowFinance ⚡', { body: 'Payday checklist ready! Open FlowFinance to complete your steps.' });
+    }
+    function checkUpcomingBillNotifs() {
+      if (Notification.permission !== 'granted') return;
+      const now = new Date();
+      bills.filter(b => b.active && !b.paid).forEach(b => {
+        const dueDay = parseInt(b.dueDay);
+        const daysLeft = dueDay - now.getDate();
+        if (daysLeft === 3) {
+          setTimeout(() => new Notification('FlowFinance 🧾', { body: b.name + ' due in 3 days — ' + AUD(b.amount) }), 1000);
+        }
+      });
+    }
+    function scheduleMonthlyReminder() {
+      if (Notification.permission !== 'granted') { showToast('Enable notifications first', 'error'); return; }
+      // Schedule for 1st of next month at 9am using setTimeout
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth()+1, 1, 9, 0, 0);
+      const ms = next - now;
+      setTimeout(() => new Notification('FlowFinance 📊', { body: 'New month! Time for your monthly money review. Open FlowFinance.' }), ms);
+      showToast('✓ Monthly reminder scheduled for ' + next.toLocaleDateString('en-AU'), 'success');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // BILL SPLIT (couple mode)
+    // ═══════════════════════════════════════════════════════════════
+    function renderBillSplit() {
+      const myInc = currentMonthLoggedPay('my') || toMonthly(income.myPay, income.myFreq);
+      const partnerInc = currentMonthLoggedPay('partner') || toMonthly(income.partnerPay, income.partnerFreq);
+      const total = myInc + partnerInc;
+      if (total === 0) return '<p class="text-muted">Set up income in Dashboard first.</p>';
+      const myPct = myInc / total;
+      const partnerPct = partnerInc / total;
+      const monthlyBills = monthlyBillsTotal();
+      const myShare = monthlyBills * myPct;
+      const partnerShare = monthlyBills * partnerPct;
+      return `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+          <div style="text-align:center;padding:1rem;background:#EFF6FF;border-radius:10px;">
+            <div style="font-size:11px;color:#64748B;text-transform:uppercase;">Your Income</div>
+            <div style="font-weight:700;font-size:16px;color:#1D4ED8;margin-top:0.25rem;" class="num">${AUD(myInc)}/mo</div>
+            <div style="font-size:12px;color:#64748B;">${Math.round(myPct*100)}% of household</div>
+          </div>
+          <div style="text-align:center;padding:1rem;background:#FDF2F8;border-radius:10px;">
+            <div style="font-size:11px;color:#64748B;text-transform:uppercase;">Partner Income</div>
+            <div style="font-weight:700;font-size:16px;color:#EC4899;margin-top:0.25rem;" class="num">${AUD(partnerInc)}/mo</div>
+            <div style="font-size:12px;color:#64748B;">${Math.round(partnerPct*100)}% of household</div>
+          </div>
+          <div style="text-align:center;padding:1rem;background:#F8FAFC;border-radius:10px;">
+            <div style="font-size:11px;color:#64748B;text-transform:uppercase;">Total Bills</div>
+            <div style="font-weight:700;font-size:16px;margin-top:0.25rem;" class="num">${AUD(monthlyBills)}/mo</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div style="padding:1rem;background:#EFF6FF;border-radius:10px;text-align:center;">
+            <div style="font-size:13px;font-weight:600;color:#1D4ED8;margin-bottom:0.5rem;">👤 Your Share</div>
+            <div style="font-size:24px;font-weight:700;color:#1D4ED8;" class="num">${AUD(Math.round(myShare))}</div>
+            <div style="font-size:12px;color:#64748B;margin-top:0.25rem;">per month</div>
+          </div>
+          <div style="padding:1rem;background:#FDF2F8;border-radius:10px;text-align:center;">
+            <div style="font-size:13px;font-weight:600;color:#EC4899;margin-bottom:0.5rem;">💼 Partner's Share</div>
+            <div style="font-size:24px;font-weight:700;color:#EC4899;" class="num">${AUD(Math.round(partnerShare))}</div>
+            <div style="font-size:12px;color:#64748B;margin-top:0.25rem;">per month</div>
+          </div>
+        </div>`;
+    }
+
     // Main Render
     function renderMain() {
       let html = '';
@@ -3147,6 +3826,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         case 'super': html = renderSuper(); break;
         case 'tax': html = renderTax(); break;
         case 'settings': html = renderSettings(); break;
+        case 'payodaychecklist': html = renderPaydayChecklist(); break;
+        case 'debtplan': html = renderDebtTimeline(); break;
+        case 'trends': html = renderTrends(); break;
+        case 'currency': html = renderCurrency(); break;
       }
       const content = document.getElementById('mainContent');
       content.innerHTML = html;
@@ -3179,6 +3862,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       if (currentTab === 'savingsrate') {
         setTimeout(() => renderSavingsRateChart(), 0);
       }
+      if (currentTab === 'trends') {
+        setTimeout(() => renderTrendCharts(), 0);
+      }
     }
     function renderAll() { renderHeader(); renderMain(); }
     // Init
@@ -3192,7 +3878,8 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         renderAll();
       }
     }
-    init();
+    // Only auto-init if already unlocked (PIN screen calls init() on success)
+    if (!pinLocked) init();
   </script>
 </body>
 </html>
