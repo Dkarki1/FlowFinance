@@ -3921,6 +3921,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // Spending by Category
     function renderSpendingCategory() {
       const monthKey = getMonthKey();
+      const monthLabel = new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
       const monthExpenses = transactions.filter(t => t.type === 'expense' && getMonthKey(new Date(t.date + 'T00:00:00')) === monthKey);
       const byCat = {};
       monthExpenses.forEach(t => {
@@ -3963,6 +3964,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // Monthly Financial Health Check
     function renderMonthlyHealth() {
       const monthKey = getMonthKey();
+      const monthLabel = new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
       const inc = monthlyIncome();
       const bills = monthlyBillsTotal();
       const debt = monthlyDebtMin();
