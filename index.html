@@ -1038,11 +1038,8 @@
         .filter(v => v.type === type && getMonthKey(new Date(v.date + 'T00:00:00')) === key)
         .reduce((s, v) => s + (v.amount || 0), 0);
     };
-    // Monthly income: use actual logged pay for this month if available, else fall back to frequency estimate
-    const monthlyIncome = () => {
-      const myLogged = currentMonthLoggedPay('my');
-      return myLogged > 0 ? myLogged : toMonthly(income.myPay, income.myFreq);
-    };
+    // Monthly income: fixed pay × frequency multiplier (fortnightly = 2x per month)
+    const monthlyIncome = () => toMonthly(income.myPay, income.myFreq);
     // Count how many times a bill with given frequency falls in the current calendar month
     const billOccurrencesThisMonth = (freq, dueDay) => {
       const now = new Date();
