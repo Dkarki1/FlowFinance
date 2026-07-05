@@ -1037,7 +1037,7 @@
     let toolsView = 'afford'; // session-only: 'afford' | 'windfall' | 'currency'
     function setToolsView(v) { toolsView = v; renderMain(); }
     // Helpers
-    const AUD = n => '$' + Math.abs(n||0).toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0});
+    const AUD = n => ((n||0) < 0 ? '-$' : '$') + Math.abs(n||0).toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0});
     const toMonthly = (a, f) => {
       if (!a || a <= 0) return 0;
       const freq = { 'weekly': 4, 'fortnightly': 2, 'monthly': 1, 'yearly': 1/12 };
