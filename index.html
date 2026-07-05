@@ -1431,7 +1431,8 @@
             </div>
             <div class="form-group">
               <label>Fixed Pay Amount ($)</label>
-              <input type="number" id="myFixedPay" placeholder="e.g. 2611" min="0" value="${income.myPay || ''}">
+              <input type="number" id="myFixedPay" placeholder="e.g. 2611" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
+              ${income.myPay > 0 ? `<p style="font-size:11px;color:#34C759;margin-top:4px;">Currently saved: ${AUD(income.myPay)}</p>` : '<p style="font-size:11px;color:#FF9500;margin-top:4px;">Not yet saved — enter amount and click Save</p>'}
             </div>
             <div class="form-group">
               <label>Next Pay Date</label>
@@ -1650,12 +1651,12 @@
       saveVariableIncome();
       renderAll();
     }
-    function saveDashboardIncome() {
+    async function saveDashboardIncome() {
       income.myFreq = document.getElementById('myFreq').value;
       income.myNextPay = document.getElementById('myNextPay').value;
       const fixedPay = parseFloat(document.getElementById('myFixedPay').value);
       if (!isNaN(fixedPay) && fixedPay > 0) income.myPay = fixedPay;
-      saveIncome();
+      await saveIncome();
       showToast('✓ Income saved', 'success');
     }
     function quickLogTx() {
