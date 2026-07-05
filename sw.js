@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flowfinance-v2';
+const CACHE_NAME = 'flowfinance-v3';
 const ASSETS = [
   '/',
   '/index.html',
