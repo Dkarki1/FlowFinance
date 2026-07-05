@@ -1,10 +1,10 @@
-const CACHE_NAME = 'flowfinance-v1';
+const CACHE_NAME = 'flowfinance-v2';
 const ASSETS = [
-  '/FlowFinance/',
-  '/FlowFinance/index.html',
-  '/FlowFinance/icon-192.png',
-  '/FlowFinance/icon-512.png',
-  '/FlowFinance/manifest.json'
+  '/',
+  '/index.html',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/manifest.json'
 ];
 
 // Install: cache core assets
@@ -46,6 +46,6 @@ self.addEventListener('fetch', event => {
         }
         return response;
       });
-    }).catch(() => caches.match('/FlowFinance/index.html'))
+    }).catch(() => caches.match('/index.html')))
   );
 });
