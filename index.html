@@ -1028,7 +1028,7 @@
     const AUD = n => '$' + Math.abs(n||0).toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0});
     const toMonthly = (a, f) => {
       if (!a || a <= 0) return 0;
-      const freq = { 'weekly': 52/12, 'fortnightly': 26/12, 'monthly': 1, 'yearly': 1/12 };
+      const freq = { 'weekly': 4, 'fortnightly': 2, 'monthly': 1, 'yearly': 1/12 };
       return (freq[f] || 0) * (a || 0);
     };
     // Returns total actual logged pay for current calendar month
