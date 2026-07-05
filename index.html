@@ -2493,10 +2493,7 @@
       }, 0);
     }
     // Fortnightly surplus (income per fortnight minus bills/debts per fortnight)
-    const fortnightlyIncome = () => {
-      const myLogged = currentMonthLoggedPay('my');
-      return myLogged > 0 ? myLogged / 2 : toMonthly(income.myPay, income.myFreq) / 2;
-    };
+    const fortnightlyIncome = () => monthlyIncome() / 2;
     const fortnightlyBills = () => monthlyBillsTotal() / 2;
     const fortnightlyDebtMin = () => monthlyDebtMin() / 2;
     const fortnightlySurplus = () => fortnightlyIncome() - fortnightlyBills() - fortnightlyDebtMin();
