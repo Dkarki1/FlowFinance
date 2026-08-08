@@ -895,6 +895,33 @@
       }
     }
 
+    // Keeps this tab's transaction list in step with the database.
+    //
+    // Why this matters: fbSet('transactions', ...) writes the WHOLE array. If a
+    // transaction is added somewhere else while this tab is open — the CFO
+    // Telegram bot, another device, another tab — this tab wouldn't know, and
+    // its next save would silently overwrite it. Listening for changes keeps the
+    // in-memory copy current so that can't happen.
+    let _txRef = null, _txPath = null;
+    function subscribeToRemoteTransactions() {
+      if (!_db || !currentUser) return;
+      const path = `flowfinance/users/${currentUser.uid}/transactions`;
+      if (_txPath === path) return;          // already listening to this user
+      if (_txRef) _txRef.off();              // switched account — drop the old one
+      _txPath = path;
+      _txRef = _db.ref(path);
+      _txRef.on('value', (snap) => {
+        const remote = snap.val();
+        const list = Array.isArray(remote)
+          ? remote
+          : (remote ? Object.values(remote).filter(Boolean) : []);
+        // Our own saves echo back here; only re-render on a real change.
+        if (JSON.stringify(list) === JSON.stringify(transactions)) return;
+        transactions = list;
+        renderAll();
+      });
+    }
+
     // ── AUTH ─────────────────────────────────────────────────────────────────
     let currentUser = null;
     let authMode = 'login'; // 'login' | 'signup'
@@ -1227,6 +1254,7 @@
       } finally {
         hideLoading();
         renderAll();
+        subscribeToRemoteTransactions();
       }
     }
     // Full Backup / Restore
