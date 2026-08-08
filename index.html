@@ -1086,6 +1086,9 @@
     let income = { myPay: 0, myFreq: 'fortnightly', myNextPay: '' };
     let variableIncome = []; // Track actual variable pay amounts
     let transactions = [];
+    // Written by the CFO backend (Cloud Functions), read-only here.
+    let agentLogs = {};
+    let pendingConfirmations = {};
     let debts = [];
     let initialDebt = 0; // Track starting debt for progress calculations
     let bills = [];
@@ -1281,6 +1284,10 @@
         if (nwm) netWorthMilestones = nwm || {};
         const pcd = await fbGet('paydayChecklistDone');
         if (pcd) paydayChecklistDone = pcd || {};
+        const alg = await fbGet('agentLogs');
+        agentLogs = alg || {};
+        const pcf = await fbGet('pendingConfirmations');
+        pendingConfirmations = pcf || {};
         // Seed real debts on first run, owner's account only (no debts saved yet).
         // Other users who sign up start with a clean slate.
         if ((!debts || debts.length === 0) && currentUser && currentUser.email === 'sabinkarki84@gmail.com') {
@@ -1425,6 +1432,7 @@
       { id: 'afford', label: 'Tools' },
       { divider: true },
       { id: 'spending', label: 'Insights' },
+      { id: 'agents', label: 'CFO Agent' },
       { divider: true },
       { id: 'settings', label: 'Settings' }
     ];
@@ -1851,6 +1859,13 @@
         return true;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
     }
+    // Marks entries created by the CFO Telegram bot rather than typed in here,
+    // so anything it logged is easy to spot and check.
+    function sourceBadge(source) {
+      if (!source || !String(source).startsWith('telegram')) return '';
+      const label = source === 'telegram-photo' ? 'receipt' : 'bot';
+      return ` <span title="Logged via the CFO Telegram bot (${source})" style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;background:var(--surface);color:var(--accent);border:1px solid var(--border);vertical-align:middle;">${label}</span>`;
+    }
     function renderTxSummary() {
       const rows = filteredTx();
       const inc = rows.filter(t => t.type === 'income').reduce((s, t) => s + (+t.amount || 0), 0);
@@ -1885,7 +1900,7 @@
       return filtered.map(t => `
         <tr>
           <td>${formatDate(t.date)}</td>
-          <td>${t.name || '—'}</td>
+          <td>${t.name || '—'}${sourceBadge(t.source)}</td>
           <td><span class="badge badge-neutral">${t.category}</span></td>
           <td><span class="badge ${t.type === 'income' ? 'badge-success' : 'badge-danger'}">${t.type}</span></td>
           <td style="text-align: right;"><span class="amount num ${t.type === 'income' ? 'income' : 'expense'}">${t.type === 'income' ? '+' : '-'}${AUD(t.amount)}</span></td>
@@ -2225,7 +2240,10 @@
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
             <div class="form-group" style="margin-bottom: 0;"><label>Balance</label><input type="number" value="${debt.balance}" onchange="updateDebtBalance(${debt.id}, this.value)" min="0"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Rate (%)</label><input type="number" value="${debt.rate}" onchange="updateDebtRate(${debt.id}, this.value)" min="0" step="0.1"></div>
+            <div class="form-group" style="margin-bottom: 0;"><label>Promo ends</label><input type="date" value="${debt.promoEndDate || ''}" onchange="updateDebtPromoEnd(${debt.id}, this.value)"></div>
+            <div class="form-group" style="margin-bottom: 0;"><label>Go-to rate (%)</label><input type="number" value="${debt.postPromoRate ?? ''}" onchange="updateDebtPostPromoRate(${debt.id}, this.value)" min="0" step="0.1" placeholder="after promo"></div>
           </div>
+          ${debt.promoEndDate && (debt.postPromoRate === undefined || debt.postPromoRate === null) ? `<div style="margin: -1rem 0 1.25rem; padding: 0.6rem 0.9rem; background: var(--surface); border-left: 3px solid var(--warning); border-radius: 6px; font-size: 12px; color: var(--warning-text2);">Promo ends ${debt.promoEndDate} but no go-to rate is set — payoff projections assume ${debt.rate}% forever, so they're optimistic.</div>` : ''}
           <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
             <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Log a Payment</label>
             <div class="form-row">
@@ -2254,6 +2272,21 @@
     function setDebtMethod(method) { debtMethod = method; saveDebtMethod(); renderMain(); }
     function updateDebtBalance(id, value) { const d = debts.find(x => x.id === id); if (d) { d.balance = parseFloat(value) || 0; saveDebts(); } }
     function updateDebtRate(id, value) { const d = debts.find(x => x.id === id); if (d) { d.rate = parseFloat(value) || 0; saveDebts(); } }
+    // Promotional-rate handling. A 0% balance-transfer card is only 0% until the
+    // promo ends; without a go-to rate the payoff projection assumes it stays
+    // free forever, which understates interest and gets the payoff ORDER wrong.
+    function updateDebtPromoEnd(id, value) {
+      const d = debts.find(x => x.id === id);
+      if (d) { d.promoEndDate = value || null; saveDebts(); }
+    }
+    function updateDebtPostPromoRate(id, value) {
+      const d = debts.find(x => x.id === id);
+      if (d) {
+        const n = parseFloat(value);
+        d.postPromoRate = Number.isFinite(n) ? n : null;
+        saveDebts();
+      }
+    }
     function deleteDebt(id) { if (!confirm('Delete this debt? This can\'t be undone.')) return; debts = debts.filter(d => d.id !== id); saveDebts(); }
     // Records a real debt payment: reduces balance and logs a linked transaction so it shows in
     // Transactions/Insights too. Shared by the per-debt "Log Payment" form, the dashboard recommended
@@ -4212,6 +4245,70 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     }
 
     // Main Render
+    // ── CFO AGENT ACTIVITY ───────────────────────────────────────────────────
+    // Read-only view of what the Telegram CFO backend has been doing. These two
+    // collections were already being written by Cloud Functions; nothing in the
+    // app could show them, so the only way to see the agents' reasoning was to
+    // scroll back through Telegram.
+    function escapeAgentText(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function renderAgentActivity() {
+      const pending = Object.entries(pendingConfirmations || {});
+      const logs = Object.entries(agentLogs || {})
+        .map(([id, l]) => ({ id, ...l }))
+        .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))
+        .slice(0, 25);
+
+      const botTx = (transactions || []).filter(t => t && t.source && String(t.source).startsWith('telegram'));
+
+      let html = `
+        <div class="card">
+          <h2>CFO Agent</h2>
+          <p class="text-muted" style="font-size: 13px;">Your Telegram bot reads and writes the same data as this app. Everything it has logged or decided shows up here.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:1.5rem;margin-top:1rem;">
+            <div><div class="text-muted" style="font-size:11px;">Transactions logged by bot</div><div style="font-weight:700;font-size:20px;">${botTx.length}</div></div>
+            <div><div class="text-muted" style="font-size:11px;">Agent runs recorded</div><div style="font-weight:700;font-size:20px;">${Object.keys(agentLogs || {}).length}</div></div>
+            <div><div class="text-muted" style="font-size:11px;">Awaiting your confirmation</div><div style="font-weight:700;font-size:20px;color:${pending.length ? 'var(--warning-text2)' : 'inherit'};">${pending.length}</div></div>
+          </div>
+        </div>`;
+
+      if (pending.length) {
+        html += `<div class="card"><h2>Needs confirming</h2>
+          <p class="text-muted" style="font-size:13px;">The bot wasn't confident enough to log these automatically. Reply <strong>confirm &lt;id&gt;</strong> in Telegram to accept one.</p>`;
+        pending.forEach(([id, p]) => {
+          const d = (p && p.data) || {};
+          html += `<div style="padding:0.75rem 0;border-bottom:1px solid var(--border);">
+            <div style="font-weight:600;">${d.amount != null ? AUD(d.amount) : 'Amount unreadable'} — ${escapeAgentText(d.category || 'uncategorised')}</div>
+            <div class="text-muted" style="font-size:12px;">${escapeAgentText(d.merchant || d.name || 'unknown merchant')} · ${escapeAgentText(p.type || '')} · ${escapeAgentText(String(p.createdAt || '').slice(0, 10))}</div>
+            <div class="text-muted" style="font-size:11px;margin-top:0.25rem;">id: <code>${escapeAgentText(id)}</code></div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      html += `<div class="card"><h2>Recent agent runs</h2>`;
+      if (!logs.length) {
+        html += `<p class="text-muted">Nothing logged yet. The weekly briefing runs Sunday evening and records each agent's reasoning here.</p>`;
+      } else {
+        logs.forEach(l => {
+          const out = typeof l.output === 'object' && l.output !== null
+            ? [l.output.headline, l.output.fullBriefing].filter(Boolean).join('\n\n')
+            : l.output;
+          html += `<div style="padding:0.85rem 0;border-bottom:1px solid var(--border);">
+            <div class="flex-between" style="margin-bottom:0.35rem;">
+              <span class="badge badge-neutral">${escapeAgentText(l.agent || 'agent')}</span>
+              <span class="text-muted" style="font-size:11px;">${escapeAgentText(String(l.timestamp || '').replace('T', ' ').slice(0, 16))}</span>
+            </div>
+            <div style="font-size:13px;white-space:pre-wrap;">${escapeAgentText(out) || '<span class="text-muted">no output recorded</span>'}</div>
+          </div>`;
+        });
+      }
+      html += `</div>`;
+      return html;
+    }
+
     function renderMain() {
       let html = '';
       switch (currentTab) {
@@ -4226,21 +4323,14 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         case 'checklist': html = renderChecklistsTab(); break;
         case 'afford': html = renderToolsTab(); break;
         case 'spending': html = renderInsightsTab(); break;
+        case 'agents': html = renderAgentActivity(); break;
         case 'settings': html = renderSettings(); break;
       }
       const content = document.getElementById('mainContent');
       content.innerHTML = html;
-      if (currentTab === 'transactions') {
-        setTimeout(() => {
-          ['txSearch', 'txCategory', 'txType'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('input', () => {
-              const tbody = document.querySelector('table tbody');
-              if (tbody) tbody.innerHTML = renderTxRows();
-            });
-          });
-        }, 0);
-      }
+      // Transaction filters are wired inline via refreshTxView(), which also
+      // refreshes the month totals. The old listener here only redrew the first
+      // tbody on the page and knew nothing about the month picker or summary.
       if (currentTab === 'debts') {
         setTimeout(() => {
           const slider = document.getElementById('extraPayment');
