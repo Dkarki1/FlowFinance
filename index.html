@@ -23,6 +23,57 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <style>
+    :root {
+      --bg: #F5F5F7;
+      --card: #FFFFFF;
+      --surface: #F2F2F7;
+      --text: #1D1D1F;
+      --text-muted: #6E6E73;
+      --text-dim: #8E8E93;
+      --border: #D2D2D7;
+      --border-soft: #E8E8ED;
+      --accent: #0F95A8;
+      --success: #34C759;
+      --success-dark: #059669;
+      --success-darker: #1B7F3A;
+      --danger: #FF3B30;
+      --danger-dark: #DC2626;
+      --danger-soft: #FEF2F2;
+      --warning: #FF9500;
+      --warning-dark: #F97316;
+      --warning-alt: #EA580C;
+      --warning-text: #9A5B00;
+      --warning-text2: #B45309;
+      --purple: #5E5CE6;
+      --purple-dark: #7C3AED;
+      --info: #1D4ED8;
+    }
+    body.dark {
+      --bg: #1D1D1F;
+      --card: #2C2C2E;
+      --surface: #3A3A3C;
+      --text: #E8E8ED;
+      --text-muted: #AEAEB2;
+      --text-dim: #8E8E93;
+      --border: #3A3A3C;
+      --border-soft: #3A3A3C;
+      --accent: #409CFF;
+      --success: #34C759;
+      --success-dark: #4ADE80;
+      --success-darker: #4ADE80;
+      --danger: #FF453A;
+      --danger-dark: #FF6B6B;
+      --danger-soft: #3A2A2A;
+      --warning: #FF9F0A;
+      --warning-dark: #FF9F0A;
+      --warning-alt: #FF9F0A;
+      --warning-text: #FFD60A;
+      --warning-text2: #FFD60A;
+      --purple: #7C7AFF;
+      --purple-dark: #A78BFA;
+      --info: #60A5FA;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -826,7 +877,7 @@
         <h1>FlowFinance</h1>
       </div>
     </div>
-    <button onclick="toggleDarkMode()" id="darkModeBtn" style="background:none;border:1px solid #D2D2D7;border-radius:8px;padding:0.4rem 0.75rem;cursor:pointer;font-size:16px;color:#6E6E73;" title="Toggle dark mode">🌙</button>
+    <button onclick="toggleDarkMode()" id="darkModeBtn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.75rem;cursor:pointer;font-size:16px;color:var(--text-muted);" title="Toggle dark mode">🌙</button>
     <div class="header-stats">
       <div class="stat-item">
         <div class="stat-label">Net Worth</div>
@@ -1423,9 +1474,9 @@
         var labelColor = b.daysUntil === 0 ? '#FF3B30' : b.daysUntil === 1 ? '#FF9500' : '#6E6E73';
         var labelWeight = b.daysUntil <= 1 ? '700' : '400';
         var day = b.checkDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid #F2F2F7;">'
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--surface);">'
           + '<div><div style="font-weight:600;font-size:14px;">' + b.name + '</div>'
-          + '<div style="font-size:11px;color:#6E6E73;margin-top:2px;">' + day + ' · ' + b.freq + '</div></div>'
+          + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + day + ' · ' + b.freq + '</div></div>'
           + '<div style="text-align:right;"><div class="num" style="font-weight:700;">' + AUD(b.amount) + '</div>'
           + '<div style="font-size:11px;margin-top:2px;color:' + labelColor + ';font-weight:' + labelWeight + ';">' + labelText + '</div>'
           + '</div></div>';
@@ -1450,9 +1501,9 @@
             <div class="kpi-value num ${monthlySurplus() >= 0 ? 'positive' : 'negative'}">${AUD(monthlySurplus())}</div>
             <div class="kpi-label">Monthly Surplus</div>
           </div>
-          ${dailyInterest() > 0 ? `<div class="kpi-card" style="border-top:3px solid #FF3B30;">
-            <div class="kpi-label" style="color:#FF3B30;">Daily Interest Cost</div>
-            <div class="kpi-value num" style="color:#FF3B30;">${AUD(dailyInterest())}</div>
+          ${dailyInterest() > 0 ? `<div class="kpi-card" style="border-top:3px solid var(--danger);">
+            <div class="kpi-label" style="color:var(--danger);">Daily Interest Cost</div>
+            <div class="kpi-value num" style="color:var(--danger);">${AUD(dailyInterest())}</div>
           </div>` : ''}
         </div>
         <div class="card">
@@ -1469,20 +1520,20 @@
             <div class="form-group">
               <label>Fixed Pay Amount ($)</label>
               <input type="number" id="myFixedPay" placeholder="e.g. 2611" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
-              ${income.myPay > 0 ? `<p style="font-size:11px;color:#34C759;margin-top:4px;">Currently saved: ${AUD(income.myPay)}</p>` : '<p style="font-size:11px;color:#FF9500;margin-top:4px;">Not yet saved — enter amount and click Save</p>'}
+              ${income.myPay > 0 ? `<p style="font-size:11px;color:var(--success);margin-top:4px;">Currently saved: ${AUD(income.myPay)}</p>` : '<p style="font-size:11px;color:var(--warning);margin-top:4px;">Not yet saved — enter amount and click Save</p>'}
             </div>
             <div class="form-group">
               <label>Next Pay Date</label>
               <input type="date" id="myNextPay" value="${income.myNextPay}">
             </div>
           </div>
-          ${income.myPay > 0 ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #D2D2D7;">
+          ${income.myPay > 0 ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
             <button class="btn-primary" onclick="quickLogThisPay()" style="width: 100%; font-size: 1rem; padding: 0.85rem; letter-spacing: -0.01em;">
               Log This Pay &mdash; ${AUD(income.myPay)} <span style="opacity:0.75;font-size:0.85em;">(${income.myFreq})</span>
             </button>
             <p class="text-muted" style="font-size: 11px; margin-top: 0.4rem; text-align: center;">One tap to log today's pay at your set amount</p>
           </div>` : ''}
-          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #D2D2D7;">
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
             <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Log Variable Pay Amount</label>
             <p class="text-muted" style="font-size: 12px; margin-bottom: 0.75rem;">Track actual pay amounts for each cycle (varies each pay period)</p>
             <div class="form-row">
@@ -1563,7 +1614,7 @@
         <p class="text-muted" style="font-size: 12px; margin-bottom: 1rem;">Based on your fortnightly pay of ${AUD(inc)} — since your income is consistent each fortnight, this is what to set aside as soon as you get paid.</p>
         <div style="display: grid; gap: 0.75rem; margin-bottom: 1.5rem;">
           ${rows.map(r => `
-            <div class="flex-between" style="padding: 1rem; background: #F2F2F7; border-radius: 10px; border-left: 4px solid ${r.color};">
+            <div class="flex-between" style="padding: 1rem; background: var(--surface); border-radius: 10px; border-left: 4px solid ${r.color};">
               <span style="font-weight: 600;">${r.label}</span>
               <span class="num" style="font-weight: 700; color: ${r.color};">${AUD(r.amount)}</span>
             </div>
@@ -1571,13 +1622,13 @@
         </div>
       `;
       if (leftover < 0) {
-        html += `<div style="padding: 1rem; background: #FEF2F2; border-radius: 10px; border-left: 4px solid #FF3B30;"><strong style="color: #B91C1C;">Shortfall:</strong> your bills + debt minimums are ${AUD(Math.abs(leftover))} more than this fortnight's pay. Review bills or debt minimums before committing to extra payments.</div>`;
+        html += `<div style="padding: 1rem; background: var(--danger-soft); border-radius: 10px; border-left: 4px solid var(--danger);"><strong style="color: #B91C1C;">Shortfall:</strong> your bills + debt minimums are ${AUD(Math.abs(leftover))} more than this fortnight's pay. Review bills or debt minimums before committing to extra payments.</div>`;
       } else if (available > 0 && topDebt) {
         html += `
-          <div style="padding: 1.25rem; background: #F2F2F7; border-radius: 10px; border: 1px solid #D2D2D7;">
+          <div style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border: 1px solid var(--border);">
             <h3 style="margin-bottom: 0.75rem;">Recommended Extra Payment</h3>
-            <div class="flex-between" style="margin-bottom: 0.5rem;"><span class="text-muted">Suggested extra toward <strong>${topDebt.name}</strong></span><span class="num" style="font-weight: 700; color: #EA580C;">${AUD(recommendedExtra)}</span></div>
-            <div class="flex-between" style="margin-bottom: 1rem;"><span class="text-muted">Kept as savings buffer</span><span class="num" style="font-weight: 700; color: #5E5CE6;">${AUD(available - recommendedExtra)}</span></div>
+            <div class="flex-between" style="margin-bottom: 0.5rem;"><span class="text-muted">Suggested extra toward <strong>${topDebt.name}</strong></span><span class="num" style="font-weight: 700; color: var(--warning-alt);">${AUD(recommendedExtra)}</span></div>
+            <div class="flex-between" style="margin-bottom: 1rem;"><span class="text-muted">Kept as savings buffer</span><span class="num" style="font-weight: 700; color: var(--purple);">${AUD(available - recommendedExtra)}</span></div>
             ${recommendedExtra > 0 ? `<button class="btn-primary" onclick="applyRecommendedExtra(${topDebt.id}, ${recommendedExtra})" style="width: 100%;">Log ${AUD(recommendedExtra)} Extra Payment to ${topDebt.name}</button>` : ''}
             <p class="text-muted" style="font-size: 11px; margin-top: 0.75rem;">Default split is 50/50 between extra debt payoff and savings — adjust on the fly if you'd rather pay more or less.</p>
           </div>
@@ -1593,19 +1644,21 @@
       const myPayDate = income.myNextPay;
       if (!myPayDate) return '<p class="text-muted">Set your pay date above.</p>';
 
-      let html = '<div style="display: grid; gap: 1.5rem;">';
+      // No grid wrapper here any more: it held a single child (a leftover from
+      // when this panel showed two people side by side) and only added stray spacing.
+      let html = '';
 
-      // Your pay
       const myDays = daysUntil(myPayDate);
-      html += '<div style="padding: 1rem; background: #F2F2F7; border-radius: 8px; border-left: 4px solid #0F95A8;">';
+      html += '<div style="padding: 1rem; background: var(--surface); border-radius: 8px; border-left: 4px solid var(--accent);">';
       if (myDays !== null && myDays >= 0) {
-        html += `<div style="font-weight: 600; margin-bottom: 0.5rem;">Your Pay: <span style="color: #0F95A8;"><strong>${myDays}</strong> days</span></div>`;
+        html += `<div style="font-weight: 600; margin-bottom: 0.5rem;">Your Pay: <span style="color: var(--accent);"><strong>${myDays}</strong> days</span></div>`;
         html += `<div class="text-muted" style="font-size: 13px;">Due ${myPayDate}</div>`;
       } else {
-        html += `<div style="font-weight: 600; color: #DC2626;">Pay date has passed</div>`;
+        // Tell the user what to do about it rather than just stating the problem.
+        const overdueBy = myDays === null ? null : Math.abs(myDays);
+        html += `<div style="font-weight: 600; color: var(--warning-text2); margin-bottom: 0.35rem;">Pay date is out of date</div>`;
+        html += `<div class="text-muted" style="font-size: 13px;">${myPayDate}${overdueBy !== null ? ` — ${overdueBy} day${overdueBy === 1 ? '' : 's'} ago` : ''}. Update it above so the countdown and bill planning work.</div>`;
       }
-      html += '</div>';
-
       html += '</div>';
 
       // Bills due
@@ -1622,15 +1675,15 @@
 
         if (dueBefore.length > 0) {
           const totalDue = dueBefore.reduce((s, b) => s + b.amount, 0);
-          html += `<div style="margin-top: 1.5rem; padding: 1rem; background: #F2F2F7; border-radius: 8px; border-left: 4px solid #FF9500;">`;
-          html += `<h3 style="margin-bottom: 0.75rem; color: #B45309;">Bills Due</h3>`;
+          html += `<div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 8px; border-left: 4px solid var(--warning);">`;
+          html += `<h3 style="margin-bottom: 0.75rem; color: var(--warning-text2);">Bills Due</h3>`;
           dueBefore.forEach(b => {
             html += `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid rgba(0,0,0,0.1);"><span>${b.name}</span><span class="num" style="font-weight: 600;">${AUD(b.amount)}</span></div>`;
           });
-          html += `<div class="flex-between" style="padding: 1rem 0; font-weight: 700; color: #B45309;"><span>Total needed:</span><span class="num">${AUD(totalDue)}</span></div>`;
+          html += `<div class="flex-between" style="padding: 1rem 0; font-weight: 700; color: var(--warning-text2);"><span>Total needed:</span><span class="num">${AUD(totalDue)}</span></div>`;
           html += '</div>';
         } else {
-          html += '<div style="margin-top: 1.5rem; padding: 1rem; background: #F2F2F7; border-radius: 8px; border-left: 4px solid #34C759;"><p class="text-muted" style="margin: 0;">✓ No bills due before payday</p></div>';
+          html += '<div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 8px; border-left: 4px solid var(--success);"><p class="text-muted" style="margin: 0;">✓ No bills due before payday</p></div>';
         }
       }
 
@@ -1644,16 +1697,16 @@
       const monthLabel = new Date().toLocaleDateString('en-AU', { month: 'long' });
       const rows = pays.slice(-6).reverse().map(p => {
         const isThisMonth = getMonthKey(new Date(p.date + 'T00:00:00')) === key;
-        return '<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid #D2D2D7; font-size: 13px; ' + (isThisMonth ? 'font-weight: 600;' : 'opacity: 0.65;') + '">'
-          + '<span>' + p.date + (isThisMonth ? ' <span style="font-size:10px;color:#0F95A8;margin-left:4px;">THIS MONTH</span>' : '') + '</span>'
+        return '<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 13px; ' + (isThisMonth ? 'font-weight: 600;' : 'opacity: 0.65;') + '">'
+          + '<span>' + p.date + (isThisMonth ? ' <span style="font-size:10px;color:var(--accent);margin-left:4px;">THIS MONTH</span>' : '') + '</span>'
           + '<span class="num" style="font-weight: 700;">' + AUD(p.amount) + '</span>'
           + '<button onclick="deleteVariablePay(' + p.id + ')" style="background: none; border: none; color: #999; cursor: pointer; padding: 0 0.25rem;">✕</button>'
           + '</div>';
       }).join('');
       const monthBanner = thisMonthTotal > 0
-        ? '<div style="padding: 0.6rem 0.9rem; background: #F2F2F7; border-radius: 8px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">'
-          + '<span style="font-size: 13px; color: #1D4ED8; font-weight: 600;">' + monthLabel + ' total</span>'
-          + '<span class="num" style="font-size: 15px; font-weight: 700; color: #1D4ED8;">' + AUD(thisMonthTotal) + '</span>'
+        ? '<div style="padding: 0.6rem 0.9rem; background: var(--surface); border-radius: 8px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">'
+          + '<span style="font-size: 13px; color: var(--info); font-weight: 600;">' + monthLabel + ' total</span>'
+          + '<span class="num" style="font-size: 15px; font-weight: 700; color: var(--info);">' + AUD(thisMonthTotal) + '</span>'
           + '</div>'
         : '';
       return '<div style="margin-top: 1rem;">' + monthBanner + '<div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>' + rows + '</div>';
@@ -1723,12 +1776,15 @@
     function renderTransactions() {
       return `
         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-          <input type="text" id="txSearch" placeholder="Search..." style="flex: 1; min-width: 150px;">
-          <select id="txCategory" style="flex: 1; min-width: 120px;">
-            <option value="">All Categories</option>
-            ${['Salary','Bonus','Food','Transport','Entertainment','Shopping','Other','Debt Payment'].map(c => `<option value="${c}">${c}</option>`).join('')}
+          <input type="text" id="txSearch" placeholder="Search..." oninput="refreshTxView()" style="flex: 1; min-width: 150px;">
+          <select id="txMonth" onchange="refreshTxView()" style="flex: 1; min-width: 130px;">
+            ${renderMonthOptions()}
           </select>
-          <select id="txType" style="flex: 1; min-width: 100px;">
+          <select id="txCategory" onchange="refreshTxView()" style="flex: 1; min-width: 120px;">
+            <option value="">All Categories</option>
+            ${allCategories().map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+          <select id="txType" onchange="refreshTxView()" style="flex: 1; min-width: 100px;">
             <option value="">All Types</option>
             <option value="income">Income</option>
             <option value="expense">Expense</option>
@@ -1736,10 +1792,11 @@
         </div>
         <div class="card">
           <h2>Transactions</h2>
+          <div id="txSummary">${renderTxSummary()}</div>
           <div style="overflow-x: auto;">
             <table>
               <thead><tr><th>Date</th><th>Name</th><th>Category</th><th>Type</th><th style="text-align: right;">Amount</th><th style="width: 50px;"></th></tr></thead>
-              <tbody>${renderTxRows()}</tbody>
+              <tbody id="txTbody">${renderTxRows()}</tbody>
             </table>
           </div>
         </div>
@@ -1755,21 +1812,80 @@
         </div>
       `;
     }
-    function renderTxRows() {
-      let search = document.getElementById('txSearch')?.value?.toLowerCase() || '';
-      let category = document.getElementById('txCategory')?.value || '';
-      let type = document.getElementById('txType')?.value || '';
-      let filtered = transactions.filter(t => {
-        if (search && !t.name.toLowerCase().includes(search)) return false;
+    // Every category actually in use: whatever you budget for, plus income
+    // categories and anything already sitting on a transaction. Derived rather
+    // than hardcoded, so a new budget category can never go missing here.
+    function allCategories() {
+      const set = new Set([...Object.keys(budgets || {}), 'Debt Payment', 'Insurance', 'Salary', 'Bonus', 'Other']);
+      (transactions || []).forEach(t => { if (t && t.category) set.add(t.category); });
+      return [...set].sort();
+    }
+    function expenseCategoryOptions(selected) {
+      return allCategories()
+        .filter(c => c !== 'Salary' && c !== 'Bonus')
+        .map(c => `<option value="${c}"${c === selected ? ' selected' : ''}>${c}</option>`).join('');
+    }
+    // Months that actually have transactions, newest first, plus an all-time escape hatch.
+    function renderMonthOptions() {
+      const months = [...new Set((transactions || []).filter(Boolean).map(t => String(t.date).slice(0, 7)))].sort().reverse();
+      const current = getMonthKey();
+      if (!months.includes(current)) months.unshift(current);
+      const sel = txMonthFilter === null ? '' : txMonthFilter;
+      return months.map(m => {
+        const label = new Date(m + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+        return `<option value="${m}"${m === sel ? ' selected' : ''}>${label}</option>`;
+      }).join('') + `<option value=""${sel === '' ? ' selected' : ''}>All time</option>`;
+    }
+    // Defaults to the current month rather than dumping your entire history.
+    let txMonthFilter = getMonthKey();
+    function filteredTx() {
+      const search = document.getElementById('txSearch')?.value?.toLowerCase() || '';
+      const category = document.getElementById('txCategory')?.value || '';
+      const type = document.getElementById('txType')?.value || '';
+      const month = txMonthFilter;
+      return (transactions || []).filter(Boolean).filter(t => {
+        if (month && String(t.date).slice(0, 7) !== month) return false;
+        if (search && !String(t.name || '').toLowerCase().includes(search)) return false;
         if (category && t.category !== category) return false;
         if (type && t.type !== type) return false;
         return true;
-      });
-      filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+      }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+    function renderTxSummary() {
+      const rows = filteredTx();
+      const inc = rows.filter(t => t.type === 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      const exp = rows.filter(t => t.type !== 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      const net = inc - exp;
+      const label = txMonthFilter
+        ? new Date(txMonthFilter + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
+        : 'All time';
+      return `<div style="display:flex;flex-wrap:wrap;gap:1.25rem;padding:0.75rem 0 1rem;border-bottom:1px solid var(--border);margin-bottom:0.75rem;">
+        <div><div class="text-muted" style="font-size:11px;">${label}</div><div style="font-weight:700;">${rows.length} transaction${rows.length === 1 ? '' : 's'}</div></div>
+        <div><div class="text-muted" style="font-size:11px;">Money in</div><div class="num" style="font-weight:700;color:var(--success-dark);">${AUD(inc)}</div></div>
+        <div><div class="text-muted" style="font-size:11px;">Money out</div><div class="num" style="font-weight:700;color:var(--danger);">${AUD(exp)}</div></div>
+        <div><div class="text-muted" style="font-size:11px;">Net</div><div class="num" style="font-weight:700;color:${net >= 0 ? 'var(--success-dark)' : 'var(--danger)'};">${AUD(net)}</div></div>
+      </div>`;
+    }
+    // Re-renders just the table and totals. Previously the filters had no
+    // handler at all, so typing in Search did nothing until something else
+    // happened to trigger a full re-render.
+    function refreshTxView() {
+      const monthEl = document.getElementById('txMonth');
+      if (monthEl) txMonthFilter = monthEl.value;
+      const tbody = document.getElementById('txTbody');
+      if (tbody) tbody.innerHTML = renderTxRows();
+      const sum = document.getElementById('txSummary');
+      if (sum) sum.innerHTML = renderTxSummary();
+    }
+    function renderTxRows() {
+      const filtered = filteredTx();
+      if (filtered.length === 0) {
+        return '<tr><td colspan="6" class="text-muted" style="padding:1.5rem 0;text-align:center;">No transactions match these filters.</td></tr>';
+      }
       return filtered.map(t => `
         <tr>
           <td>${formatDate(t.date)}</td>
-          <td>${t.name}</td>
+          <td>${t.name || '—'}</td>
           <td><span class="badge badge-neutral">${t.category}</span></td>
           <td><span class="badge ${t.type === 'income' ? 'badge-success' : 'badge-danger'}">${t.type}</span></td>
           <td style="text-align: right;"><span class="amount num ${t.type === 'income' ? 'income' : 'expense'}">${t.type === 'income' ? '+' : '-'}${AUD(t.amount)}</span></td>
@@ -1788,7 +1904,7 @@
           <div class="form-group"><label>Type</label><select id="txTypeForm" onchange="updateTxCategoryOptions()"><option value="expense">Expense</option><option value="income">Income</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Category</label><select id="txCategoryForm"><option value="Food">Food</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option><option value="Shopping">Shopping</option><option value="Other">Other</option></select></div>
+          <div class="form-group"><label>Category</label><select id="txCategoryForm">${expenseCategoryOptions('Food')}</select></div>
           <div class="form-group" id="debtLinkGroup" style="display: none;"><label>Link to Debt</label><select id="txDebtId"><option value="">None</option>${debts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
         </div>
         <div class="form-group"><label>Note (optional)</label><textarea id="txNote" placeholder="Add a note..."></textarea></div>
@@ -1803,7 +1919,7 @@
         categorySelect.innerHTML = '<option value="Salary">Salary</option><option value="Bonus">Bonus</option><option value="Other">Other</option>';
         debtGroup.style.display = 'none';
       } else {
-        categorySelect.innerHTML = '<option value="Food">Food</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option><option value="Shopping">Shopping</option><option value="Other">Other</option><option value="Debt Payment">Debt Payment</option>';
+        categorySelect.innerHTML = expenseCategoryOptions('Food');
         debtGroup.style.display = categorySelect.value === 'Debt Payment' ? 'block' : 'none';
       }
     }
@@ -1915,7 +2031,7 @@
           <div class="flex-between"><span>Due Next 14 Days</span><span class="num" style="font-size: 20px; font-weight: 700;">${upcoming.length}</span></div>
         </div>
         ${upcoming.length > 0 ? `<div class="card"><h2>Upcoming</h2>${upcoming.map(b => `
-          <div class="flex-between" style="padding: 1rem; border: 1px solid #D2D2D7; border-radius: 8px; margin-bottom: 0.75rem;">
+          <div class="flex-between" style="padding: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem;">
             <div><strong>${b.name}</strong><br><span class="text-muted">Due: ${b.dueDay}</span></div>
             <div style="text-align: right;"><div class="num" style="font-weight: 700;">${AUD(b.amount)}</div></div>
           </div>
@@ -2022,7 +2138,7 @@
         <div class="card">
           <h2>Payoff Order</h2>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem;">
-            ${sorted.map((d, i) => `<div style="text-align: center; padding: 1rem; background: #F5F5F7; border-radius: 8px;"><div style="font-size: 24px; font-weight: 700; color: #0F95A8;">${i+1}</div><div style="font-size: 11px; margin-top: 0.5rem;">${d.name}</div><div style="font-size: 11px; color: #FF3B30; margin-top: 0.25rem;">${d.rate}%</div></div>`).join('')}
+            ${sorted.map((d, i) => `<div style="text-align: center; padding: 1rem; background: var(--bg); border-radius: 8px;"><div style="font-size: 24px; font-weight: 700; color: var(--accent);">${i+1}</div><div style="font-size: 11px; margin-top: 0.5rem;">${d.name}</div><div style="font-size: 11px; color: var(--danger); margin-top: 0.25rem;">${d.rate}%</div></div>`).join('')}
           </div>
         </div>
         ${sorted.map((d, i) => renderDebtCard(d, i + 1)).join('')}
@@ -2032,7 +2148,7 @@
           <div class="form-group"><label>Extra Monthly</label><input type="range" id="extraPayment" min="0" max="1000" value="0" step="50" style="width: 100%; cursor: pointer;"><div style="margin-top: 0.5rem; font-weight: 600; text-align: center;" id="extraPaymentValue">$0</div></div>
           <div id="simulatorResults" style="margin-top: 1.5rem;"></div>
           ${sorted.length > 0 ? `
-          <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #D2D2D7;">
+          <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
             <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Put This Extra Toward</label>
             <div class="form-row">
               <select id="simulatorTargetDebt" style="flex: 1;">${sorted.map((d, i) => `<option value="${d.id}" ${i === 0 ? 'selected' : ''}>${d.name}</option>`).join('')}</select>
@@ -2080,37 +2196,37 @@
       return `
         <div class="debt-card">
           <div class="debt-card-header">
-            <div style="display: flex; align-items: center; gap: 0.5rem;"><span style="width: 24px; height: 24px; background: #E8E8ED; border-radius: 4px; text-align: center; line-height: 24px; font-weight: 600; font-size: 12px;">${order}</span><h3>${debt.name}</h3></div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;"><span style="width: 24px; height: 24px; background: var(--border-soft); border-radius: 4px; text-align: center; line-height: 24px; font-weight: 600; font-size: 12px;">${order}</span><h3>${debt.name}</h3></div>
             <button class="btn-danger btn-small" onclick="deleteDebt(${debt.id})">Delete</button>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
             <div><div class="text-muted" style="font-size: 11px;">Balance</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(debt.balance)}</div></div>
-            <div><div class="text-muted" style="font-size: 11px;">Rate</div><div style="font-weight: 700; margin-top: 0.25rem; color: #FF3B30;">${debt.rate}%</div></div>
+            <div><div class="text-muted" style="font-size: 11px;">Rate</div><div style="font-weight: 700; margin-top: 0.25rem; color: var(--danger);">${debt.rate}%</div></div>
             <div><div class="text-muted" style="font-size: 11px;">Min Pmt</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(toMonthly(debt.minPayment, debt.minFreq || 'monthly'))}/mo</div></div>
             <div><div class="text-muted" style="font-size: 11px;">Interest</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(monthlyInt)}/mo</div></div>
           </div>
           <div style="margin-bottom: 1rem;">
-            <div class="flex-between" style="margin-bottom: 0.5rem; font-size: 12px; color: #6E6E73;"><span>Paid off so far</span><span class="num">${AUD(paidSoFar)} of ${AUD(original)} (${Math.round(progressPct)}%)</span></div>
+            <div class="flex-between" style="margin-bottom: 0.5rem; font-size: 12px; color: var(--text-muted);"><span>Paid off so far</span><span class="num">${AUD(paidSoFar)} of ${AUD(original)} (${Math.round(progressPct)}%)</span></div>
             <div class="progress" style="height:10px;margin:0.75rem 0;">
-            <div class="progress-fill" style="width:${progressPct}%;background:${progressPct >= 75 ? '#34C759' : progressPct >= 40 ? '#FF9500' : '#FF3B30'};transition:width 0.4s ease;"></div>
+            <div class="progress-fill" style="width:${progressPct}%;background:${progressPct >= 75 ? 'var(--success)' : progressPct >= 40 ? 'var(--warning)' : 'var(--danger)'};transition:width 0.4s ease;"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:#6E6E73;margin-top:-0.5rem;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:-0.5rem;">
             <span>0%</span>
-            ${progressPct >= 25 && progressPct < 50 ? '<span style="color:#FF9500;font-weight:600;">25% ✓</span>' : ''}
-            ${progressPct >= 50 && progressPct < 75 ? '<span style="color:#FF9500;font-weight:600;">Halfway ✓</span>' : ''}
-            ${progressPct >= 75 && progressPct < 100 ? '<span style="color:#34C759;font-weight:600;">75% ✓</span>' : ''}
-            ${progressPct >= 100 ? '<span style="color:#34C759;font-weight:700;">Paid off!</span>' : ''}
+            ${progressPct >= 25 && progressPct < 50 ? '<span style="color:var(--warning);font-weight:600;">25% ✓</span>' : ''}
+            ${progressPct >= 50 && progressPct < 75 ? '<span style="color:var(--warning);font-weight:600;">Halfway ✓</span>' : ''}
+            ${progressPct >= 75 && progressPct < 100 ? '<span style="color:var(--success);font-weight:600;">75% ✓</span>' : ''}
+            ${progressPct >= 100 ? '<span style="color:var(--success);font-weight:700;">Paid off!</span>' : ''}
             <span>100%</span>
           </div>
           </div>
-          ${paidThisMonth > 0 ? `<div style="margin-bottom: 1rem; padding: 0.6rem 0.9rem; background: #F2F2F7; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #059669; font-weight: 600;">Paid this month</span><span class="num" style="font-weight: 700; color: #059669;">${AUD(paidThisMonth)}</span></div>` : ''}
-          <div style="font-size: 12px; color: #6E6E73; margin-bottom: 1rem;">At minimums: <strong>${monthsToYears(payoff.months)}</strong>${debtFreeDate ? ` · Debt-free by <strong>${debtFreeDate}</strong>` : ''}</div>
+          ${paidThisMonth > 0 ? `<div style="margin-bottom: 1rem; padding: 0.6rem 0.9rem; background: var(--surface); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: var(--success-dark); font-weight: 600;">Paid this month</span><span class="num" style="font-weight: 700; color: var(--success-dark);">${AUD(paidThisMonth)}</span></div>` : ''}
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 1rem;">At minimums: <strong>${monthsToYears(payoff.months)}</strong>${debtFreeDate ? ` · Debt-free by <strong>${debtFreeDate}</strong>` : ''}</div>
           ${getMilestonesForDebt(debt.id).length > 0 ? `<div style="margin-bottom:1rem;">${getMilestonesForDebt(debt.id).map(m => `<span class="milestone-badge">${m.pct}% paid — ${m.date}</span>`).join('')}</div>` : ''}
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
             <div class="form-group" style="margin-bottom: 0;"><label>Balance</label><input type="number" value="${debt.balance}" onchange="updateDebtBalance(${debt.id}, this.value)" min="0"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Rate (%)</label><input type="number" value="${debt.rate}" onchange="updateDebtRate(${debt.id}, this.value)" min="0" step="0.1"></div>
           </div>
-          <div style="padding-top: 1rem; border-top: 1px solid #D2D2D7;">
+          <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
             <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Log a Payment</label>
             <div class="form-row">
               <input type="number" id="debtPayAmount_${debt.id}" placeholder="Amount paid" min="0">
@@ -2192,7 +2308,7 @@
         const yrs = Math.floor(mths / 12);
         const remainder = mths % 12;
         let timeStr = mths >= 9999 ? '9999+ yrs' : (yrs > 0 ? `${yrs}y ${remainder}m` : `${remainder}m`);
-        return `<div style="padding: 0.75rem; border-bottom: 1px solid #D2D2D7;"><strong>${d.name}:</strong> ${timeStr}</div>`;
+        return `<div style="padding: 0.75rem; border-bottom: 1px solid var(--border);"><strong>${d.name}:</strong> ${timeStr}</div>`;
       }).join('');
       document.getElementById('simulatorResults').innerHTML = results || '<p class="text-muted">No debts</p>';
     }
@@ -2227,7 +2343,7 @@
                 <div class="category-item">
                   <label>${cat}</label>
                   <input type="number" value="${ceiling}" onchange="setBudgetCeiling('${cat}', this.value)" min="0" placeholder="$">
-                  <div style="font-size: 12px; color: #6E6E73;">Spent: ${AUD(spent)} / ${AUD(ceiling)}<br>Remaining: <span class="num" style="font-weight: 600; color: ${remaining < 0 ? '#FF3B30' : '#34C759'}">${AUD(remaining)}</span><br>${AUD(weekly)}/week</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Spent: ${AUD(spent)} / ${AUD(ceiling)}<br>Remaining: <span class="num" style="font-weight: 600; color: ${remaining < 0 ? 'var(--danger)' : 'var(--success)'}">${AUD(remaining)}</span><br>${AUD(weekly)}/week</div>
                   <div class="progress"><div class="progress-fill ${percent > 100 ? 'danger' : percent > 75 ? 'warning' : 'success'}" style="width: ${Math.min(100, percent)}%"></div></div>
                 </div>
               `;
@@ -2283,13 +2399,13 @@
             <h2>Assets</h2>
             <div style="margin-bottom: 1.5rem;">
               ${assets.map(a => `
-                <div class="flex-between" style="padding: 0.75rem; border-bottom: 1px solid #D2D2D7;">
+                <div class="flex-between" style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
                   <div><strong>${a.name}</strong><br><span class="text-muted">${a.type}</span></div>
-                  <div style="text-align: right;"><input type="number" value="${a.value}" onchange="updateAssetValue(${a.id}, this.value)" style="width: 120px; padding: 0.5rem; border: 1px solid #D2D2D7; border-radius: 6px;" /><button class="btn-danger btn-icon btn-small" onclick="deleteAsset(${a.id})" style="margin-left: 0.5rem;">×</button></div>
+                  <div style="text-align: right;"><input type="number" value="${a.value}" onchange="updateAssetValue(${a.id}, this.value)" style="width: 120px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;" /><button class="btn-danger btn-icon btn-small" onclick="deleteAsset(${a.id})" style="margin-left: 0.5rem;">×</button></div>
                 </div>
               `).join('')}
             </div>
-            <div style="padding: 1rem; background: #F5F5F7; border-radius: 8px; margin-bottom: 1rem;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px;">${AUD(totalAssets())}</span></div></div>
+            <div style="padding: 1rem; background: var(--bg); border-radius: 8px; margin-bottom: 1rem;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px;">${AUD(totalAssets())}</span></div></div>
             <h3>Add Asset</h3>
             <div class="form-group"><label>Name</label><input type="text" id="assetName" placeholder="e.g. Savings"></div>
             <div class="form-row"><div class="form-group"><label>Value</label><input type="number" id="assetValue" placeholder="0" min="0"></div><div class="form-group"><label>Type</label><select id="assetType"><option value="Cash">Cash</option><option value="Savings">Savings</option><option value="Investment">Investment</option><option value="Super">Super</option><option value="Property">Property</option><option value="Vehicle">Vehicle</option><option value="Other">Other</option></select></div></div>
@@ -2299,16 +2415,16 @@
             <h2>Liabilities</h2>
             <div style="margin-bottom: 1.5rem;">
               ${debts.map(d => `
-                <div class="flex-between" style="padding: 0.75rem; border-bottom: 1px solid #D2D2D7;">
+                <div class="flex-between" style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
                   <div><strong>${d.name}</strong><br><span class="text-muted">${d.rate}%</span></div>
-                  <div style="text-align: right;"><div class="num" style="font-weight: 700; color: #FF3B30;">${AUD(d.balance)}</div></div>
+                  <div style="text-align: right;"><div class="num" style="font-weight: 700; color: var(--danger);">${AUD(d.balance)}</div></div>
                 </div>
               `).join('')}
             </div>
-            <div style="padding: 1rem; background: #F2F2F7; border-radius: 8px;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px; color: #FF3B30;">${AUD(totalDebt())}</span></div></div>
+            <div style="padding: 1rem; background: var(--surface); border-radius: 8px;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px; color: var(--danger);">${AUD(totalDebt())}</span></div></div>
           </div>
         </div>
-        <div class="card"><h2>Summary</h2><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;"><div style="text-align: center;"><div class="text-muted">Assets</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: #34C759;" class="num">${AUD(totalAssets())}</div></div><div style="text-align: center;"><div class="text-muted">Liabilities</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: #FF3B30;" class="num">${AUD(totalDebt())}</div></div><div style="text-align: center;"><div class="text-muted">Net Worth</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: ${netWorth() >= 0 ? '#34C759' : '#FF3B30'};" class="num">${AUD(netWorth())}</div></div></div></div>
+        <div class="card"><h2>Summary</h2><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;"><div style="text-align: center;"><div class="text-muted">Assets</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: var(--success);" class="num">${AUD(totalAssets())}</div></div><div style="text-align: center;"><div class="text-muted">Liabilities</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: var(--danger);" class="num">${AUD(totalDebt())}</div></div><div style="text-align: center;"><div class="text-muted">Net Worth</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: ${netWorth() >= 0 ? 'var(--success)' : 'var(--danger)'};" class="num">${AUD(netWorth())}</div></div></div></div>
       `;
     }
     function renderNetWorthChart() {
@@ -2382,7 +2498,7 @@
         <div class="card">
           <h2>Monthly Checklist — ${monthLabel}</h2>
           <div style="margin-bottom: 1rem;">
-            <div class="flex-between" style="margin-bottom: 0.5rem;"><span>${completedCount} of ${allTasks.length}</span><span style="font-weight: 700; color: #0F95A8;">${progressPercent}%</span></div>
+            <div class="flex-between" style="margin-bottom: 0.5rem;"><span>${completedCount} of ${allTasks.length}</span><span style="font-weight: 700; color: var(--accent);">${progressPercent}%</span></div>
             <div class="progress"><div class="progress-fill" style="width: ${progressPercent}%"></div></div>
           </div>
         </div>
@@ -2404,7 +2520,7 @@
             ${isChecked ? '✓' : ''}
           </div>
           <div class="checklist-label">${task.label}</div>
-          <span style="width:8px;height:8px;border-radius:50%;background:${priorityColor[task.priority] || '#34C759'};flex-shrink:0;display:inline-block;" title="${task.priority}"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:${priorityColor[task.priority] || 'var(--success)'};flex-shrink:0;display:inline-block;" title="${task.priority}"></span>
         </div>
       `;
     }
@@ -2546,7 +2662,7 @@
       const monthlySurp = monthlySurplus();
 
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
           <h2 style="color: white; margin-bottom: 0.5rem;">Your Fixed Income</h2>
           <p style="opacity: 0.8; font-size: 13px; margin-bottom: 1.5rem;">Simple breakdown: Income → Bills + Debts → What's Left</p>
 
@@ -2570,21 +2686,21 @@
         <div class="card">
           <h2>Monthly Breakdown</h2>
           <div style="display: grid; gap: 1rem;">
-            <div class="flex-between" style="padding: 1.25rem; background: #F2F2F7; border-radius: 10px; border-left: 4px solid #0F95A8;">
+            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--accent);">
               <span style="font-weight: 600;">Total Monthly Income</span>
-              <span class="num" style="font-weight: 700; font-size: 18px; color: #0F95A8;">${AUD(monthlyInc)}</span>
+              <span class="num" style="font-weight: 700; font-size: 18px; color: var(--accent);">${AUD(monthlyInc)}</span>
             </div>
-            <div class="flex-between" style="padding: 1.25rem; background: #F2F2F7; border-radius: 10px; border-left: 4px solid #F97316;">
+            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--warning-dark);">
               <span style="font-weight: 600;">Monthly Bills</span>
-              <span class="num" style="font-weight: 700; color: #F97316;">${AUD(monthlyBills)}</span>
+              <span class="num" style="font-weight: 700; color: var(--warning-dark);">${AUD(monthlyBills)}</span>
             </div>
-            <div class="flex-between" style="padding: 1.25rem; background: #F2F2F7; border-radius: 10px; border-left: 4px solid #FF3B30;">
+            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--danger);">
               <span style="font-weight: 600;">Monthly Debt Payments</span>
-              <span class="num" style="font-weight: 700; color: #FF3B30;">${AUD(monthlyDebt)}</span>
+              <span class="num" style="font-weight: 700; color: var(--danger);">${AUD(monthlyDebt)}</span>
             </div>
-            <div class="flex-between" style="padding: 1.25rem; background: #F2F2F7; border-radius: 10px; border-left: 4px solid #34C759; margin-top: 0.5rem;">
+            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--success); margin-top: 0.5rem;">
               <span style="font-weight: 600; font-size: 16px;">✓ Available to Spend or Save</span>
-              <span class="num" style="font-weight: 700; font-size: 18px; color: #34C759;">${AUD(monthlySurp)}</span>
+              <span class="num" style="font-weight: 700; font-size: 18px; color: var(--success);">${AUD(monthlySurp)}</span>
             </div>
           </div>
         </div>
@@ -2634,7 +2750,7 @@
       const fk = getFortnightKey();
       const goalsNeeded = totalGoalSavingsPerFortnight();
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
           <h2 style="color: white;">Savings Goals</h2>
           <p style="opacity: 0.8; font-size: 13px; margin-top: 0.25rem;">Each fortnight, set aside the required amount and tick it off.</p>
           ${goalsNeeded > 0 ? `<div style="margin-top: 1rem; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 0.75rem 1rem;" class="flex-between"><span style="font-size:13px;">Total needed this fortnight:</span><span class="num" style="font-weight:700;font-size:18px;">${AUD(goalsNeeded)}</span></div>` : ''}
@@ -2669,37 +2785,37 @@
           <div class="flex-between" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
             <div>
               <h3 style="margin:0; color: ${color};">${g.name}</h3>
-              ${g.dueDate ? `<div style="font-size: 12px; color: #6E6E73; margin-top: 0.2rem;">Due: ${formatDate(g.dueDate)} · ${fn !== null ? (fn > 0 ? fn + ' fortnights left' : 'overdue') : ''}</div>` : ''}
+              ${g.dueDate ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 0.2rem;">Due: ${formatDate(g.dueDate)} · ${fn !== null ? (fn > 0 ? fn + ' fortnights left' : 'overdue') : ''}</div>` : ''}
             </div>
             <button class="btn-danger btn-small" onclick="deleteGoal(${g.id})">Delete</button>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
-            <div style="text-align: center; background: #F5F5F7; border-radius: 8px; padding: 0.75rem;">
-              <div style="font-size: 11px; color: #6E6E73; text-transform: uppercase;">Target</div>
+            <div style="text-align: center; background: var(--bg); border-radius: 8px; padding: 0.75rem;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Target</div>
               <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem;" class="num">${AUD(g.targetAmount)}</div>
             </div>
-            <div style="text-align: center; background: #F2F2F7; border-radius: 8px; padding: 0.75rem;">
-              <div style="font-size: 11px; color: #6E6E73; text-transform: uppercase;">Saved</div>
-              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem; color: #34C759;" class="num">${AUD(g.savedAmount || 0)}</div>
+            <div style="text-align: center; background: var(--surface); border-radius: 8px; padding: 0.75rem;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Saved</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem; color: var(--success);" class="num">${AUD(g.savedAmount || 0)}</div>
             </div>
-            <div style="text-align: center; background: #F2F2F7; border-radius: 8px; padding: 0.75rem;">
-              <div style="font-size: 11px; color: #6E6E73; text-transform: uppercase;">Per Fortnight</div>
-              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem; color: #7C3AED;" class="num">${AUD(perFortnight)}</div>
+            <div style="text-align: center; background: var(--surface); border-radius: 8px; padding: 0.75rem;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Per Fortnight</div>
+              <div style="font-weight: 700; font-size: 15px; margin-top: 0.25rem; color: var(--purple-dark);" class="num">${AUD(perFortnight)}</div>
             </div>
           </div>
 
           <div style="margin-bottom: 1rem;">
-            <div class="flex-between" style="margin-bottom: 0.4rem;"><span style="font-size:13px;">${Math.round(percent)}% complete</span><span class="num" style="font-size:13px; color:#6E6E73;">${AUD(remaining)} to go</span></div>
+            <div class="flex-between" style="margin-bottom: 0.4rem;"><span style="font-size:13px;">${Math.round(percent)}% complete</span><span class="num" style="font-size:13px; color:var(--text-muted);">${AUD(remaining)} to go</span></div>
             <div class="progress"><div class="progress-fill ${g.achieved ? 'success' : ''}" style="width: ${percent}%; background: ${color};"></div></div>
           </div>
 
           ${!g.achieved ? `
-          <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 10px; background: ${thisFnDone ? '#F2F2F7' : '#F5F5F7'}; border: 2px solid ${thisFnDone ? '#34C759' : '#D2D2D7'};">
-            <button onclick="toggleGoalFortnight(${g.id}, '${fk}')" style="width: 36px; height: 36px; border-radius: 50%; background: ${thisFnDone ? '#34C759' : 'white'}; border: 2px solid ${thisFnDone ? '#34C759' : '#AEAEB2'}; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: all 0.2s;">${thisFnDone ? '✓' : ''}</button>
+          <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 10px; background: ${thisFnDone ? 'var(--surface)' : 'var(--bg)'}; border: 2px solid ${thisFnDone ? 'var(--success)' : 'var(--border)'};">
+            <button onclick="toggleGoalFortnight(${g.id}, '${fk}')" style="width: 36px; height: 36px; border-radius: 50%; background: ${thisFnDone ? 'var(--success)' : 'white'}; border: 2px solid ${thisFnDone ? 'var(--success)' : '#AEAEB2'}; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: all 0.2s;">${thisFnDone ? '✓' : ''}</button>
             <div style="flex:1;">
-              <div style="font-weight: 600; font-size: 14px; color: ${thisFnDone ? '#059669' : '#1D1D1F'};">${thisFnDone ? 'Saved this fortnight!' : 'Set aside ' + AUD(perFortnight) + ' this fortnight'}</div>
-              <div style="font-size: 11px; color: #6E6E73; margin-top: 0.2rem;">${fortnightLabel(fk)} · ${totalDone} fortnight${totalDone !== 1 ? 's' : ''} completed total</div>
+              <div style="font-weight: 600; font-size: 14px; color: ${thisFnDone ? 'var(--success-dark)' : 'var(--text)'};">${thisFnDone ? 'Saved this fortnight!' : 'Set aside ' + AUD(perFortnight) + ' this fortnight'}</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 0.2rem;">${fortnightLabel(fk)} · ${totalDone} fortnight${totalDone !== 1 ? 's' : ''} completed total</div>
             </div>
           </div>
           <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; align-items: center;">
@@ -2707,7 +2823,7 @@
             <button class="btn-success btn-small" onclick="addToGoalSaved(${g.id})">+ Add Savings</button>
             <button class="btn-secondary btn-small" onclick="markGoalAchieved(${g.id})">Mark Achieved</button>
           </div>
-          ` : `<div style="text-align:center; padding: 1rem; background: #F2F2F7; border-radius: 8px; color: #059669; font-weight: 600;">Goal Achieved!</div>`}
+          ` : `<div style="text-align:center; padding: 1rem; background: var(--surface); border-radius: 8px; color: var(--success-dark); font-weight: 600;">Goal Achieved!</div>`}
         </div>
       `;
     }
@@ -2784,10 +2900,10 @@
         <div class="card">
           <h2>The Rules</h2>
           <div style="display: grid; gap: 0.75rem;">
-            <div style="padding: 0.75rem; background: #F2F2F7; border-radius: 8px; border-left: 3px solid #FF3B30;"><strong>High-interest debt (&gt;10%)</strong> — pay it down first. The interest saved is a guaranteed return.</div>
-            <div style="padding: 0.75rem; background: #F2F2F7; border-radius: 8px; border-left: 3px solid #F97316;"><strong>Emergency fund gap</strong> — top it up if below 3 months of expenses.</div>
-            <div style="padding: 0.75rem; background: #F2F2F7; border-radius: 8px; border-left: 3px solid #5E5CE6;"><strong>Goals</strong> — accelerate your savings goals.</div>
-            <div style="padding: 0.75rem; background: #F2F2F7; border-radius: 8px; border-left: 3px solid #34C759;"><strong>Remainder</strong> — low-interest debt or invest.</div>
+            <div style="padding: 0.75rem; background: var(--surface); border-radius: 8px; border-left: 3px solid var(--danger);"><strong>High-interest debt (&gt;10%)</strong> — pay it down first. The interest saved is a guaranteed return.</div>
+            <div style="padding: 0.75rem; background: var(--surface); border-radius: 8px; border-left: 3px solid var(--warning-dark);"><strong>Emergency fund gap</strong> — top it up if below 3 months of expenses.</div>
+            <div style="padding: 0.75rem; background: var(--surface); border-radius: 8px; border-left: 3px solid var(--purple);"><strong>Goals</strong> — accelerate your savings goals.</div>
+            <div style="padding: 0.75rem; background: var(--surface); border-radius: 8px; border-left: 3px solid var(--success);"><strong>Remainder</strong> — low-interest debt or invest.</div>
           </div>
         </div>
       `;
@@ -2852,11 +2968,11 @@
           <h3 style="margin-bottom: 1rem;">Recommended Split for ${AUD(amount)}</h3>
           ${allocations.map(a => `
             <div style="display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1rem; border-radius: 10px; background: ${a.bg}; margin-bottom: 0.75rem; border-left: 3px solid ${a.color};">
-              <div style="flex:1;"><div style="font-weight: 600;">${a.label}</div><div style="font-size: 12px; color: #6E6E73;">${a.desc}</div></div>
+              <div style="flex:1;"><div style="font-weight: 600;">${a.label}</div><div style="font-size: 12px; color: var(--text-muted);">${a.desc}</div></div>
               <div style="font-size: 17px; font-weight: 700; color: ${a.color};" class="num">${AUD(a.amount)}</div>
             </div>
           `).join('')}
-          ${interestSaved > 0 ? `<div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #F2F2F7; border-radius: 8px;" class="flex-between"><span style="font-size:13px; font-weight:600; color:#059669;">Estimated annual interest saved</span><span class="num" style="font-weight:700; color:#059669;">${AUD(interestSaved)}</span></div>` : ''}
+          ${interestSaved > 0 ? `<div style="margin-top: 1rem; padding: 0.75rem 1rem; background: var(--surface); border-radius: 8px;" class="flex-between"><span style="font-size:13px; font-weight:600; color:var(--success-dark);">Estimated annual interest saved</span><span class="num" style="font-weight:700; color:var(--success-dark);">${AUD(interestSaved)}</span></div>` : ''}
         </div>
       `;
     }
@@ -2935,13 +3051,13 @@
               </svg>
               <div class="rate-ring-label">
                 <div style="font-size:22px; font-weight:700; color:${color};">${rate}%</div>
-                <div style="font-size:10px; color:#6E6E73;">THIS MONTH</div>
+                <div style="font-size:10px; color:var(--text-muted);">THIS MONTH</div>
               </div>
             </div>
             <div style="text-align:left;">
               <div style="margin-bottom:1rem;"><div class="text-muted" style="font-size:12px;">STATUS</div><div style="font-size:16px; font-weight:600; margin-top:0.25rem;">${label}</div></div>
-              <div style="margin-bottom:1rem;"><div class="text-muted" style="font-size:12px;">12-MONTH AVG</div><div style="font-size:16px; font-weight:600; margin-top:0.25rem; color:${avg>=20?'#34C759':avg>=10?'#FF9500':'#FF3B30'};">${avg}%</div></div>
-              <div><div class="text-muted" style="font-size:12px;">TARGET</div><div style="font-size:16px; font-weight:600; margin-top:0.25rem; color:#34C759;">20%+</div></div>
+              <div style="margin-bottom:1rem;"><div class="text-muted" style="font-size:12px;">12-MONTH AVG</div><div style="font-size:16px; font-weight:600; margin-top:0.25rem; color:${avg>=20?'var(--success)':avg>=10?'var(--warning)':'var(--danger)'};">${avg}%</div></div>
+              <div><div class="text-muted" style="font-size:12px;">TARGET</div><div style="font-size:16px; font-weight:600; margin-top:0.25rem; color:var(--success);">20%+</div></div>
             </div>
           </div>
         </div>
@@ -2949,15 +3065,15 @@
           <h2>Savings Projection</h2>
           <p class="text-muted" style="margin-bottom:1.5rem; font-size:13px;">Based on your current monthly surplus of ${AUD(monthlySurplus())}</p>
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
-            <div style="padding:1rem; background:#F2F2F7; border-radius:10px; text-align:center;">
+            <div style="padding:1rem; background:var(--surface); border-radius:10px; text-align:center;">
               <div class="text-muted" style="font-size:11px;">3 MONTHS</div>
               <div class="num" style="font-size:20px; font-weight:700; margin-top:0.25rem;">${AUD(Math.max(0, monthlySurplus()) * 3)}</div>
             </div>
-            <div style="padding:1rem; background:#F2F2F7; border-radius:10px; text-align:center;">
+            <div style="padding:1rem; background:var(--surface); border-radius:10px; text-align:center;">
               <div class="text-muted" style="font-size:11px;">6 MONTHS</div>
               <div class="num" style="font-size:20px; font-weight:700; margin-top:0.25rem;">${AUD(Math.max(0, monthlySurplus()) * 6)}</div>
             </div>
-            <div style="padding:1rem; background:#F2F2F7; border-radius:10px; text-align:center;">
+            <div style="padding:1rem; background:var(--surface); border-radius:10px; text-align:center;">
               <div class="text-muted" style="font-size:11px;">12 MONTHS</div>
               <div class="num" style="font-size:20px; font-weight:700; margin-top:0.25rem;">${AUD(Math.max(0, monthlySurplus()) * 12)}</div>
             </div>
@@ -2971,9 +3087,9 @@
         <div class="card">
           <h2>How to Improve Your Rate</h2>
           <div style="display:grid; gap:0.75rem;">
-            ${rate < 20 ? `<div style="padding:0.75rem 1rem; background:#F2F2F7; border-radius:8px; border-left:3px solid #FF3B30;"><strong>Reduce wants spending</strong> — your 30% bucket is the biggest lever. Cut ${AUD(monthlyIncome()*0.3 - monthlyIncome()*(1-rate/100))} and hit 20%.</div>` : '<div style="padding:0.75rem 1rem; background:#F2F2F7; border-radius:8px; border-left:3px solid #34C759;"><strong>Great work!</strong> You\'re at or above the 20% target. Consider pushing to 30% by attacking the highest bill.</div>'}
-            <div style="padding:0.75rem 1rem; background:#F2F2F7; border-radius:8px; border-left:3px solid #0F95A8;"><strong>Automate it</strong> — transfer savings the same day pay lands, before you spend it. Use the Pay Plan tab for your exact fortnightly number.</div>
-            <div style="padding:0.75rem 1rem; background:#F2F2F7; border-radius:8px; border-left:3px solid #5E5CE6;"><strong>Every 1% more</strong> = ${AUD(monthlyIncome() * 0.01 * 12)} extra saved per year.</div>
+            ${rate < 20 ? `<div style="padding:0.75rem 1rem; background:var(--surface); border-radius:8px; border-left:3px solid var(--danger);"><strong>Reduce wants spending</strong> — your 30% bucket is the biggest lever. Cut ${AUD(monthlyIncome()*0.3 - monthlyIncome()*(1-rate/100))} and hit 20%.</div>` : '<div style="padding:0.75rem 1rem; background:var(--surface); border-radius:8px; border-left:3px solid var(--success);"><strong>Great work!</strong> You\'re at or above the 20% target. Consider pushing to 30% by attacking the highest bill.</div>'}
+            <div style="padding:0.75rem 1rem; background:var(--surface); border-radius:8px; border-left:3px solid var(--accent);"><strong>Automate it</strong> — transfer savings the same day pay lands, before you spend it. Use the Pay Plan tab for your exact fortnightly number.</div>
+            <div style="padding:0.75rem 1rem; background:var(--surface); border-radius:8px; border-left:3px solid var(--purple);"><strong>Every 1% more</strong> = ${AUD(monthlyIncome() * 0.01 * 12)} extra saved per year.</div>
           </div>
         </div>`;
     }
@@ -3069,7 +3185,7 @@
       const subs = detectSubscriptions();
       const totalMonthly = subs.reduce((s,x) => s + x.monthly, 0);
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%);color:white;border-radius:16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Subscription Audit</h2>
           <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Detected from your transaction history. Review each one — keep it or cut it.</p>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
@@ -3090,14 +3206,14 @@
         ${subs.length === 0 ? `<div class="card"><p class="text-muted text-center">No subscriptions detected yet — add transactions to your log first.</p></div>` :
           subs.map(s => `
             <div class="card" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-              <div style="width:40px;height:40px;background:#F2F2F7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#6E6E73;flex-shrink:0;">${s.name.charAt(0).toUpperCase()}</div>
+              <div style="width:40px;height:40px;background:var(--surface);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--text-muted);flex-shrink:0;">${s.name.charAt(0).toUpperCase()}</div>
               <div style="flex:1;min-width:150px;">
                 <div style="font-weight:600;">${s.name}</div>
-                <div style="font-size:12px;color:#6E6E73;">${s.count} charges detected · avg ${AUD(s.avg)} each</div>
+                <div style="font-size:12px;color:var(--text-muted);">${s.count} charges detected · avg ${AUD(s.avg)} each</div>
               </div>
               <div style="text-align:right;">
-                <div class="num" style="font-weight:700;font-size:16px;">${AUD(s.monthly)}<span style="font-size:11px;color:#6E6E73;">/mo</span></div>
-                <div class="num" style="font-size:12px;color:#8E8E93;">${AUD(s.monthly*12)}/yr</div>
+                <div class="num" style="font-weight:700;font-size:16px;">${AUD(s.monthly)}<span style="font-size:11px;color:var(--text-muted);">/mo</span></div>
+                <div class="num" style="font-size:12px;color:var(--text-dim);">${AUD(s.monthly*12)}/yr</div>
               </div>
               <div style="display:flex;gap:0.5rem;">
                 <button class="btn-success btn-small" onclick="showToast('✓ Keeping ${s.name}','success')">Keep ✓</button>
@@ -3151,7 +3267,7 @@
       });
       const totalThisMonth = monthlyBillsTotal();
       const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      let calHTML = '<div class="cal-grid" style="margin-bottom:0.5rem;">' + dayNames.map(d => `<div style="text-align:center;font-size:11px;font-weight:600;color:#6E6E73;padding:0.5rem 0;">${d}</div>`).join('') + '</div>';
+      let calHTML = '<div class="cal-grid" style="margin-bottom:0.5rem;">' + dayNames.map(d => `<div style="text-align:center;font-size:11px;font-weight:600;color:var(--text-muted);padding:0.5rem 0;">${d}</div>`).join('') + '</div>';
       calHTML += '<div class="cal-grid">';
       for (let i = 0; i < firstDay; i++) calHTML += '<div class="cal-day other-month"></div>';
       for (let d = 1; d <= daysInMonth; d++) {
@@ -3182,13 +3298,13 @@
             upcomingBills.map(b => {
               const daysLeft = parseInt(b.dueDay) - now.getDate();
               const status = b.paid ? 'paid' : daysLeft < 0 ? 'overdue' : daysLeft <= 3 ? 'due' : '';
-              return `<div class="flex-between" style="padding:0.9rem 1rem;border-bottom:1px solid #D2D2D7;">
+              return `<div class="flex-between" style="padding:0.9rem 1rem;border-bottom:1px solid var(--border);">
                 <div>
                   <div style="font-weight:600;">${b.name}</div>
-                  <div style="font-size:12px;color:#6E6E73;">Day ${b.dueDay} · ${b.paid ? 'Paid' : daysLeft === 0 ? 'Due TODAY' : daysLeft > 0 ? 'In '+daysLeft+' day'+(daysLeft!==1?'s':'') : Math.abs(daysLeft)+' days overdue'}</div>
+                  <div style="font-size:12px;color:var(--text-muted);">Day ${b.dueDay} · ${b.paid ? 'Paid' : daysLeft === 0 ? 'Due TODAY' : daysLeft > 0 ? 'In '+daysLeft+' day'+(daysLeft!==1?'s':'') : Math.abs(daysLeft)+' days overdue'}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;">
-                  <div class="num" style="font-weight:700;${!b.paid&&daysLeft<=3?'color:#FF3B30;':''}">${AUD(b.amount)}</div>
+                  <div class="num" style="font-weight:700;${!b.paid&&daysLeft<=3?'color:var(--danger);':''}">${AUD(b.amount)}</div>
                   ${!b.paid ? `<button class="btn-success btn-small" onclick="markBillPaid(${b.id})">Paid ✓</button>` : `<span class="bill-status paid">PAID</span>`}
                 </div>
               </div>`;
@@ -3203,20 +3319,20 @@
       return `
         <div class="card">
           <h2>Account</h2>
-          <div class="flex-between" style="padding:1rem;background:#F5F5F7;border-radius:10px;">
+          <div class="flex-between" style="padding:1rem;background:var(--bg);border-radius:10px;">
             <div>
               <div style="font-weight:600;">${currentUser ? (currentUser.email || 'Signed in') : 'Not signed in'}</div>
-              <div style="font-size:13px;color:#6E6E73;">Your data is private to this account</div>
+              <div style="font-size:13px;color:var(--text-muted);">Your data is private to this account</div>
             </div>
             <button class="btn-danger btn-small" onclick="logOut()">Sign Out</button>
           </div>
         </div>
         <div class="card">
           <h2>App Settings</h2>
-          <div class="flex-between" style="padding:1rem;background:#F5F5F7;border-radius:10px;margin-bottom:1rem;">
+          <div class="flex-between" style="padding:1rem;background:var(--bg);border-radius:10px;margin-bottom:1rem;">
             <div>
               <div style="font-weight:600;">Dark Mode</div>
-              <div style="font-size:13px;color:#6E6E73;">Easier on the eyes at night</div>
+              <div style="font-size:13px;color:var(--text-muted);">Easier on the eyes at night</div>
             </div>
             <button class="${darkMode ? 'btn-primary' : 'btn-secondary'} btn-small" onclick="toggleDarkMode()">${darkMode ? 'ON ●' : 'OFF ○'}</button>
           </div>
@@ -3228,10 +3344,10 @@
             <div style="margin-bottom:1.5rem;">
               <h3 style="margin-bottom:1rem;">Your Templates</h3>
               ${txTemplates.map(t => `
-                <div class="flex-between" style="padding:0.75rem 1rem;border:1px solid #D2D2D7;border-radius:10px;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
+                <div class="flex-between" style="padding:0.75rem 1rem;border:1px solid var(--border);border-radius:10px;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
                   <div>
                     <div style="font-weight:600;">${t.name}</div>
-                    <div style="font-size:12px;color:#6E6E73;">${t.category} · ${t.type}</div>
+                    <div style="font-size:12px;color:var(--text-muted);">${t.category} · ${t.type}</div>
                   </div>
                   <div style="display:flex;align-items:center;gap:0.75rem;">
                     <div class="num" style="font-weight:700;">${AUD(t.amount)}</div>
@@ -3369,7 +3485,7 @@ ${goals.map(g=>'  '+g.name+': '+AUD(g.savedAmount||0)+' / '+AUD(g.targetAmount)+
 ${'='.repeat(45)}
 Generated: ${new Date().toLocaleDateString('en-AU')}`;
       document.getElementById('reportOutput').innerHTML = `
-        <pre style="background:#F5F5F7;border:1px solid #D2D2D7;border-radius:10px;padding:1.5rem;font-size:12px;overflow-x:auto;white-space:pre-wrap;">${report}</pre>
+        <pre style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-size:12px;overflow-x:auto;white-space:pre-wrap;">${report}</pre>
         <button class="btn-secondary btn-small" style="margin-top:0.75rem;" onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent).then(()=>showToast('✓ Copied!','success'))">Copy to Clipboard</button>`;
     }
 
@@ -3392,7 +3508,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         for (let m = 0; m < Math.min(12, (yearsToRetire-yr)*12); m++) bal = (bal + totalAnnual/12) * (1 + annualReturn/12);
       }
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%);color:white;border-radius:16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Superannuation</h2>
           <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Projected at ${annualReturn*100}% average annual return</p>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
@@ -3431,16 +3547,16 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <div style="overflow-x:auto;">
             <table>
               <thead><tr><th>Age</th><th style="text-align:right;">Projected Balance</th><th style="text-align:right;">Growth</th></tr></thead>
-              <tbody>${ageSteps.map((s,i) => `<tr><td><strong>Age ${s.age}</strong></td><td style="text-align:right;" class="num" style="font-weight:600;">${AUD(s.balance)}</td><td style="text-align:right;" class="num" style="color:#34C759;">+${AUD(s.balance - superData.balance)}</td></tr>`).join('')}</tbody>
+              <tbody>${ageSteps.map((s,i) => `<tr><td><strong>Age ${s.age}</strong></td><td style="text-align:right;" class="num" style="font-weight:600;">${AUD(s.balance)}</td><td style="text-align:right;" class="num" style="color:var(--success);">+${AUD(s.balance - superData.balance)}</td></tr>`).join('')}</tbody>
             </table>
           </div>
         </div>
         <div class="card">
           <h2>Super Tips</h2>
           <div style="display:grid;gap:0.75rem;">
-            <div style="padding:0.75rem 1rem;background:#F2F2F7;border-radius:8px;border-left:3px solid #34C759;"><strong>Salary sacrifice</strong> — contributing before tax reduces your taxable income. Even $50/fn extra makes a huge difference over time.</div>
-            <div style="padding:0.75rem 1rem;background:#F2F2F7;border-radius:8px;border-left:3px solid #0F95A8;"><strong>Employer rate</strong> — from 2025 it's 11.5%, rising to 12% in 2026. Make sure your employer is paying correctly.</div>
-            <div style="padding:0.75rem 1rem;background:#F2F2F7;border-radius:8px;border-left:3px solid #5E5CE6;"><strong>Extra $50/fn</strong> = approximately ${AUD(50 * 26 * yearsToRetire)} more at retirement (before compounding).</div>
+            <div style="padding:0.75rem 1rem;background:var(--surface);border-radius:8px;border-left:3px solid var(--success);"><strong>Salary sacrifice</strong> — contributing before tax reduces your taxable income. Even $50/fn extra makes a huge difference over time.</div>
+            <div style="padding:0.75rem 1rem;background:var(--surface);border-radius:8px;border-left:3px solid var(--accent);"><strong>Employer rate</strong> — from 2025 it's 11.5%, rising to 12% in 2026. Make sure your employer is paying correctly.</div>
+            <div style="padding:0.75rem 1rem;background:var(--surface);border-radius:8px;border-left:3px solid var(--purple);"><strong>Extra $50/fn</strong> = approximately ${AUD(50 * 26 * yearsToRetire)} more at retirement (before compounding).</div>
           </div>
         </div>`;
     }
@@ -3480,7 +3596,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const effectiveRate = annualIncome > 0 ? ((totalTax / annualIncome) * 100).toFixed(1) : 0;
       const takeHomeMo = Math.round((annualIncome - totalTax) / 12);
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%);color:white;border-radius:16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Tax Refund Estimator</h2>
           <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Rough ATO estimate — 2025–26 brackets. Not financial advice.</p>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
@@ -3515,7 +3631,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
             <button class="btn-primary" onclick="applyTaxIncome()" style="flex-shrink:0;">Apply</button>
             ${usingCustom ? '<button class="btn-secondary" onclick="resetTaxIncome()" style="flex-shrink:0;">Reset to App Income</button>' : ''}
           </div>
-          ${usingCustom ? '<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:#F2F2F7;border-radius:6px;font-size:12px;color:#6E6E73;font-weight:500;">Custom income active — calculations below use your override.</div>' : ''}
+          ${usingCustom ? '<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:var(--surface);border-radius:6px;font-size:12px;color:var(--text-muted);font-weight:500;">Custom income active — calculations below use your override.</div>' : ''}
         </div>
 
         <div class="card">
@@ -3529,12 +3645,12 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
             { label: 'Monthly PAYG (approx)', value: AUD(Math.round(totalTax / 12)), note: 'What your employer withholds per month' },
             { label: 'Monthly Take-home', value: AUD(takeHomeMo), note: 'After-tax monthly income estimate', highlight: true }
           ].map(r => `
-            <div class="flex-between" style="padding:0.8rem 0;border-bottom:1px solid #D2D2D7;${r.highlight?'background:#F2F2F7;padding:0.8rem;border-radius:8px;margin-top:0.5rem;border:none;':''}">
+            <div class="flex-between" style="padding:0.8rem 0;border-bottom:1px solid var(--border);${r.highlight?'background:var(--surface);padding:0.8rem;border-radius:8px;margin-top:0.5rem;border:none;':''}">
               <div>
-                <div style="${r.bold?'font-weight:700;':r.highlight?'font-weight:700;color:#059669;':''}">${r.label}</div>
-                <div style="font-size:12px;color:#6E6E73;">${r.note}</div>
+                <div style="${r.bold?'font-weight:700;':r.highlight?'font-weight:700;color:var(--success-dark);':''}">${r.label}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${r.note}</div>
               </div>
-              <div class="num" style="font-weight:700;${r.highlight?'color:#059669;font-size:18px;':''};">${r.value}</div>
+              <div class="num" style="font-weight:700;${r.highlight?'color:var(--success-dark);font-size:18px;':''};">${r.value}</div>
             </div>`).join('')}
         </div>
 
@@ -3590,13 +3706,13 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       ];
       let rate = 0;
       for (const [threshold, r] of rates) { if (income <= threshold * 1000) { rate = r; break; } }
-      if (income < 54435) { document.getElementById('hecsResult').innerHTML = '<div style="padding:0.75rem;background:#F2F2F7;border-radius:8px;font-size:13px;color:#059669;">Below repayment threshold — no mandatory repayment this year.</div>'; return; }
+      if (income < 54435) { document.getElementById('hecsResult').innerHTML = '<div style="padding:0.75rem;background:var(--surface);border-radius:8px;font-size:13px;color:var(--success-dark);">Below repayment threshold — no mandatory repayment this year.</div>'; return; }
       const annual = Math.round(income * rate);
       const monthly = Math.round(annual / 12);
       const fortnightly = Math.round(annual / 26);
       const yearsToPayoff = bal / annual;
       document.getElementById('hecsResult').innerHTML = `
-        <div style="padding:1rem;background:#F2F2F7;border-radius:10px;border-left:3px solid #FF9500;">
+        <div style="padding:1rem;background:var(--surface);border-radius:10px;border-left:3px solid var(--warning);">
           <div class="flex-between" style="margin-bottom:0.5rem;"><span style="font-weight:600;">Repayment rate</span><span style="font-weight:700;">${(rate*100).toFixed(1)}% of income</span></div>
           <div class="flex-between" style="margin-bottom:0.5rem;"><span>Annual repayment</span><span class="num" style="font-weight:600;">${AUD(annual)}</span></div>
           <div class="flex-between" style="margin-bottom:0.5rem;"><span>Monthly (approx)</span><span class="num" style="font-weight:600;">${AUD(monthly)}</span></div>
@@ -3617,10 +3733,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const saving = Math.max(0, taxBefore - taxAfter);
       const newIncome = Math.max(0, income - total);
       document.getElementById('deductionResult').innerHTML = `
-        <div style="margin-top:1rem;padding:1rem;background:#F2F2F7;border-radius:10px;border-left:3px solid #34C759;">
+        <div style="margin-top:1rem;padding:1rem;background:var(--surface);border-radius:10px;border-left:3px solid var(--success);">
           <div class="flex-between" style="margin-bottom:0.5rem;"><span style="font-weight:600;">Total deductions</span><span class="num" style="font-weight:700;">${AUD(Math.round(total))}</span></div>
           <div class="flex-between" style="margin-bottom:0.5rem;"><span>Taxable income after deductions</span><span class="num" style="font-weight:600;">${AUD(Math.round(newIncome))}</span></div>
-          <div class="flex-between"><span style="font-weight:700;">Estimated tax saving</span><span class="num" style="font-weight:700;color:#34C759;font-size:16px;">~${AUD(Math.round(saving))}</span></div>
+          <div class="flex-between"><span style="font-weight:700;">Estimated tax saving</span><span class="num" style="font-weight:700;color:var(--success);font-size:16px;">~${AUD(Math.round(saving))}</span></div>
         </div>`;
     }
 
@@ -3703,7 +3819,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const completedCount = steps.filter(s => done[s.key]).length;
       const pct = steps.length > 0 ? Math.round(completedCount / steps.length * 100) : 0;
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%);color:white;border-radius:16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Payday Action Checklist</h2>
           <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">${fortnightLabel(fk)} — do these IN ORDER the moment pay lands</p>
           <div style="margin-top:1.5rem;">
@@ -3715,33 +3831,33 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         <div class="card">
           <h2>This Fortnight\'s Actions</h2>
           ${steps.map((s, i) => `
-            <div onclick="togglePaydayStep('${s.key}','${fk}')" style="display:flex;align-items:center;gap:1rem;padding:1rem;border-radius:10px;background:${done[s.key] ? '#F2F2F7' : '#F5F5F7'};border:2px solid ${done[s.key] ? '#34C759' : '#D2D2D7'};margin-bottom:0.75rem;cursor:pointer;transition:all 0.2s;">
-              <div style="width:28px;height:28px;background:${done[s.key] ? '#34C759' : 'white'};border:2px solid ${done[s.key] ? '#34C759' : '#AEAEB2'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;color:${done[s.key] ? 'white' : '#6E6E73'};">${done[s.key] ? '✓' : (i+1)}</div>
+            <div onclick="togglePaydayStep('${s.key}','${fk}')" style="display:flex;align-items:center;gap:1rem;padding:1rem;border-radius:10px;background:${done[s.key] ? 'var(--surface)' : 'var(--bg)'};border:2px solid ${done[s.key] ? 'var(--success)' : 'var(--border)'};margin-bottom:0.75rem;cursor:pointer;transition:all 0.2s;">
+              <div style="width:28px;height:28px;background:${done[s.key] ? 'var(--success)' : 'white'};border:2px solid ${done[s.key] ? 'var(--success)' : '#AEAEB2'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;color:${done[s.key] ? 'white' : 'var(--text-muted)'};">${done[s.key] ? '✓' : (i+1)}</div>
               <div style="flex:1;">
-                <div style="font-weight:600;${done[s.key] ? 'text-decoration:line-through;color:#8E8E93;' : ''}">${s.label}</div>
-                <div style="font-size:12px;color:#6E6E73;">${s.desc}</div>
+                <div style="font-weight:600;${done[s.key] ? 'text-decoration:line-through;color:var(--text-dim);' : ''}">${s.label}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${s.desc}</div>
               </div>
             </div>`).join('')}
         </div>
         <div class="card">
           <h2>Interest Burning Right Now</h2>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
-            <div style="text-align:center;padding:1rem;background:#F2F2F7;border-radius:10px;">
-              <div style="font-size:11px;color:#6E6E73;text-transform:uppercase;margin-bottom:0.25rem;">Per Day</div>
-              <div style="font-size:20px;font-weight:700;color:#FF3B30;" class="num">${AUD(dailyInterest())}</div>
+            <div style="text-align:center;padding:1rem;background:var(--surface);border-radius:10px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Per Day</div>
+              <div style="font-size:20px;font-weight:700;color:var(--danger);" class="num">${AUD(dailyInterest())}</div>
             </div>
-            <div style="text-align:center;padding:1rem;background:#F2F2F7;border-radius:10px;">
-              <div style="font-size:11px;color:#6E6E73;text-transform:uppercase;margin-bottom:0.25rem;">Per Week</div>
-              <div style="font-size:20px;font-weight:700;color:#FF3B30;" class="num">${AUD(weeklyInterest())}</div>
+            <div style="text-align:center;padding:1rem;background:var(--surface);border-radius:10px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Per Week</div>
+              <div style="font-size:20px;font-weight:700;color:var(--danger);" class="num">${AUD(weeklyInterest())}</div>
             </div>
-            <div style="text-align:center;padding:1rem;background:#F2F2F7;border-radius:10px;">
-              <div style="font-size:11px;color:#6E6E73;text-transform:uppercase;margin-bottom:0.25rem;">Per Month</div>
-              <div style="font-size:20px;font-weight:700;color:#FF3B30;" class="num">${AUD(monthlyInterestCost())}</div>
+            <div style="text-align:center;padding:1rem;background:var(--surface);border-radius:10px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.25rem;">Per Month</div>
+              <div style="font-size:20px;font-weight:700;color:var(--danger);" class="num">${AUD(monthlyInterestCost())}</div>
             </div>
           </div>
           ${debts.length > 0 ? `<div style="margin-top:1rem;">` + debts.map(d => {
             const daily = (d.balance||0)*(d.rate||0)/100/365;
-            return `<div class="flex-between" style="padding:0.5rem 0;border-bottom:1px solid #D2D2D7;font-size:13px;"><span>${d.name} (${d.rate}%)</span><span class="num" style="color:#FF3B30;">${AUD(daily)}/day</span></div>`;
+            return `<div class="flex-between" style="padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${d.name} (${d.rate}%)</span><span class="num" style="color:var(--danger);">${AUD(daily)}/day</span></div>`;
           }).join('') + `</div>` : ''}
         </div>`;
     }
@@ -3785,7 +3901,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const maxMonths = Math.max(...timeline.map(t => t.months), 1);
       const colors = ['#FF3B30','#F97316','#FF9500','#34C759','#0F95A8','#5E5CE6'];
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%);color:white;border-radius:16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Debt Payoff Timeline</h2>
           <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">${debtMethod === 'avalanche' ? 'Avalanche' : 'Snowball'} method · surplus rolled into next debt</p>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
@@ -3817,15 +3933,15 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
                   </div>
                   <div style="text-align:right;font-size:13px;">
                     <div class="num" style="font-weight:700;">${AUD(t.balance)}</div>
-                    <div style="color:#6E6E73;">${t.months}mo · ${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</div>
+                    <div style="color:var(--text-muted);">${t.months}mo · ${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</div>
                   </div>
                 </div>
-                <div style="height:28px;background:#E8E8ED;border-radius:8px;overflow:hidden;position:relative;">
+                <div style="height:28px;background:var(--border-soft);border-radius:8px;overflow:hidden;position:relative;">
                   <div style="height:100%;width:${widthPct}%;background:${colors[i%colors.length]};border-radius:8px;display:flex;align-items:center;padding:0 0.75rem;transition:width 0.6s ease;">
                     <span style="color:white;font-size:11px;font-weight:600;white-space:nowrap;">${t.rate}% · ${AUD(t.payment)}/mo</span>
                   </div>
                 </div>
-                <div style="font-size:11px;color:#8E8E93;margin-top:0.3rem;">Interest cost: ${AUD(Math.round(t.totalInterest))} · freed payment after: ${AUD(t.payment)}/mo</div>
+                <div style="font-size:11px;color:var(--text-dim);margin-top:0.3rem;">Interest cost: ${AUD(Math.round(t.totalInterest))} · freed payment after: ${AUD(t.payment)}/mo</div>
               </div>`;
           }).join('')}
         </div>
@@ -3838,10 +3954,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
                 <tr>
                   <td><strong>${i+1}. ${t.name}</strong></td>
                   <td class="num">${AUD(t.balance)}</td>
-                  <td style="color:#FF3B30;">${t.rate}%</td>
+                  <td style="color:var(--danger);">${t.rate}%</td>
                   <td class="num">${AUD(Math.round(t.payment))}/mo</td>
                   <td><strong>${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</strong></td>
-                  <td class="num" style="color:#FF3B30;">${AUD(Math.round(t.totalInterest))}</td>
+                  <td class="num" style="color:var(--danger);">${AUD(Math.round(t.totalInterest))}</td>
                 </tr>`).join('')}
               </tbody>
             </table>
@@ -3889,7 +4005,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
                 return `<tr>
                   <td><strong>${cat}</strong></td>
                   ${monthly.map(v => `<td style="text-align:right;" class="num">${v > 0 ? AUD(v) : '—'}</td>`).join('')}
-                  <td style="text-align:right;font-weight:700;color:${trend > 10 ? '#FF3B30' : trend < -10 ? '#34C759' : '#6E6E73'};">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}${Math.abs(trend)}%</td>
+                  <td style="text-align:right;font-weight:700;color:${trend > 10 ? 'var(--danger)' : trend < -10 ? 'var(--success)' : 'var(--text-muted)'};">${trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}${Math.abs(trend)}%</td>
                 </tr>`;
               }).join('')}</tbody>
             </table>
@@ -3899,20 +4015,20 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <h2>Income Stability Score</h2>
           ${variance === 0 ? '<p class="text-muted">Log at least 2 pay cycles to see your stability score.</p>' : `
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
-            <div style="text-align:center;padding:1rem;background:#F5F5F7;border-radius:10px;">
-              <div style="font-size:11px;color:#6E6E73;text-transform:uppercase;">Pay Variance</div>
+            <div style="text-align:center;padding:1rem;background:var(--bg);border-radius:10px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Pay Variance</div>
               <div style="font-size:20px;font-weight:700;margin-top:0.25rem;" class="num">±${AUD(variance)}</div>
             </div>
-            <div style="text-align:center;padding:1rem;background:#F5F5F7;border-radius:10px;">
-              <div style="font-size:11px;color:#6E6E73;text-transform:uppercase;">Recommended Buffer</div>
-              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;color:#FF9500;" class="num">${AUD(buffer)}</div>
+            <div style="text-align:center;padding:1rem;background:var(--bg);border-radius:10px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Recommended Buffer</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;color:var(--warning);" class="num">${AUD(buffer)}</div>
             </div>
-            <div style="text-align:center;padding:1rem;background:#F5F5F7;border-radius:10px;">
-              <div style="font-size:11px;color:#6E6E73;text-transform:uppercase;">Stability</div>
-              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;color:${variance < 200 ? '#34C759' : variance < 500 ? '#FF9500' : '#FF3B30'};">${variance < 200 ? 'Stable' : variance < 500 ? 'Moderate' : 'Variable'}</div>
+            <div style="text-align:center;padding:1rem;background:var(--bg);border-radius:10px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Stability</div>
+              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;color:${variance < 200 ? 'var(--success)' : variance < 500 ? 'var(--warning)' : 'var(--danger)'};">${variance < 200 ? 'Stable' : variance < 500 ? 'Moderate' : 'Variable'}</div>
             </div>
           </div>
-          <div style="padding:0.75rem 1rem;background:#F2F2F7;border-radius:8px;border-left:3px solid #FF9500;font-size:13px;">
+          <div style="padding:0.75rem 1rem;background:var(--surface);border-radius:8px;border-left:3px solid var(--warning);font-size:13px;">
             Keep <strong>${AUD(buffer)}</strong> as a buffer in your everyday account to handle low pay weeks without touching debt payments or savings.
           </div>`}
         </div>
@@ -3920,10 +4036,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <h2>Net Worth Milestones</h2>
           ${Object.keys(netWorthMilestones).length === 0 ? '<p class="text-muted">No milestones reached yet. Keep going!</p>' :
             Object.values(netWorthMilestones).sort((a,b) => a.value - b.value).map(m => `
-              <div class="flex-between" style="padding:0.75rem 0;border-bottom:1px solid #D2D2D7;">
+              <div class="flex-between" style="padding:0.75rem 0;border-bottom:1px solid var(--border);">
                 <div style="display:flex;align-items:center;gap:0.75rem;">
-                  <span style="width:8px;height:8px;border-radius:50%;background:#FF9500;display:inline-block;"></span>
-                  <div><div style="font-weight:600;">Net worth hit ${AUD(m.value)}</div><div style="font-size:12px;color:#6E6E73;">${m.date}</div></div>
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--warning);display:inline-block;"></span>
+                  <div><div style="font-weight:600;">Net worth hit ${AUD(m.value)}</div><div style="font-size:12px;color:var(--text-muted);">${m.date}</div></div>
                 </div>
               </div>`).join('')}
         </div>`;
@@ -3954,7 +4070,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // ═══════════════════════════════════════════════════════════════
     function renderCurrency() {
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%);color:white;border-radius:16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Currency Converter</h2>
           <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Live rates via exchangerate API · Wise fee estimate included</p>
         </div>
@@ -4003,7 +4119,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <h2>Wise vs Bank Comparison</h2>
           <p class="text-muted" style="font-size:13px;margin-bottom:1rem;">Wise typically charges 0.4–0.9% vs banks charging 2–4% plus a flat fee.</p>
           <div id="wiseCompare"></div>
-          <div style="margin-top:1rem;padding:0.75rem 1rem;background:#F2F2F7;border-radius:8px;border-left:3px solid #34C759;font-size:13px;">
+          <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--surface);border-radius:8px;border-left:3px solid var(--success);font-size:13px;">
             Use <strong>wise.com</strong> for international transfers — it uses the real mid-market rate with transparent fees. For large transfers, savings can be significant.
           </div>
         </div>`;
@@ -4013,7 +4129,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const from = document.getElementById('currFrom')?.value || 'AUD';
       const to = document.getElementById('currTo')?.value || 'USD';
       if (amount <= 0) { document.getElementById('currResult').innerHTML = ''; return; }
-      document.getElementById('currResult').innerHTML = '<div style="color:#6E6E73;font-size:13px;">Loading rates...</div>';
+      document.getElementById('currResult').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Loading rates...</div>';
       try {
         const res = await fetch('https://api.exchangerate-api.com/v4/latest/' + from);
         const data = await res.json();
@@ -4025,28 +4141,28 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         const bankFee = amount * 0.03 + 15;
         const bankConverted = (amount - bankFee) * rate;
         document.getElementById('currResult').innerHTML = `
-          <div style="text-align:center;padding:1.5rem;background:#F2F2F7;border-radius:12px;margin-bottom:1rem;">
-            <div style="font-size:13px;color:#6E6E73;margin-bottom:0.5rem;">${amount} ${from} =</div>
-            <div style="font-size:32px;font-weight:700;color:#059669;">${converted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</div>
-            <div style="font-size:12px;color:#8E8E93;margin-top:0.5rem;">Rate: 1 ${from} = ${rate.toFixed(4)} ${to}</div>
+          <div style="text-align:center;padding:1.5rem;background:var(--surface);border-radius:12px;margin-bottom:1rem;">
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem;">${amount} ${from} =</div>
+            <div style="font-size:32px;font-weight:700;color:var(--success-dark);">${converted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</div>
+            <div style="font-size:12px;color:var(--text-dim);margin-top:0.5rem;">Rate: 1 ${from} = ${rate.toFixed(4)} ${to}</div>
           </div>`;
         document.getElementById('wiseCompare').innerHTML = `
           <div style="display:grid;gap:0.75rem;">
-            <div style="padding:1rem;background:#F2F2F7;border-radius:10px;border-left:3px solid #34C759;">
-              <div class="flex-between"><span style="font-weight:600;">Wise</span><span class="num" style="font-weight:700;color:#059669;">${wiseConverted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span></div>
-              <div style="font-size:12px;color:#6E6E73;margin-top:0.25rem;">Fee: ~${AUD(wiseFee)} (0.6%) · Real mid-market rate</div>
+            <div style="padding:1rem;background:var(--surface);border-radius:10px;border-left:3px solid var(--success);">
+              <div class="flex-between"><span style="font-weight:600;">Wise</span><span class="num" style="font-weight:700;color:var(--success-dark);">${wiseConverted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span></div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:0.25rem;">Fee: ~${AUD(wiseFee)} (0.6%) · Real mid-market rate</div>
             </div>
-            <div style="padding:1rem;background:#F2F2F7;border-radius:10px;border-left:3px solid #FF3B30;">
-              <div class="flex-between"><span style="font-weight:600;">Typical Bank</span><span class="num" style="font-weight:700;color:#FF3B30;">${bankConverted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span></div>
-              <div style="font-size:12px;color:#6E6E73;margin-top:0.25rem;">Fee: ~${AUD(Math.round(bankFee))} (3% + $15 flat) · Marked-up rate</div>
+            <div style="padding:1rem;background:var(--surface);border-radius:10px;border-left:3px solid var(--danger);">
+              <div class="flex-between"><span style="font-weight:600;">Typical Bank</span><span class="num" style="font-weight:700;color:var(--danger);">${bankConverted.toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span></div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:0.25rem;">Fee: ~${AUD(Math.round(bankFee))} (3% + $15 flat) · Marked-up rate</div>
             </div>
-            <div style="padding:0.75rem 1rem;background:#F2F2F7;border-radius:8px;font-size:13px;" class="flex-between">
+            <div style="padding:0.75rem 1rem;background:var(--surface);border-radius:8px;font-size:13px;" class="flex-between">
               <span style="font-weight:600;">Wise saves you approx.</span>
               <span class="num" style="font-weight:700;color:#92400E;">${((wiseConverted - bankConverted)).toLocaleString('en-AU',{maximumFractionDigits:2})} ${to}</span>
             </div>
           </div>`;
       } catch (e) {
-        document.getElementById('currResult').innerHTML = '<div style="padding:0.75rem;background:#F2F2F7;border-radius:8px;font-size:13px;color:#FF3B30;">Could not load live rates. Check your internet connection.</div>';
+        document.getElementById('currResult').innerHTML = '<div style="padding:0.75rem;background:var(--surface);border-radius:8px;font-size:13px;color:var(--danger);">Could not load live rates. Check your internet connection.</div>';
       }
     }
 
@@ -4062,8 +4178,8 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       notificationsEnabled = perm === 'granted';
       const el = document.getElementById('notifStatus');
       if (el) el.innerHTML = perm === 'granted'
-        ? '<div style="padding:0.5rem 0.75rem;background:#F2F2F7;border-radius:6px;font-size:13px;color:#059669;">Notifications enabled</div>'
-        : '<div style="padding:0.5rem 0.75rem;background:#F2F2F7;border-radius:6px;font-size:13px;color:#FF3B30;">Notifications blocked — check browser settings</div>';
+        ? '<div style="padding:0.5rem 0.75rem;background:var(--surface);border-radius:6px;font-size:13px;color:var(--success-dark);">Notifications enabled</div>'
+        : '<div style="padding:0.5rem 0.75rem;background:var(--surface);border-radius:6px;font-size:13px;color:var(--danger);">Notifications blocked — check browser settings</div>';
       if (perm === 'granted') {
         showToast('✓ Notifications enabled', 'success');
         checkUpcomingBillNotifs();
@@ -4191,7 +4307,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
               ${sorted.map(([cat, amt]) => {
                 const pct = (amt / total) * 100;
                 return `
-                  <div style="background: #F5F5F7; padding: 1.25rem; border-radius: 8px;">
+                  <div style="background: var(--bg); padding: 1.25rem; border-radius: 8px;">
                     <div class="flex-between" style="margin-bottom: 0.75rem;">
                       <span style="font-weight: 600;">${cat}</span>
                       <span class="num" style="font-weight: 700;">${AUD(amt)}</span>
@@ -4223,7 +4339,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const surplus = inc - exp;
       const debtProgress = totalDebt() > 0 ? ((initialDebt || totalDebt()) - totalDebt()) / (initialDebt || 1) * 100 : 0;
       return `
-        <div class="card" style="background: linear-gradient(135deg, #1D1D1F 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
+        <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
           <h2 style="color: white; margin-bottom: 0.5rem;">Monthly Financial Health</h2>
           <p style="opacity: 0.8; font-size: 13px;">Your financial snapshot for ${monthLabel}</p>
         </div>
@@ -4231,37 +4347,37 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         <div class="card">
           <h2>This Month's Metrics</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
-            <div style="background: #F2F2F7; padding: 1.25rem; border-radius: 8px; border-left: 4px solid #0F95A8;">
+            <div style="background: var(--surface); padding: 1.25rem; border-radius: 8px; border-left: 4px solid var(--accent);">
               <div class="text-muted" style="font-size: 12px; margin-bottom: 0.5rem;">Income</div>
-              <div class="num" style="font-size: 20px; font-weight: 700; color: #0F95A8;">${AUD(inc)}</div>
+              <div class="num" style="font-size: 20px; font-weight: 700; color: var(--accent);">${AUD(inc)}</div>
             </div>
-            <div style="background: #F2F2F7; padding: 1.25rem; border-radius: 8px; border-left: 4px solid #FF9500;">
+            <div style="background: var(--surface); padding: 1.25rem; border-radius: 8px; border-left: 4px solid var(--warning);">
               <div class="text-muted" style="font-size: 12px; margin-bottom: 0.5rem;">Expenses</div>
               <div class="num" style="font-size: 20px; font-weight: 700; color: #D97706;">${AUD(exp)}</div>
             </div>
-            <div style="background: #F2F2F7; padding: 1.25rem; border-radius: 8px; border-left: 4px solid #34C759;">
+            <div style="background: var(--surface); padding: 1.25rem; border-radius: 8px; border-left: 4px solid var(--success);">
               <div class="text-muted" style="font-size: 12px; margin-bottom: 0.5rem;">Surplus</div>
               <div class="num" style="font-size: 20px; font-weight: 700; color: #30B650;">${AUD(surplus)}</div>
             </div>
-            <div style="background: #F2F2F7; padding: 1.25rem; border-radius: 8px; border-left: 4px solid #5E5CE6;">
+            <div style="background: var(--surface); padding: 1.25rem; border-radius: 8px; border-left: 4px solid var(--purple);">
               <div class="text-muted" style="font-size: 12px; margin-bottom: 0.5rem;">Debt Paid Down</div>
-              <div class="num" style="font-size: 20px; font-weight: 700; color: #7C3AED;">${Math.round(debtProgress)}%</div>
+              <div class="num" style="font-size: 20px; font-weight: 700; color: var(--purple-dark);">${Math.round(debtProgress)}%</div>
             </div>
           </div>
 
           <h3>Health Status</h3>
           <div style="display: grid; gap: 0.75rem;">
-            <div class="flex-between" style="padding: 1rem; background: ${surplus >= 0 ? '#F2F2F7' : '#F2F2F7'}; border-radius: 8px;">
+            <div class="flex-between" style="padding: 1rem; background: ${surplus >= 0 ? 'var(--surface)' : 'var(--surface)'}; border-radius: 8px;">
               <span>Savings Status</span>
-              <span style="font-weight: 700; color: ${surplus >= 0 ? '#34C759' : '#FF3B30'};">${surplus >= 0 ? '✓ Saving' : '⚠ Overspending'}</span>
+              <span style="font-weight: 700; color: ${surplus >= 0 ? 'var(--success)' : 'var(--danger)'};">${surplus >= 0 ? '✓ Saving' : '⚠ Overspending'}</span>
             </div>
-            <div class="flex-between" style="padding: 1rem; background: ${bills + debt <= inc * 0.7 ? '#F2F2F7' : '#F2F2F7'}; border-radius: 8px;">
+            <div class="flex-between" style="padding: 1rem; background: ${bills + debt <= inc * 0.7 ? 'var(--surface)' : 'var(--surface)'}; border-radius: 8px;">
               <span>Bills + Debt Coverage</span>
-              <span style="font-weight: 700; color: ${bills + debt <= inc * 0.7 ? '#34C759' : '#FF3B30'};">${Math.round((bills + debt) / inc * 100)}% of income</span>
+              <span style="font-weight: 700; color: ${bills + debt <= inc * 0.7 ? 'var(--success)' : 'var(--danger)'};">${Math.round((bills + debt) / inc * 100)}% of income</span>
             </div>
-            <div class="flex-between" style="padding: 1rem; background: ${totalDebt() > 0 ? '#F2F2F7' : '#F2F2F7'}; border-radius: 8px;">
+            <div class="flex-between" style="padding: 1rem; background: ${totalDebt() > 0 ? 'var(--surface)' : 'var(--surface)'}; border-radius: 8px;">
               <span>Debt Progress</span>
-              <span style="font-weight: 700; color: #7C3AED;">${totalDebt() > 0 ? `${Math.round(debtProgress)}% progress` : '✓ Debt-free'}</span>
+              <span style="font-weight: 700; color: var(--purple-dark);">${totalDebt() > 0 ? `${Math.round(debtProgress)}% progress` : '✓ Debt-free'}</span>
             </div>
           </div>
         </div>
