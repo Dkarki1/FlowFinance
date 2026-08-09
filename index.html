@@ -1438,6 +1438,7 @@
       { id: 'afford', label: 'Tools' },
       { divider: true },
       { id: 'spending', label: 'Insights' },
+      { id: 'compare', label: 'Compare' },
       { id: 'agents', label: 'CFO Agent' },
       { divider: true },
       { id: 'settings', label: 'Settings' }
@@ -4421,6 +4422,115 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       renderMain();
     }
 
+    // Month-on-month movement. Every figure comes from the CFO backend's
+    // comparison engine — direction of travel is a different question from
+    // where you stand, and it's the one the dashboard can't answer.
+    function monthLabel(key) {
+      if (!key) return '—';
+      return new Date(key + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+    }
+    function fmtMetric(m) {
+      if (m.unit === 'percent') return (m.current ?? 0).toFixed(1) + '%';
+      if (m.unit === 'count') return String(m.current ?? 0);
+      return AUD(m.current ?? 0);
+    }
+    function fmtChange(m) {
+      const up = m.change > 0;
+      const arrow = m.change === 0 ? '' : up ? '▲' : '▼';
+      const size = m.unit === 'count' ? Math.abs(m.change)
+        : m.unit === 'percent' ? Math.abs(m.change).toFixed(1) + '%'
+        : AUD(Math.abs(m.change));
+      const pct = m.percentChange == null ? '' : ` (${Math.abs(m.percentChange).toFixed(0)}%)`;
+      return `${arrow} ${size}${pct}`;
+    }
+    function statusColour(status) {
+      return status === 'improved' ? 'var(--success-dark)'
+        : status === 'worsened' ? 'var(--danger)'
+        : 'var(--text-muted)';
+    }
+    function metricRow(m) {
+      return `<div class="flex-between" style="padding:0.6rem 0;border-bottom:1px solid var(--border);gap:1rem;">
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:13.5px;">${escapeAgentText(m.label)}</div>
+          <div class="text-muted" style="font-size:11px;">was ${m.unit === 'currency' ? AUD(m.previous) : m.unit === 'percent' ? (m.previous ?? 0).toFixed(1) + '%' : m.previous}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap;">
+          <div class="num" style="font-weight:700;">${fmtMetric(m)}</div>
+          <div class="num" style="font-size:11.5px;color:${statusColour(m.status)};">${m.status === 'flat' ? 'no real change' : m.status === 'new' ? 'new this month' : fmtChange(m)}</div>
+        </div>
+      </div>`;
+    }
+
+    function renderCompare() {
+      const c = cfoSnapshot && cfoSnapshot.comparison;
+      if (!c) {
+        return `<div class="card"><h2>Compare</h2><p class="text-muted">No comparison published yet. Message the CFO bot (try <code>decisions</code>) and it will publish one.</p></div>`;
+      }
+
+      const groups = [
+        ['cashflow', 'Cash flow'],
+        ['spending', 'Spending by category'],
+        ['debt', 'Debt'],
+        ['wealth', 'Wealth'],
+      ];
+      const metrics = c.metrics || [];
+      const series = c.series || [];
+
+      let html = `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">${monthLabel(c.currentMonth)} vs ${monthLabel(c.previousMonth)}</h2>
+          <span class="text-muted" style="font-size:12px;">${(c.improving || []).length} improving · ${(c.worsening || []).length} worsening</span>
+        </div>`;
+
+      if (!c.hasPreviousData) {
+        html += `<p class="text-muted" style="font-size:13px;margin-top:0.75rem;">There's no data for ${monthLabel(c.previousMonth)}, so there's nothing to compare against yet. This becomes useful once you have two months of transactions.</p>`;
+      } else {
+        html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.85rem;margin-top:1rem;">
+          <div style="border:1px solid var(--border);border-left:3px solid var(--success);border-radius:8px;padding:0.85rem;">
+            <div class="text-muted" style="font-size:11px;">Biggest improvement</div>
+            ${c.biggestWin ? `<div style="font-weight:700;margin-top:0.25rem;">${escapeAgentText(c.biggestWin.label)}</div>
+              <div class="num" style="font-size:12.5px;color:var(--success-dark);">${fmtChange(c.biggestWin)}</div>` : '<div class="text-muted" style="font-size:13px;margin-top:0.25rem;">Nothing moved materially.</div>'}
+          </div>
+          <div style="border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:8px;padding:0.85rem;">
+            <div class="text-muted" style="font-size:11px;">Needs attention</div>
+            ${c.biggestSlip ? `<div style="font-weight:700;margin-top:0.25rem;">${escapeAgentText(c.biggestSlip.label)}</div>
+              <div class="num" style="font-size:12.5px;color:var(--danger);">${fmtChange(c.biggestSlip)}</div>` : '<div class="text-muted" style="font-size:13px;margin-top:0.25rem;">Nothing went backwards.</div>'}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+
+      // Trend across recent months — bars scaled to the largest month.
+      if (series.length > 1) {
+        const peak = Math.max(...series.map(p => Math.max(p.spending, p.income)), 1);
+        html += `<div class="card"><h2>Last ${series.length} months</h2>
+          <div style="display:flex;gap:0.75rem;align-items:flex-end;margin-top:1rem;height:150px;">
+          ${series.map(p => `
+            <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;height:100%;">
+              <div style="display:flex;gap:3px;align-items:flex-end;height:100%;width:100%;justify-content:center;">
+                <div title="In ${AUD(p.income)}" style="width:40%;background:var(--success);border-radius:3px 3px 0 0;height:${Math.max((p.income / peak) * 100, 1)}%;"></div>
+                <div title="Out ${AUD(p.spending)}" style="width:40%;background:var(--danger);border-radius:3px 3px 0 0;height:${Math.max((p.spending / peak) * 100, 1)}%;"></div>
+              </div>
+              <div class="text-muted" style="font-size:10px;white-space:nowrap;">${p.month.slice(5)}/${p.month.slice(2,4)}</div>
+            </div>`).join('')}
+          </div>
+          <div class="text-muted" style="font-size:11px;margin-top:0.75rem;">
+            <span style="display:inline-block;width:8px;height:8px;background:var(--success);border-radius:2px;"></span> in
+            &nbsp;<span style="display:inline-block;width:8px;height:8px;background:var(--danger);border-radius:2px;"></span> out
+          </div>
+        </div>`;
+      }
+
+      groups.forEach(([key, label]) => {
+        const rows = metrics.filter(m => m.group === key);
+        if (!rows.length) return;
+        const ordered = [...rows].sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+        html += `<div class="card"><h2>${label}</h2><div style="margin-top:0.5rem;">${ordered.map(metricRow).join('')}</div></div>`;
+      });
+
+      return html;
+    }
+
     function renderAgentActivity() {
       const pending = Object.entries(pendingConfirmations || {});
       const logs = Object.entries(agentLogs || {})
@@ -4535,6 +4645,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         case 'checklist': html = renderChecklistsTab(); break;
         case 'afford': html = renderToolsTab(); break;
         case 'spending': html = renderInsightsTab(); break;
+        case 'compare': html = renderCompare(); break;
         case 'agents': html = renderAgentActivity(); break;
         case 'settings': html = renderSettings(); break;
       }
