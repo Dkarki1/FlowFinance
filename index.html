@@ -1795,32 +1795,103 @@
 
       return html;
     }
-    function renderPayHistory(type) {
-      const pays = payEntries();
-      if (pays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
-      const key = getMonthKey();
-      const thisMonthTotal = pays.filter(p => getMonthKey(new Date(p.date + 'T00:00:00')) === key).reduce((s, p) => s + p.amount, 0);
-      const monthLabel = new Date().toLocaleDateString('en-AU', { month: 'long' });
-      const rows = pays.slice(-6).reverse().map(p => {
-        const isThisMonth = getMonthKey(new Date(p.date + 'T00:00:00')) === key;
+    /**
+     * The log is scoped to one month at a time, defaulting to the current one.
+     *
+     * That's what makes it start each month at zero without anything being
+     * deleted or archived: the total is a filter over the data, not a running
+     * counter. Every earlier month stays exactly where it was and is one
+     * dropdown away.
+     */
+    // null means "follow the current month". Pinning the month at page load
+    // would strand a PWA left open over midnight on the 1st still showing
+    // last month — and this is exactly the app you leave open.
+    let payMonthFilter = null;
+    const payMonth = () => payMonthFilter || getMonthKey();
+
+    /** Months with pay in them, newest first, plus the current month. */
+    function payMonthOptions() {
+      const months = [...new Set(payEntries().map(p => String(p.date).slice(0, 7)))].sort().reverse();
+      const current = getMonthKey();
+      if (!months.includes(current)) months.unshift(current);
+      const selected = payMonth();
+      return months.map(m => {
+        const label = new Date(m + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+        return `<option value="${m}"${m === selected ? ' selected' : ''}>${label}</option>`;
+      }).join('');
+    }
+
+    function refreshPayLog() {
+      const sel = document.getElementById('payMonth');
+      // Picking the current month goes back to following it, rather than
+      // pinning to this particular month forever.
+      if (sel) payMonthFilter = sel.value === getMonthKey() ? null : sel.value;
+      const body = document.getElementById('payLogBody');
+      if (body) body.innerHTML = renderPayLogBody();
+    }
+
+    function renderPayLogBody() {
+      const month = payMonth();
+      const all = payEntries();
+      const pays = all.filter(p => String(p.date).startsWith(month));
+      const total = pays.reduce((s, p) => s + p.amount, 0);
+      const isCurrent = month === getMonthKey();
+      const monthLabel = new Date(month + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long' });
+
+      // Same month last time round, so a light month is visible as a light
+      // month rather than just a number with nothing to compare it to.
+      const prevKey = (() => {
+        const [y, m] = month.split('-').map(Number);
+        const d = new Date(y, m - 2, 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      })();
+      const prevTotal = all.filter(p => String(p.date).startsWith(prevKey)).reduce((s, p) => s + p.amount, 0);
+      const prevLabel = new Date(prevKey + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long' });
+
+      const banner = `<div style="padding:0.6rem 0.9rem;background:var(--surface);border-radius:8px;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;color:var(--info);font-weight:600;">${monthLabel} total</span>
+        <span class="num" style="font-size:15px;font-weight:700;color:var(--info);">${AUD(total)}</span>
+      </div>`;
+
+      if (pays.length === 0) {
+        return banner + `<p class="text-muted" style="font-size:13px;">
+          ${isCurrent ? 'Nothing logged this month yet.' : `No pay logged in ${monthLabel}.`}
+          ${prevTotal > 0 ? ` ${prevLabel} came to ${AUD(prevTotal)}.` : ''}
+        </p>`;
+      }
+
+      const rows = pays.slice().reverse().map(p => {
         // Legacy entries still live in the old array, so they need the old
         // delete. Everything logged from now on is a transaction.
         const remove = p.legacy ? 'deleteVariablePay(' + p.id + ')' : 'deleteTx(' + p.id + ')';
-        return '<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 13px; ' + (isThisMonth ? 'font-weight: 600;' : 'opacity: 0.65;') + '">'
-          + '<span>' + p.date + (isThisMonth ? ' <span style="font-size:10px;color:var(--accent);margin-left:4px;">THIS MONTH</span>' : '') + sourceBadge(p.source) + '</span>'
-          + '<span class="num" style="font-weight: 700;">' + AUD(p.amount) + '</span>'
-          + '<button onclick="' + remove + '" style="background: none; border: none; color: #999; cursor: pointer; padding: 0 0.25rem;">✕</button>'
-          + '</div>';
+        return `<div class="flex-between" style="padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span>${formatDate(p.date)}${sourceBadge(p.source)}</span>
+          <span class="num" style="font-weight:700;">${AUD(p.amount)}</span>
+          <button onclick="${remove}" style="background:none;border:none;color:#999;cursor:pointer;padding:0 0.25rem;">✕</button>
+        </div>`;
       }).join('');
-      const monthBanner = thisMonthTotal > 0
-        ? '<div style="padding: 0.6rem 0.9rem; background: var(--surface); border-radius: 8px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">'
-          + '<span style="font-size: 13px; color: var(--info); font-weight: 600;">' + monthLabel + ' total</span>'
-          + '<span class="num" style="font-size: 15px; font-weight: 700; color: var(--info);">' + AUD(thisMonthTotal) + '</span>'
-          + '</div>'
+
+      const change = prevTotal > 0
+        ? `<p class="text-muted" style="font-size:11px;margin-top:0.6rem;">${prevLabel}: ${AUD(prevTotal)} — ${total >= prevTotal ? '+' : '−'}${AUD(Math.abs(total - prevTotal))} ${total >= prevTotal ? 'more' : 'less'} this month.</p>`
         : '';
-      return '<div style="margin-top: 1rem;">' + monthBanner + '<div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>' + rows + '</div>';
+
+      return banner
+        + `<div style="font-size:12px;font-weight:600;color:#666;margin-bottom:0.5rem;">${pays.length} pay${pays.length === 1 ? '' : 's'} in ${monthLabel}</div>`
+        + rows + change;
     }
-    function renderMyPayHistory() { return renderPayHistory('my'); }
+
+    function renderPayHistory() {
+      return `<div style="margin-top:1.25rem;">
+        <div class="flex-between" style="align-items:center;margin-bottom:0.6rem;">
+          <span style="font-size:12px;font-weight:600;color:#666;">Log</span>
+          <select id="payMonth" onchange="refreshPayLog()" style="padding:0.35rem 0.5rem;font-size:12px;max-width:180px;">
+            ${payMonthOptions()}
+          </select>
+        </div>
+        <div id="payLogBody">${renderPayLogBody()}</div>
+      </div>`;
+    }
+    function renderMyPayHistory() { return renderPayHistory(); }
     /* ------------------------------------------------------------------ *
      * Pay log
      *
