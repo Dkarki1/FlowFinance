@@ -1497,31 +1497,31 @@
       }).join('');
     }
     function renderDashboard() {
+      const kpiNote = (t) => `<div class="text-muted" style="font-size:11px;margin-top:0.35rem;line-height:1.35;">${t}</div>`;
       return `
-        ${renderDecisionsCard(3)}
-        ${renderEmergencyFundCard()}
         <div class="grid-4">
           <div class="kpi-card">
             <div class="kpi-label">Net Worth</div>
             <div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}">${AUD(netWorth())}</div>
+            ${kpiNote(`${AUD(totalAssets())} assets less ${AUD(totalDebt())} owed`)}
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Total Debt</div>
-            <div class="kpi-value num negative">${AUD(totalDebt())}</div>
+            <div class="kpi-value num">${AUD(totalDebt())}</div>
+            ${kpiNote(dailyInterest() > 0 ? `Costing ${AUD(dailyInterest())} a day in interest` : 'No interest accruing')}
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Monthly Income</div>
-            <div class="kpi-value num positive">${AUD(monthlyIncome())}</div>
+            <div class="kpi-value num">${AUD(monthlyIncome())}</div>
+            ${kpiNote(income.myPay ? `${AUD(income.myPay)} ${income.myFreq || 'monthly'}` : 'No pay amount recorded')}
           </div>
           <div class="kpi-card">
-            <div class="kpi-value num ${monthlySurplus() >= 0 ? 'positive' : 'negative'}">${AUD(monthlySurplus())}</div>
             <div class="kpi-label">Monthly Surplus</div>
+            <div class="kpi-value num ${monthlySurplus() >= 0 ? 'positive' : 'negative'}">${AUD(monthlySurplus())}</div>
+            ${kpiNote('After bills and debt minimums')}
           </div>
-          ${dailyInterest() > 0 ? `<div class="kpi-card" style="border-top:3px solid var(--danger);">
-            <div class="kpi-label" style="color:var(--danger);">Daily Interest Cost</div>
-            <div class="kpi-value num" style="color:var(--danger);">${AUD(dailyInterest())}</div>
-          </div>` : ''}
         </div>
+        ${renderEmergencyFundCard()}
         <div class="card">
           <h2>Your Income</h2>
           <div class="form-row">
@@ -4306,7 +4306,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
               <span style="font-weight:600;font-size:13.5px;">
                 <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SEVERITY_COLOUR[d.severity] || 'var(--border)'};margin-right:6px;"></span>${escapeAgentText(d.title)}
               </span>
-              <span class="text-muted" style="font-size:11px;white-space:nowrap;">${d.daysUntil === null ? '' : d.daysUntil <= 0 ? 'today' : d.daysUntil + 'd'}</span>
+              <span class="text-muted" style="font-size:11px;white-space:nowrap;">${d.daysUntil == null ? '' : d.daysUntil <= 0 ? 'today' : d.daysUntil + 'd'}</span>
             </div>
             <div class="text-muted" style="font-size:12px;margin-top:0.2rem;">${escapeAgentText(d.detail)}</div>
             ${d.costOfInaction ? `<div style="font-size:11.5px;margin-top:0.25rem;color:${SEVERITY_COLOUR[d.severity] || 'var(--text-muted)'};">${escapeAgentText(d.costOfInaction)}</div>` : ''}
@@ -4385,6 +4385,42 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       </svg></div>`;
     }
 
+    // Resolve a pending item the agent wasn't confident about. Writes a normal
+    // transaction in this app's own shape, then clears the pending entry.
+    async function approvePending(id) {
+      const p = (pendingConfirmations || {})[id];
+      if (!p) return;
+      const d = p.data || {};
+      const amount = parseFloat(document.getElementById('pendAmt_' + id)?.value);
+      if (!amount || amount <= 0) { showToast('Enter an amount first', 'error'); return; }
+      const category = document.getElementById('pendCat_' + id)?.value || d.category || 'Other';
+
+      transactions.push({
+        id: Date.now(),
+        date: String(d.date || today()).slice(0, 10),
+        name: d.merchant || d.name || 'Logged via Telegram',
+        amount,
+        type: 'expense',
+        category,
+        note: d.note || '',
+        source: p.type === 'receipt' ? 'telegram-photo' : 'telegram-text',
+      });
+      await saveTx();
+
+      delete pendingConfirmations[id];
+      await fbSet('pendingConfirmations', pendingConfirmations);
+      showToast('✓ Logged ' + AUD(amount), 'success');
+      renderMain();
+    }
+
+    async function rejectPending(id) {
+      if (!(pendingConfirmations || {})[id]) return;
+      delete pendingConfirmations[id];
+      await fbSet('pendingConfirmations', pendingConfirmations);
+      showToast('Discarded', 'success');
+      renderMain();
+    }
+
     function renderAgentActivity() {
       const pending = Object.entries(pendingConfirmations || {});
       const logs = Object.entries(agentLogs || {})
@@ -4436,13 +4472,20 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
 
       if (pending.length) {
         html += `<div class="card"><h2>Needs confirming</h2>
-          <p class="text-muted" style="font-size:13px;">The bot wasn't confident enough to log these automatically. Reply <strong>confirm &lt;id&gt;</strong> in Telegram to accept one.</p>`;
+          <p class="text-muted" style="font-size:13px;">The bot wasn't confident enough to log these automatically. Approve or reject them here, or reply <strong>confirm &lt;id&gt;</strong> in Telegram.</p>`;
         pending.forEach(([id, p]) => {
           const d = (p && p.data) || {};
-          html += `<div style="padding:0.75rem 0;border-bottom:1px solid var(--border);">
-            <div style="font-weight:600;">${d.amount != null ? AUD(d.amount) : 'Amount unreadable'} — ${escapeAgentText(d.category || 'uncategorised')}</div>
+          const known = d.amount != null && d.amount !== '';
+          html += `<div style="padding:0.85rem 0;border-bottom:1px solid var(--border);">
+            <div style="font-weight:600;">${known ? AUD(d.amount) : 'Amount unreadable'} — ${escapeAgentText(d.category || 'uncategorised')}</div>
             <div class="text-muted" style="font-size:12px;">${escapeAgentText(d.merchant || d.name || 'unknown merchant')} · ${escapeAgentText(p.type || '')} · ${escapeAgentText(String(p.createdAt || '').slice(0, 10))}</div>
-            <div class="text-muted" style="font-size:11px;margin-top:0.25rem;">id: <code>${escapeAgentText(id)}</code></div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;margin-top:0.6rem;">
+              <input type="number" id="pendAmt_${id}" value="${known ? d.amount : ''}" placeholder="Amount" min="0" step="0.01" style="max-width:130px;">
+              <select id="pendCat_${id}" style="max-width:170px;">${expenseCategoryOptions(d.category || 'Other')}</select>
+              <button class="btn-primary btn-small" onclick="approvePending('${id}')">Approve</button>
+              <button class="btn-secondary btn-small" onclick="rejectPending('${id}')">Reject</button>
+            </div>
+            ${!known ? `<div class="text-muted" style="font-size:11px;margin-top:0.4rem;">The agent couldn't read an amount — type it in before approving.</div>` : ''}
           </div>`;
         });
         html += `</div>`;
