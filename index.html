@@ -1421,6 +1421,90 @@
         return [...debts].sort((a, b) => (a.balance || 0) - (b.balance || 0));
       }
     }
+    // The rate actually in force in a given month. A 0% balance-transfer card
+    // is only 0% until the promo ends — treating that rate as permanent both
+    // understates interest and gets the avalanche ORDER wrong, because the
+    // debt jumps from last priority to near the front the month it lapses.
+    function effectiveRate(debt, monthsFromNow) {
+      if (!debt.promoEndDate || typeof debt.postPromoRate !== 'number') return debt.rate || 0;
+      const end = new Date(debt.promoEndDate);
+      if (isNaN(end.getTime())) return debt.rate || 0;
+      const at = new Date();
+      at.setMonth(at.getMonth() + (monthsFromNow - 1));
+      return at >= end ? debt.postPromoRate : (debt.rate || 0);
+    }
+    /**
+     * Simulates paying off ALL debts together, month by month.
+     *
+     * This is deliberately not calcPayoff() in a loop. calcPayoff() looks at one
+     * debt in isolation, so it misses the single biggest effect in a real payoff:
+     * when a debt clears, the minimum that was servicing it doesn't disappear —
+     * it rolls onto the next debt. Ignoring that understated this account's
+     * payoff by 23 months. It mirrors shared/engines/avalanche.ts exactly, so
+     * the chart and the Telegram bot can never disagree.
+     */
+    function simulatePayoffSchedule(extraMonthly = 0) {
+      const working = debts
+        .filter(d => (d.balance || 0) > 0)
+        .map(d => ({
+          id: d.id,
+          name: d.name,
+          balance: d.balance || 0,
+          minimum: toMonthly(d.minPayment, d.minFreq || 'monthly'),
+          rate: d.rate || 0,
+          promoEndDate: d.promoEndDate,
+          postPromoRate: d.postPromoRate
+        }));
+
+      const startingTotal = working.reduce((s, d) => s + d.balance, 0);
+      const balances = [startingTotal];
+      const cleared = [];
+      let totalInterest = 0;
+      let month = 0;
+
+      while (working.some(d => d.balance > 0.005) && month < 600) {
+        month++;
+        const open = working.filter(d => d.balance > 0.005);
+        const active = debtMethod === 'avalanche'
+          ? [...open].sort((a, b) => effectiveRate(b, month) - effectiveRate(a, month) || a.balance - b.balance)
+          : [...open].sort((a, b) => a.balance - b.balance || effectiveRate(b, month) - effectiveRate(a, month));
+
+        // Freed minimums keep working. This is the rollover.
+        let pool = extraMonthly + working
+          .filter(d => d.balance <= 0.005)
+          .reduce((s, d) => s + d.minimum, 0);
+
+        for (const debt of working) {
+          if (debt.balance <= 0.005) continue;
+          const interest = debt.balance * effectiveRate(debt, month) / 100 / 12;
+          let payment = Math.min(debt.minimum, debt.balance + interest);
+          if (active.length && active[0].id === debt.id && pool > 0) {
+            const applied = Math.min(pool, Math.max(debt.balance + interest - payment, 0));
+            payment += applied;
+            pool -= applied;
+          }
+          totalInterest += interest;
+          debt.balance = Math.max(0, debt.balance + interest - payment);
+          if (debt.balance <= 0.005 && !cleared.some(c => c.id === debt.id)) {
+            cleared.push({ id: debt.id, name: debt.name, month });
+          }
+        }
+        balances.push(working.reduce((s, d) => s + d.balance, 0));
+      }
+
+      const debtFree = new Date();
+      debtFree.setMonth(debtFree.getMonth() + month);
+      return {
+        months: month,
+        totalInterest,
+        balances,
+        cleared,
+        debtFreeDate: debtFree.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }),
+        // A run that hit the cap never actually pays off — say so rather than
+        // drawing a confident line to a date that will never arrive.
+        neverPaysOff: month >= 600
+      };
+    }
     // Tab Navigation
     const tabs = [
       { id: 'dashboard', label: 'Dashboard' },
@@ -1522,6 +1606,7 @@
             ${kpiNote('After bills and debt minimums')}
           </div>
         </div>
+        ${renderCashForecastCard()}
         ${renderEmergencyFundCard()}
         <div class="card">
           <h2>Your Income</h2>
@@ -1808,11 +1893,18 @@
           </select>
         </div>
         <div class="card">
-          <h2>Transactions</h2>
+          <div class="flex-between" style="align-items:baseline;">
+            <h2 style="margin:0;">Transactions</h2>
+            <button class="btn-small" onclick="exportTxCSV()" title="Download the transactions currently shown">Export CSV</button>
+          </div>
           <div id="txSummary">${renderTxSummary()}</div>
+          <div id="txBulkBar">${renderTxBulkBar()}</div>
           <div style="overflow-x: auto;">
             <table>
-              <thead><tr><th>Date</th><th>Name</th><th>Category</th><th>Type</th><th style="text-align: right;">Amount</th><th style="width: 50px;"></th></tr></thead>
+              <thead><tr>
+                <th style="width:34px;"><input type="checkbox" id="txSelectAll" onchange="toggleTxSelectAll(this.checked)" title="Select everything shown"></th>
+                <th>Date</th><th>Name</th><th>Category</th><th>Type</th><th style="text-align: right;">Amount</th><th style="width: 50px;"></th>
+              </tr></thead>
               <tbody id="txTbody">${renderTxRows()}</tbody>
             </table>
           </div>
@@ -1896,18 +1988,31 @@
     function refreshTxView() {
       const monthEl = document.getElementById('txMonth');
       if (monthEl) txMonthFilter = monthEl.value;
+
+      const visible = filteredTx();
+      // The selection can only ever contain rows you can see. Otherwise
+      // changing the filter leaves entries selected off-screen, and "Delete 12"
+      // deletes things that aren't on the page.
+      const visibleIds = new Set(visible.map(t => t.id));
+      [...txSelection].forEach(id => { if (!visibleIds.has(id)) txSelection.delete(id); });
+
       const tbody = document.getElementById('txTbody');
       if (tbody) tbody.innerHTML = renderTxRows();
       const sum = document.getElementById('txSummary');
       if (sum) sum.innerHTML = renderTxSummary();
+      const bar = document.getElementById('txBulkBar');
+      if (bar) bar.innerHTML = renderTxBulkBar();
+      const all = document.getElementById('txSelectAll');
+      if (all) all.checked = visible.length > 0 && txSelection.size === visible.length;
     }
     function renderTxRows() {
       const filtered = filteredTx();
       if (filtered.length === 0) {
-        return '<tr><td colspan="6" class="text-muted" style="padding:1.5rem 0;text-align:center;">No transactions match these filters.</td></tr>';
+        return '<tr><td colspan="7" class="text-muted" style="padding:1.5rem 0;text-align:center;">No transactions match these filters.</td></tr>';
       }
       return filtered.map(t => `
-        <tr>
+        <tr${txSelection.has(t.id) ? ' style="background:var(--surface);"' : ''}>
+          <td><input type="checkbox" onchange="toggleTxSelect(${t.id}, this.checked)"${txSelection.has(t.id) ? ' checked' : ''}></td>
           <td>${formatDate(t.date)}</td>
           <td>${t.name || '—'}${sourceBadge(t.source)}</td>
           <td><span class="badge badge-neutral">${t.category}</span></td>
@@ -1916,6 +2021,123 @@
           <td><button class="btn-icon btn-danger btn-small" onclick="deleteTx(${t.id})">×</button></td>
         </tr>
       `).join('');
+    }
+
+    /* ------------------------------------------------------------------ *
+     * Bulk edit
+     *
+     * Fixing a run of mis-categorised entries one at a time is the kind of
+     * chore that stops people correcting their data at all — and uncorrected
+     * data quietly makes every budget and comparison wrong.
+     * ------------------------------------------------------------------ */
+
+    let txSelection = new Set();
+
+    function toggleTxSelect(id, checked) {
+      if (checked) txSelection.add(id); else txSelection.delete(id);
+      const bar = document.getElementById('txBulkBar');
+      if (bar) bar.innerHTML = renderTxBulkBar();
+    }
+
+    function toggleTxSelectAll(checked) {
+      // Only what's actually on screen. "Select all" reaching past the filter
+      // into transactions you can't see is how people delete a year by accident.
+      const visible = filteredTx().map(t => t.id);
+      if (checked) visible.forEach(id => txSelection.add(id));
+      else visible.forEach(id => txSelection.delete(id));
+      refreshTxView();
+    }
+
+    function clearTxSelection() {
+      txSelection.clear();
+      refreshTxView();
+    }
+
+    function renderTxBulkBar() {
+      const n = txSelection.size;
+      if (n === 0) return '';
+      const selected = transactions.filter(t => t && txSelection.has(t.id));
+      const total = selected.reduce((s, t) => s + (+t.amount || 0), 0);
+      return `<div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:0.75rem;">
+        <strong style="font-size:13px;">${n} selected</strong>
+        <span class="text-muted num" style="font-size:12px;">${AUD(total)}</span>
+        <select id="bulkCategory" style="min-width:150px;padding:0.4rem;">
+          <option value="">Change category to…</option>
+          ${allCategories().map(c => `<option value="${c}">${c}</option>`).join('')}
+        </select>
+        <button class="btn-small btn-primary" onclick="bulkRecategorise()">Apply</button>
+        <button class="btn-small btn-danger" onclick="bulkDeleteTx()">Delete ${n}</button>
+        <button class="btn-small" onclick="clearTxSelection()">Clear</button>
+      </div>`;
+    }
+
+    function bulkRecategorise() {
+      const category = document.getElementById('bulkCategory')?.value;
+      if (!category) { showToast('Pick a category first', 'error'); return; }
+      let changed = 0;
+      transactions.forEach(t => {
+        if (t && txSelection.has(t.id) && t.category !== category) { t.category = category; changed++; }
+      });
+      if (changed === 0) { showToast('Already in that category', 'error'); return; }
+      txSelection.clear();
+      saveTx();
+      showToast(`✓ ${changed} recategorised`, 'success');
+    }
+
+    function bulkDeleteTx() {
+      const n = txSelection.size;
+      // Deliberately spells out the count and total: bulk delete is the one
+      // action here that can quietly destroy a lot of work.
+      const total = transactions.filter(t => t && txSelection.has(t.id)).reduce((s, t) => s + (+t.amount || 0), 0);
+      if (!confirm(`Delete ${n} transaction${n === 1 ? '' : 's'} totalling ${AUD(total)}? This can't be undone.`)) return;
+      transactions = transactions.filter(t => t && !txSelection.has(t.id));
+      txSelection.clear();
+      saveTx();
+      showToast(`✓ ${n} deleted`, 'success');
+    }
+
+    /**
+     * Exports what's currently on screen, not the whole history — the filters
+     * are the selection. Anything holding your financial life should let you
+     * take it out in a format an accountant can open.
+     */
+    function exportTxCSV() {
+      const rows = filteredTx();
+      if (!rows.length) { showToast('Nothing to export', 'error'); return; }
+
+      // A description containing a comma, a quote or a newline will otherwise
+      // silently corrupt every column after it.
+      const esc = (v) => {
+        const s = String(v ?? '');
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const debtName = (id) => (debts.find(d => d.id === id) || {}).name || '';
+
+      const header = ['Date', 'Description', 'Category', 'Type', 'Amount', 'Signed Amount', 'Debt', 'Source'];
+      const body = rows.map(t => [
+        t.date,
+        t.name || '',
+        t.category || '',
+        t.type || 'expense',
+        (+t.amount || 0).toFixed(2),
+        ((t.type === 'income' ? 1 : -1) * (+t.amount || 0)).toFixed(2),
+        t.debtId != null ? debtName(t.debtId) : '',
+        t.source || 'manual'
+      ].map(esc).join(','));
+
+      // BOM so Excel opens UTF-8 correctly instead of mangling any symbols.
+      const csv = '﻿' + [header.join(','), ...body].join('\r\n');
+      const label = txMonthFilter || 'all-time';
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `flowfinance-${label}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`✓ Exported ${rows.length} transactions`, 'success');
     }
     function renderAddTxForm() {
       return `
@@ -2170,6 +2392,9 @@
           <h2>Extra Payment Simulator</h2>
           <p class="text-muted" style="font-size: 13px; margin-bottom: 1rem;">See how extra cash speeds up each debt — then log it for real if you've got it spare.</p>
           <div class="form-group"><label>Extra Monthly</label><input type="range" id="extraPayment" min="0" max="1000" value="0" step="50" style="width: 100%; cursor: pointer;"><div style="margin-top: 0.5rem; font-weight: 600; text-align: center;" id="extraPaymentValue">$0</div></div>
+          <div id="payoffHeadline" style="margin-top: 1rem;"></div>
+          <canvas id="payoffChart" height="150" style="margin-top: 0.5rem;"></canvas>
+          <p class="text-muted" style="font-size: 11px; margin-top: 0.5rem;">Every debt at once, with each cleared debt's minimum rolling onto the next — and promo rates ending on their actual date.</p>
           <div id="simulatorResults" style="margin-top: 1.5rem;"></div>
           ${sorted.length > 0 ? `
           <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
@@ -2353,6 +2578,93 @@
         return `<div style="padding: 0.75rem; border-bottom: 1px solid var(--border);"><strong>${d.name}:</strong> ${timeStr}</div>`;
       }).join('');
       document.getElementById('simulatorResults').innerHTML = results || '<p class="text-muted">No debts</p>';
+      drawPayoffChart(extra);
+    }
+    /**
+     * Draws the balance falling to zero, with a second line for the extra
+     * payment. The schedule behind this was always being computed and then
+     * thrown away — a date in a KPI card says "Oct 2029", a curve says how
+     * much of the next three years is interest.
+     */
+    function drawPayoffChart(extra = 0) {
+      const ctx = document.getElementById('payoffChart')?.getContext('2d');
+      if (!ctx) return;
+      if (window.payoffChartInstance) window.payoffChartInstance.destroy();
+
+      const base = simulatePayoffSchedule(0);
+      const headline = document.getElementById('payoffHeadline');
+
+      if (base.months === 0) {
+        if (headline) headline.innerHTML = '<p class="text-muted">No debts to project.</p>';
+        return;
+      }
+      if (base.neverPaysOff) {
+        if (headline) headline.innerHTML = `<div style="padding:0.75rem; background:var(--bg); border-radius:8px; border-left:3px solid var(--danger);"><strong>These minimums never clear the balance.</strong><br><span class="text-muted" style="font-size:12px;">Interest is outrunning the payments. Any extra changes that.</span></div>`;
+      }
+
+      const withExtra = extra > 0 ? simulatePayoffSchedule(extra) : null;
+      const span = Math.max(base.months, withExtra ? withExtra.months : 0) + 1;
+      const start = new Date();
+      const labels = Array.from({ length: span }, (_, i) => {
+        const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+        // One label a year on long runs, or the chart is unreadable.
+        return (span > 30 ? d.getMonth() === 0 : i % 3 === 0)
+          ? d.toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })
+          : '';
+      });
+
+      // Both lines must run the full width, or the shorter one looks like it
+      // stops rather than finishes.
+      const pad = arr => Array.from({ length: span }, (_, i) => i < arr.length ? arr[i] : 0);
+
+      const datasets = [{
+        label: 'Minimums only',
+        data: pad(base.balances),
+        borderColor: '#FF3B30',
+        backgroundColor: 'rgba(255,59,48,0.06)',
+        borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.2
+      }];
+      if (withExtra) {
+        datasets.push({
+          label: `+ ${AUD(extra)}/mo`,
+          data: pad(withExtra.balances),
+          borderColor: '#34C759',
+          backgroundColor: 'rgba(52,199,89,0.10)',
+          borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.2
+        });
+      }
+
+      if (headline && !base.neverPaysOff) {
+        if (withExtra) {
+          const monthsSaved = base.months - withExtra.months;
+          const interestSaved = base.totalInterest - withExtra.totalInterest;
+          headline.innerHTML = `<div style="padding:0.75rem; background:var(--bg); border-radius:8px; border-left:3px solid var(--success);">
+            Debt-free <strong>${withExtra.debtFreeDate}</strong> instead of ${base.debtFreeDate}
+            — <strong>${monthsSaved} month${monthsSaved === 1 ? '' : 's'}</strong> sooner,
+            <strong>${AUD(interestSaved)}</strong> less interest.</div>`;
+        } else {
+          headline.innerHTML = `<div style="padding:0.75rem; background:var(--bg); border-radius:8px;">
+            On minimums alone: debt-free <strong>${base.debtFreeDate}</strong>,
+            paying <strong>${AUD(base.totalInterest)}</strong> in interest along the way.</div>`;
+        }
+      }
+
+      window.payoffChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: !!withExtra, labels: { font: { size: 10 }, color: '#1D1D1F', padding: 10 } },
+            tooltip: { callbacks: { label: c => `${c.dataset.label}: ${AUD(c.parsed.y)}` } }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: '#6E6E73', callback: v => '$' + (v / 1000).toFixed(0) + 'k' }, grid: { color: '#D2D2D7' } },
+            x: { ticks: { color: '#6E6E73', maxRotation: 0, autoSkip: false }, grid: { display: false } }
+          }
+        }
+      });
     }
     function calcDebtFreeDate() {
       if (debts.length === 0) return null;
@@ -4289,6 +4601,116 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       </div>`;
     }
 
+    /**
+     * The next 30 days of cash, day by day.
+     *
+     * The projection is computed by the backend liquidity engine and published
+     * into cfoSnapshot — not recalculated here. Two implementations of the same
+     * forecast would drift, and the one the bot warns you from has to be the
+     * one you can see.
+     */
+    function renderCashForecastCard() {
+      const liq = cfoSnapshot && cfoSnapshot.liquidity;
+
+      // No balance recorded means no forecast is possible — say what to do
+      // about it rather than showing an empty chart.
+      if (!liq) {
+        return `<div class="card">
+          <h2>Cash forecast</h2>
+          <p class="text-muted" style="font-size:13px;margin-top:0.5rem;">
+            I can project the next 30 days — every bill, debt minimum and payday — but I need
+            to know what's in your account first. Send <code>balance 1850</code> to the bot
+            (whatever it actually says) and this fills in.
+          </p>
+        </div>`;
+      }
+
+      const breach = liq.firstBelowBufferDate;
+      const dayLabel = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '';
+      const headline = liq.isSafe
+        ? `<span style="color:var(--success);font-weight:600;">Clear for 30 days.</span>
+           <span class="text-muted">Lowest point ${AUD(liq.lowestBalance)} on ${dayLabel(liq.lowestDate)}, above your ${AUD(liq.safetyBuffer)} buffer.</span>`
+        : `<span style="color:var(--danger);font-weight:600;">Tight on ${dayLabel(breach || liq.lowestDate)}.</span>
+           <span class="text-muted">Projected down to ${AUD(liq.lowestBalance)}${liq.topUpNeeded > 0 ? ` — about ${AUD(liq.topUpNeeded)} would cover it` : ''}.</span>`;
+
+      const stale = (liq.balanceAgeDays || 0) > 7
+        ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
+             This is built on a balance from ${liq.balanceAsOf} — ${liq.balanceAgeDays} days old. Send <code>balance &lt;amount&gt;</code> to refresh it.
+           </div>` : '';
+
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Cash forecast</h2>
+          <span class="num" style="font-weight:700;">${AUD(liq.openingBalance)} <span class="text-muted" style="font-weight:400;font-size:12px;">today</span></span>
+        </div>
+        <div style="font-size:13px;margin:0.6rem 0 0.25rem;">${headline}</div>
+        <canvas id="cashForecastChart" height="140"></canvas>
+        ${stale}
+      </div>`;
+    }
+
+    function drawCashForecastChart() {
+      const liq = cfoSnapshot && cfoSnapshot.liquidity;
+      const ctx = document.getElementById('cashForecastChart')?.getContext('2d');
+      if (!liq || !ctx || !Array.isArray(liq.days) || !liq.days.length) return;
+      if (window.cashForecastInstance) window.cashForecastInstance.destroy();
+
+      const days = liq.days;
+      const labels = days.map((d, i) => i % 5 === 0
+        ? new Date(d.date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+        : '');
+
+      window.cashForecastInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Projected balance',
+              data: days.map(d => d.closingBalance),
+              borderColor: liq.isSafe ? '#0F95A8' : '#FF3B30',
+              backgroundColor: liq.isSafe ? 'rgba(15,149,168,0.08)' : 'rgba(255,59,48,0.08)',
+              borderWidth: 2.5, fill: true, tension: 0.25,
+              // Mark only the days money actually moves — a dot on every day
+              // is noise, and the ones that matter are paydays and bills.
+              pointRadius: days.map(d => d.events ? 3.5 : 0),
+              pointBackgroundColor: days.map(d => d.belowBuffer ? '#FF3B30' : (liq.isSafe ? '#0F95A8' : '#FF9500'))
+            },
+            {
+              label: 'Safety buffer',
+              data: days.map(() => liq.safetyBuffer),
+              borderColor: '#FF9500', borderWidth: 1.5, borderDash: [5, 4],
+              pointRadius: 0, fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: items => new Date(days[items[0].dataIndex].date + 'T00:00:00')
+                  .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }),
+                label: c => c.datasetIndex === 1 ? `Buffer: ${AUD(c.parsed.y)}` : `Balance: ${AUD(c.parsed.y)}`,
+                // The events are the explanation. Without them a dip is just a
+                // dip; with them it's "rent came out".
+                afterBody: items => {
+                  const evs = days[items[0].dataIndex].events;
+                  return evs ? evs.map(e => `${e.amount >= 0 ? '+' : '−'}${AUD(Math.abs(e.amount))}  ${e.label}`) : [];
+                }
+              }
+            }
+          },
+          scales: {
+            y: { ticks: { color: '#6E6E73', callback: v => '$' + v.toLocaleString() }, grid: { color: '#D2D2D7' } },
+            x: { ticks: { color: '#6E6E73', maxRotation: 0, autoSkip: false }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
     // Dated choices rather than transactions. Most financial damage comes from
     // a decision deferred, not a budget missed.
     function renderDecisionsCard(limit) {
@@ -4662,6 +5084,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
             updateSimulator();
           }
         }, 0);
+      }
+      if (currentTab === 'dashboard') {
+        setTimeout(() => drawCashForecastChart(), 0);
       }
       if (currentTab === 'budget') {
         setTimeout(() => renderBudgetCharts(), 0);
