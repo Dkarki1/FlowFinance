@@ -1129,10 +1129,10 @@
       return (freq[f] || 0) * (a || 0);
     };
     // Returns total actual logged pay for current calendar month
-    const currentMonthLoggedPay = (type) => {
+    const currentMonthLoggedPay = () => {
       const key = getMonthKey();
-      return variableIncome
-        .filter(v => v.type === type && getMonthKey(new Date(v.date + 'T00:00:00')) === key)
+      return payEntries()
+        .filter(v => getMonthKey(new Date(v.date + 'T00:00:00')) === key)
         .reduce((s, v) => s + (v.amount || 0), 0);
     };
     // Monthly income: fixed pay × frequency multiplier (fortnightly = 2x per month)
@@ -1609,44 +1609,48 @@
         ${renderCashForecastCard()}
         ${renderEmergencyFundCard()}
         <div class="card">
-          <h2>Your Income</h2>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Pay Frequency</label>
-              <select id="myFreq">
-                <option value="weekly" ${income.myFreq === 'weekly' ? 'selected' : ''}>Weekly</option>
-                <option value="fortnightly" ${income.myFreq === 'fortnightly' ? 'selected' : ''}>Fortnightly</option>
-                <option value="monthly" ${income.myFreq === 'monthly' ? 'selected' : ''}>Monthly</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Fixed Pay Amount ($)</label>
-              <input type="number" id="myFixedPay" placeholder="e.g. 2611" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
-              ${income.myPay > 0 ? `<p style="font-size:11px;color:var(--success);margin-top:4px;">Currently saved: ${AUD(income.myPay)}</p>` : '<p style="font-size:11px;color:var(--warning);margin-top:4px;">Not yet saved — enter amount and click Save</p>'}
-            </div>
-            <div class="form-group">
-              <label>Next Pay Date</label>
-              <input type="date" id="myNextPay" value="${income.myNextPay}">
-            </div>
+          <div class="flex-between" style="align-items:baseline;">
+            <h2 style="margin:0;">Income log</h2>
+            <span class="text-muted" style="font-size:12px;">${income.myPay > 0 ? `${AUD(income.myPay)} ${income.myFreq}` : 'No pay amount set'}</span>
           </div>
-          ${income.myPay > 0 ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-            <button class="btn-primary" onclick="quickLogThisPay()" style="width: 100%; font-size: 1rem; padding: 0.85rem; letter-spacing: -0.01em;">
-              Log This Pay &mdash; ${AUD(income.myPay)} <span style="opacity:0.75;font-size:0.85em;">(${income.myFreq})</span>
-            </button>
-            <p class="text-muted" style="font-size: 11px; margin-top: 0.4rem; text-align: center;">One tap to log today's pay at your set amount</p>
-          </div>` : ''}
-          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Log Variable Pay Amount</label>
-            <p class="text-muted" style="font-size: 12px; margin-bottom: 0.75rem;">Track actual pay amounts for each cycle (varies each pay period)</p>
+          ${income.myPay > 0 ? `
+          <button class="btn-primary" onclick="quickLogThisPay()" style="width: 100%; font-size: 1rem; padding: 0.85rem; margin-top: 1rem; letter-spacing: -0.01em;">
+            Log today's pay &mdash; ${AUD(income.myPay)}
+          </button>` : ''}
+          <div style="margin-top: 1rem;">
+            <label style="font-weight:600;margin-bottom:0.5rem;display:block;font-size:13px;">Or log a different amount</label>
             <div class="form-row">
-              <input type="number" id="myPayAmount" placeholder="Enter actual pay amount" min="0">
+              <input type="number" id="myPayAmount" placeholder="Amount" min="0">
               <input type="date" id="myPayDate" value="${today()}">
               <button class="btn-primary" onclick="logMyPay()" style="flex: 0 0 auto;">Log</button>
             </div>
+            <p class="text-muted" style="font-size:11px;margin-top:0.4rem;">Or tell the bot &mdash; <code>got paid 2611</code>. Either way it lands here and in Transactions.</p>
           </div>
           ${renderMyPayHistory()}
+          <details style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+            <summary style="cursor:pointer;font-weight:600;font-size:13px;">Pay settings</summary>
+            <p class="text-muted" style="font-size:12px;margin:0.5rem 0 0.75rem;">These drive your surplus, budgets and the 30-day cash forecast &mdash; not the log above.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Pay Frequency</label>
+                <select id="myFreq">
+                  <option value="weekly" ${income.myFreq === 'weekly' ? 'selected' : ''}>Weekly</option>
+                  <option value="fortnightly" ${income.myFreq === 'fortnightly' ? 'selected' : ''}>Fortnightly</option>
+                  <option value="monthly" ${income.myFreq === 'monthly' ? 'selected' : ''}>Monthly</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Usual Pay Amount ($)</label>
+                <input type="number" id="myFixedPay" placeholder="e.g. 2611" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
+              </div>
+              <div class="form-group">
+                <label>Next Pay Date</label>
+                <input type="date" id="myNextPay" value="${income.myNextPay}">
+              </div>
+            </div>
+            <button class="btn-primary" onclick="saveDashboardIncome()" style="width: 100%; margin-top: 0.5rem;">Save pay settings</button>
+          </details>
         </div>
-        <button class="btn-primary" onclick="saveDashboardIncome()" style="width: 100%; margin-top: 1rem;">Save Income Settings</button>
         <div class="card">
           <h2>Bills Due This Week</h2>
           ${renderBillsDueWidget()}
@@ -1792,17 +1796,20 @@
       return html;
     }
     function renderPayHistory(type) {
-      const pays = variableIncome.filter(v => v.type === type);
+      const pays = payEntries();
       if (pays.length === 0) return '<p class="text-muted" style="margin-top: 1rem; font-size: 13px;">No pay logged yet</p>';
       const key = getMonthKey();
       const thisMonthTotal = pays.filter(p => getMonthKey(new Date(p.date + 'T00:00:00')) === key).reduce((s, p) => s + p.amount, 0);
       const monthLabel = new Date().toLocaleDateString('en-AU', { month: 'long' });
       const rows = pays.slice(-6).reverse().map(p => {
         const isThisMonth = getMonthKey(new Date(p.date + 'T00:00:00')) === key;
+        // Legacy entries still live in the old array, so they need the old
+        // delete. Everything logged from now on is a transaction.
+        const remove = p.legacy ? 'deleteVariablePay(' + p.id + ')' : 'deleteTx(' + p.id + ')';
         return '<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 13px; ' + (isThisMonth ? 'font-weight: 600;' : 'opacity: 0.65;') + '">'
-          + '<span>' + p.date + (isThisMonth ? ' <span style="font-size:10px;color:var(--accent);margin-left:4px;">THIS MONTH</span>' : '') + '</span>'
+          + '<span>' + p.date + (isThisMonth ? ' <span style="font-size:10px;color:var(--accent);margin-left:4px;">THIS MONTH</span>' : '') + sourceBadge(p.source) + '</span>'
           + '<span class="num" style="font-weight: 700;">' + AUD(p.amount) + '</span>'
-          + '<button onclick="deleteVariablePay(' + p.id + ')" style="background: none; border: none; color: #999; cursor: pointer; padding: 0 0.25rem;">✕</button>'
+          + '<button onclick="' + remove + '" style="background: none; border: none; color: #999; cursor: pointer; padding: 0 0.25rem;">✕</button>'
           + '</div>';
       }).join('');
       const monthBanner = thisMonthTotal > 0
@@ -1814,27 +1821,58 @@
       return '<div style="margin-top: 1rem;">' + monthBanner + '<div style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 0.5rem;">Recent Pays:</div>' + rows + '</div>';
     }
     function renderMyPayHistory() { return renderPayHistory('my'); }
+    /* ------------------------------------------------------------------ *
+     * Pay log
+     *
+     * Pay used to live in its own `variableIncome` array, entirely separate
+     * from transactions. That meant money coming in never appeared in the
+     * Transactions tab, never counted toward "Money in", never reached the
+     * CSV export, and the bot had nowhere to put a pay it was told about.
+     * Two stores for one fact.
+     *
+     * Pay is now an ordinary income transaction. Older `variableIncome`
+     * entries are still READ so nothing already logged disappears — they're
+     * just not written to any more.
+     * ------------------------------------------------------------------ */
+
+    /** Every pay, from both stores, oldest first. */
+    function payEntries() {
+      const fromTx = (transactions || [])
+        .filter(t => t && t.type === 'income')
+        .map(t => ({ id: t.id, date: t.date, amount: +t.amount || 0, name: t.name, source: t.source, legacy: false }));
+      const legacy = (variableIncome || [])
+        .filter(v => v && v.type === 'my')
+        .map(v => ({ id: v.id, date: v.date, amount: +v.amount || 0, name: 'Pay', source: null, legacy: true }));
+      return [...fromTx, ...legacy].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    }
+
+    function logPay(amount, date) {
+      transactions.push({
+        id: Date.now(),
+        date,
+        name: 'Pay',
+        amount,
+        type: 'income',
+        category: 'Salary',
+        note: null,
+        source: 'manual'
+      });
+      saveTx();
+    }
+
     function quickLogThisPay() {
       if (!income.myPay || income.myPay <= 0) {
-        showToast('Set your Fixed Pay Amount first', 'error');
+        showToast('Set your usual pay amount first', 'error');
         return;
       }
-      const amount = income.myPay;
-      const date = today();
-      variableIncome.push({ id: Date.now(), type: 'my', date, amount });
-      saveVariableIncome();
-      renderAll();
-      showToast(`✓ Logged ${AUD(amount)} for today`, 'success');
+      logPay(income.myPay, today());
+      showToast(`✓ Logged ${AUD(income.myPay)} for today`, 'success');
     }
     function logMyPay() {
       const amount = parseFloat(document.getElementById('myPayAmount').value);
       const date = document.getElementById('myPayDate').value;
       if (!amount || amount <= 0 || !date) { showToast('Enter pay amount and date', 'error'); return; }
-      variableIncome.push({ id: Date.now(), type: 'my', date, amount });
-      saveVariableIncome();
-      document.getElementById('myPayAmount').value = '';
-      document.getElementById('myPayDate').value = today();
-      renderAll();
+      logPay(amount, date);
       showToast('✓ Pay logged', 'success');
     }
     function deleteVariablePay(id) {
@@ -4330,7 +4368,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         sixMonths.push(getMonthKey(d));
       }
       const incomeVariance = () => {
-        const myPays = variableIncome.filter(v => v.type === 'my').map(v => v.amount);
+        const myPays = payEntries().map(v => v.amount);
         if (myPays.length < 2) return 0;
         const avg = myPays.reduce((s,a) => s+a, 0) / myPays.length;
         const variance = myPays.reduce((s,a) => s + Math.pow(a-avg,2), 0) / myPays.length;
