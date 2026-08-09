@@ -1088,6 +1088,10 @@
     let transactions = [];
     // Written by the CFO backend (Cloud Functions), read-only here.
     let agentLogs = {};
+    // Computed by the CFO backend and published for this app to render. The
+    // engines live in Cloud Functions; reimplementing them here would give two
+    // sources of truth that drift apart.
+    let cfoSnapshot = null;
     let pendingConfirmations = {};
     let debts = [];
     let initialDebt = 0; // Track starting debt for progress calculations
@@ -1286,6 +1290,8 @@
         if (pcd) paydayChecklistDone = pcd || {};
         const alg = await fbGet('agentLogs');
         agentLogs = alg || {};
+        const cs = await fbGet('cfoSnapshot');
+        cfoSnapshot = cs || null;
         const pcf = await fbGet('pendingConfirmations');
         pendingConfirmations = pcf || {};
         // Seed real debts on first run, owner's account only (no debts saved yet).
@@ -1492,6 +1498,8 @@
     }
     function renderDashboard() {
       return `
+        ${renderDecisionsCard(3)}
+        ${renderEmergencyFundCard()}
         <div class="grid-4">
           <div class="kpi-card">
             <div class="kpi-label">Net Worth</div>
@@ -4250,6 +4258,64 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // collections were already being written by Cloud Functions; nothing in the
     // app could show them, so the only way to see the agents' reasoning was to
     // scroll back through Telegram.
+    const SEVERITY_COLOUR = {
+      urgent: 'var(--danger)', soon: 'var(--warning)',
+      watch: 'var(--accent)', info: 'var(--text-muted)',
+    };
+
+    // Progress toward a three-month buffer. Expressed in months of cover as
+    // well as dollars — "1.5 months of essential costs" reads better than a
+    // bare number.
+    function renderEmergencyFundCard() {
+      const ef = cfoSnapshot && cfoSnapshot.emergencyFund;
+      if (!ef) return '';
+      const pct = Math.max(0, Math.min(100, ef.percentComplete || 0));
+      const colour = ef.status === 'funded' ? 'var(--success)'
+        : ef.status === 'building' ? 'var(--warning)' : 'var(--danger)';
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Emergency fund</h2>
+          <span class="num" style="font-weight:700;">${AUD(ef.currentSavings || 0)} <span class="text-muted" style="font-weight:400;font-size:12px;">of ${AUD(ef.targetAmount || 0)}</span></span>
+        </div>
+        <div class="progress" style="height:10px;margin:0.85rem 0 0.5rem;">
+          <div class="progress-fill" style="width:${pct}%;background:${colour};transition:width .4s ease;"></div>
+        </div>
+        <div class="flex-between text-muted" style="font-size:12px;">
+          <span>${ef.coverageMonths || 0} month${ef.coverageMonths === 1 ? '' : 's'} of essential costs covered</span>
+          <span>${ef.shortfall > 0 ? AUD(ef.shortfall) + ' to go' : 'Funded'}</span>
+        </div>
+        ${!ef.savingsRecorded ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet. Send <code>savings 4200</code> to the bot to start tracking this.</div>` : ''}
+      </div>`;
+    }
+
+    // Dated choices rather than transactions. Most financial damage comes from
+    // a decision deferred, not a budget missed.
+    function renderDecisionsCard(limit) {
+      const list = (cfoSnapshot && cfoSnapshot.decisions) || [];
+      if (!list.length) return '';
+      const shown = limit ? list.slice(0, limit) : list;
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Needs a decision</h2>
+          <span class="text-muted" style="font-size:12px;">${list.length} open</span>
+        </div>
+        <div style="margin-top:0.75rem;">
+        ${shown.map(d => `
+          <div style="padding:0.7rem 0;border-bottom:1px solid var(--border);">
+            <div class="flex-between" style="gap:0.75rem;align-items:baseline;">
+              <span style="font-weight:600;font-size:13.5px;">
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SEVERITY_COLOUR[d.severity] || 'var(--border)'};margin-right:6px;"></span>${escapeAgentText(d.title)}
+              </span>
+              <span class="text-muted" style="font-size:11px;white-space:nowrap;">${d.daysUntil === null ? '' : d.daysUntil <= 0 ? 'today' : d.daysUntil + 'd'}</span>
+            </div>
+            <div class="text-muted" style="font-size:12px;margin-top:0.2rem;">${escapeAgentText(d.detail)}</div>
+            ${d.costOfInaction ? `<div style="font-size:11.5px;margin-top:0.25rem;color:${SEVERITY_COLOUR[d.severity] || 'var(--text-muted)'};">${escapeAgentText(d.costOfInaction)}</div>` : ''}
+          </div>`).join('')}
+        </div>
+        ${limit && list.length > limit ? `<div class="text-muted" style="font-size:12px;margin-top:0.6rem;">${list.length - limit} more in the CFO Agent tab.</div>` : ''}
+      </div>`;
+    }
+
     function escapeAgentText(value) {
       return String(value ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -4364,6 +4430,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         </div>`;
 
       logs.splice(25);
+
+      html += renderEmergencyFundCard();
+      html += renderDecisionsCard();
 
       if (pending.length) {
         html += `<div class="card"><h2>Needs confirming</h2>
