@@ -4042,12 +4042,64 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // ═══════════════════════════════════════════════════════════════
     // TAX REFUND ESTIMATOR (ATO-style rough estimate)
     // ═══════════════════════════════════════════════════════════════
+    /**
+     * Tax settings in one place, so the figures and the year label on screen
+     * can never disagree — they previously did: the brackets were 2024–25
+     * while the heading said 2025–26.
+     *
+     * Only thresholds and rates are stored. The cumulative "$X plus 30c for
+     * each $1 over $45,000" amounts the ATO publishes are DERIVED below rather
+     * than typed in, because they're the part that silently goes wrong: change
+     * a rate and forget the running total, and every bracket above it is out.
+     *
+     * TO UPDATE EACH JULY: change `year` and any rate or threshold that moved.
+     * Nothing else needs touching.
+     */
+    const TAX_TABLE = {
+      year: '2026–27',
+      // Resident rates. The 16% rate dropped to 15% on 1 July 2026 and is
+      // legislated to drop again to 14% on 1 July 2027.
+      brackets: [
+        { over: 0, rate: 0 },
+        { over: 18200, rate: 0.15 },
+        { over: 45000, rate: 0.30 },
+        { over: 135000, rate: 0.37 },
+        { over: 190000, rate: 0.45 }
+      ],
+      // Medicare levy, single with no dependants. Between the two thresholds
+      // the levy phases in at 10c per dollar rather than jumping straight to
+      // 2% — the old code had a cliff, which overstated the levy by hundreds
+      // of dollars for anyone in that band.
+      // Thresholds are set retrospectively in each Budget, so these are the
+      // latest published (2025–26) figures.
+      medicare: { rate: 0.02, lower: 28011, upper: 35013, phaseIn: 0.10, year: '2025–26' },
+      // Low income tax offset — unchanged since 2022–23.
+      lito: { max: 700, from1: 37500, taper1: 0.05, from2: 45000, taper2: 0.015, cutOut: 66667 }
+    };
+
     function calcTax(income) {
-      if (income <= 18200) return 0;
-      if (income <= 45000) return (income - 18200) * 0.16;
-      if (income <= 135000) return 4288 + (income - 45000) * 0.30;
-      if (income <= 190000) return 31288 + (income - 135000) * 0.37;
-      return 51638 + (income - 190000) * 0.45;
+      const b = TAX_TABLE.brackets;
+      let tax = 0;
+      for (let i = 0; i < b.length; i++) {
+        const upTo = i + 1 < b.length ? b[i + 1].over : Infinity;
+        if (income > b[i].over) tax += (Math.min(income, upTo) - b[i].over) * b[i].rate;
+      }
+      return tax;
+    }
+
+    function calcMedicareLevy(income) {
+      const m = TAX_TABLE.medicare;
+      if (income <= m.lower) return 0;
+      if (income >= m.upper) return income * m.rate;
+      return (income - m.lower) * m.phaseIn;
+    }
+
+    function calcLito(income) {
+      const l = TAX_TABLE.lito;
+      if (income <= l.from1) return l.max;
+      if (income <= l.from2) return l.max - (income - l.from1) * l.taper1;
+      if (income <= l.cutOut) return Math.max(0, 325 - (income - l.from2) * l.taper2);
+      return 0;
     }
     function getTaxIncome() {
       // Use manually entered override if set, else fall back to app monthly income * 12
@@ -4058,15 +4110,15 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const usingCustom = taxCustomIncome !== null;
       const annualIncome = getTaxIncome();
       const taxOwed = calcTax(annualIncome);
-      const mediLevy = annualIncome > 23226 ? annualIncome * 0.02 : 0;
-      const lito = annualIncome <= 37500 ? 700 : annualIncome <= 45000 ? 700 - (annualIncome - 37500) * 0.05 : annualIncome <= 66667 ? 325 - (annualIncome - 45000) * 0.015 : 0;
+      const mediLevy = calcMedicareLevy(annualIncome);
+      const lito = calcLito(annualIncome);
       const totalTax = Math.max(0, taxOwed + mediLevy - lito);
       const effectiveRate = annualIncome > 0 ? ((totalTax / annualIncome) * 100).toFixed(1) : 0;
       const takeHomeMo = Math.round((annualIncome - totalTax) / 12);
       return `
         <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
           <h2 style="color:white;">Tax Refund Estimator</h2>
-          <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Rough ATO estimate — 2025–26 brackets. Not financial advice.</p>
+          <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">Rough ATO estimate — ${TAX_TABLE.year} brackets, single with no dependants. Not financial advice.</p>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
             <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
               <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Annual Income</div>
