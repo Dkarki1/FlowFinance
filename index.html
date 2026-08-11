@@ -1294,18 +1294,23 @@
         cfoSnapshot = cs || null;
         const pcf = await fbGet('pendingConfirmations');
         pendingConfirmations = pcf || {};
-        // Seed real debts on first run, owner's account only (no debts saved yet).
-        // Other users who sign up start with a clean slate.
-        if ((!debts || debts.length === 0) && currentUser && currentUser.email === 'sabinkarki84@gmail.com') {
-          debts = [
-            { id: 1001, name: 'Amex Essential', balance: 5330.74, originalBalance: 5330.74, rate: 18.99, minPayment: 133.26, minFreq: 'monthly', dueDay: 1, creditLimit: 6100 },
-            { id: 1002, name: 'NAB Personal Loan', balance: 31579.65, originalBalance: 31579.65, rate: 16.99, minPayment: 500, minFreq: 'fortnightly', dueDay: 1 },
-            { id: 1003, name: 'ANZ Low Rate Card', balance: 5285.00, originalBalance: 5285.00, rate: 0, minPayment: 106, minFreq: 'monthly', dueDay: 1, promoEndDate: '2028-04-01' }
-          ];
-          debtMethod = 'avalanche';
-          saveDebts();
-          saveDebtMethod();
-        }
+        // NOTE: a block here used to seed three hardcoded debts whenever the
+        // owner's account loaded with an empty debt list. It was removed — it
+        // was the only hardcoded money in this file and it had gone wrong in
+        // three ways at once:
+        //
+        //   - the balances were months stale ($31,579.65 against a real
+        //     $29,028.65), so it would have overstated the total by ~$3,024;
+        //   - the ANZ promo end date said 2028-04-01 when the card actually
+        //     reverts 2027-03-31, which changes both the interest and the
+        //     avalanche order;
+        //   - it called saveDebts(), so it didn't just display wrong figures,
+        //     it wrote them to the database.
+        //
+        // It could only ever fire when debts were empty, which now means
+        // either a failed read or a deliberate delete — and re-injecting stale
+        // debt in both those cases is exactly wrong. Debts live in Firebase;
+        // an empty list is a fact to respect, not a gap to fill.
         if (!initialDebt) initialDebt = debts.reduce((s, d) => s + (d.balance || 0), 0);
         // Record net worth for this month
         recordNetWorthSnapshot();
@@ -1624,7 +1629,7 @@
               <input type="date" id="myPayDate" value="${today()}">
               <button class="btn-primary" onclick="logMyPay()" style="flex: 0 0 auto;">Log</button>
             </div>
-            <p class="text-muted" style="font-size:11px;margin-top:0.4rem;">Or tell the bot &mdash; <code>got paid 2611</code>. Either way it lands here and in Transactions.</p>
+            <p class="text-muted" style="font-size:11px;margin-top:0.4rem;">Or tell the bot &mdash; <code>got paid 2400</code>. Either way it lands here and in Transactions.</p>
           </div>
           ${renderMyPayHistory()}
           <details style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
@@ -1641,7 +1646,7 @@
               </div>
               <div class="form-group">
                 <label>Usual Pay Amount ($)</label>
-                <input type="number" id="myFixedPay" placeholder="e.g. 2611" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
+                <input type="number" id="myFixedPay" placeholder="e.g. 2400" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
               </div>
               <div class="form-group">
                 <label>Next Pay Date</label>
