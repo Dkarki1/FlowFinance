@@ -1615,151 +1615,125 @@
           </div>
         </div>
         ${renderCashForecastCard()}
+        ${renderMonthStatusCard()}
         ${renderEmergencyFundCard()}
-        ${renderQuickPayCard()}
         <div class="card">
           <h2>Bills Due This Week</h2>
           ${renderBillsDueWidget()}
         </div>
-        <div class="card">
-          <h2>Your Pay Breakdown</h2>
-          ${renderBudgetRule()}
-        </div>
-        <div class="card">
-          <h2>Until Next Pay</h2>
-          ${renderUntilNextPay()}
-        </div>
-        <div class="card">
-          <h2>Quick Log Transaction</h2>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Amount</label>
-              <input type="number" id="quickAmount" placeholder="0" min="0">
-            </div>
-            <div class="form-group">
-              <label>Description</label>
-              <input type="text" id="quickName" placeholder="e.g. Groceries">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Category</label>
-              <select id="quickCategory">
-                <option value="Salary">Salary</option>
-                <option value="Bonus">Bonus</option>
-                <option value="Food">Food</option>
-                <option value="Transport">Transport</option>
-                <option value="Entertainment">Entertainment</option>
-                <option value="Shopping">Shopping</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Type</label>
-              <select id="quickType">
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-              </select>
-            </div>
-          </div>
-          <button class="btn-primary" onclick="quickLogTx()">Add Transaction</button>
-        </div>
+        ${renderQuickLogCard()}
       `;
     }
-    function renderBudgetRule() {
-      const inc = fortnightlyIncome();
-      if (inc === 0) return '<p class="text-muted">Set up your income or log a pay above first.</p>';
-      const billsAmt = fortnightlyBills();
-      const debtMinAmt = fortnightlyDebtMin();
-      const leftover = inc - billsAmt - debtMinAmt;
-      const available = Math.max(0, leftover);
-      // Default split of what's left: half held back as a savings buffer, half available to attack debt.
-      const savingsBuffer = available * 0.5;
-      const recommendedExtra = Math.floor(Math.max(0, available - savingsBuffer));
-      const topDebt = getSortedDebts()[0];
-      const rows = [
-        { label: 'Reserved for Bills', amount: billsAmt, color: '#F97316' },
-        { label: 'Reserved for Debt Minimums', amount: debtMinAmt, color: '#FF3B30' },
-        { label: 'Available After Bills & Minimums', amount: available, color: leftover >= 0 ? '#34C759' : '#FF3B30' }
-      ];
-      let html = `
-        <p class="text-muted" style="font-size: 12px; margin-bottom: 1rem;">Based on your fortnightly pay of ${AUD(inc)} — since your income is consistent each fortnight, this is what to set aside as soon as you get paid.</p>
-        <div style="display: grid; gap: 0.75rem; margin-bottom: 1.5rem;">
-          ${rows.map(r => `
-            <div class="flex-between" style="padding: 1rem; background: var(--surface); border-radius: 10px; border-left: 4px solid ${r.color};">
-              <span style="font-weight: 600;">${r.label}</span>
-              <span class="num" style="font-weight: 700; color: ${r.color};">${AUD(r.amount)}</span>
-            </div>
-          `).join('')}
-        </div>
-      `;
-      if (leftover < 0) {
-        html += `<div style="padding: 1rem; background: var(--danger-soft); border-radius: 10px; border-left: 4px solid var(--danger);"><strong style="color: #B91C1C;">Shortfall:</strong> your bills + debt minimums are ${AUD(Math.abs(leftover))} more than this fortnight's pay. Review bills or debt minimums before committing to extra payments.</div>`;
-      } else if (available > 0 && topDebt) {
-        html += `
-          <div style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border: 1px solid var(--border);">
-            <h3 style="margin-bottom: 0.75rem;">Recommended Extra Payment</h3>
-            <div class="flex-between" style="margin-bottom: 0.5rem;"><span class="text-muted">Suggested extra toward <strong>${topDebt.name}</strong></span><span class="num" style="font-weight: 700; color: var(--warning-alt);">${AUD(recommendedExtra)}</span></div>
-            <div class="flex-between" style="margin-bottom: 1rem;"><span class="text-muted">Kept as savings buffer</span><span class="num" style="font-weight: 700; color: var(--purple);">${AUD(available - recommendedExtra)}</span></div>
-            ${recommendedExtra > 0 ? `<button class="btn-primary" onclick="applyRecommendedExtra(${topDebt.id}, ${recommendedExtra})" style="width: 100%;">Log ${AUD(recommendedExtra)} Extra Payment to ${topDebt.name}</button>` : ''}
-            <p class="text-muted" style="font-size: 11px; margin-top: 0.75rem;">Default split is 50/50 between extra debt payoff and savings — adjust on the fly if you'd rather pay more or less.</p>
+
+    /**
+     * This month at a glance: what came in, what went out, and how the
+     * budgeted categories are tracking.
+     *
+     * Replaces two cards that both projected rather than measured — a 50/30/20
+     * breakdown of income you might not have received, and a countdown to the
+     * next payday that repeated what the cash forecast above already shows as
+     * a curve. Everything here is read from transactions.
+     */
+    function renderMonthStatusCard() {
+      const monthKey = getMonthKey();
+      const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
+      const rows = (transactions || []).filter(t => t && String(t.date).startsWith(monthKey));
+      const inc = rows.filter(t => t.type === 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      const exp = rows.filter(t => t.type !== 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      const net = inc - exp;
+
+      const budgeted = Object.entries(budgets || {}).filter(([, limit]) => limit > 0);
+      const spendByCat = {};
+      rows.filter(t => t.type !== 'income').forEach(t => {
+        spendByCat[t.category] = (spendByCat[t.category] || 0) + (+t.amount || 0);
+      });
+
+      // Worst offenders first — an on-track category needs no attention, and
+      // listing all eight buries the one that doesn't.
+      const tracking = budgeted
+        .map(([cat, limit]) => ({ cat, limit, spent: spendByCat[cat] || 0, pct: ((spendByCat[cat] || 0) / limit) * 100 }))
+        .sort((a, b) => b.pct - a.pct)
+        .slice(0, 4);
+
+      const bar = (t) => {
+        const colour = t.pct > 100 ? 'var(--danger)' : t.pct > 80 ? 'var(--warning)' : 'var(--success)';
+        return `<div style="margin-bottom:0.7rem;">
+          <div class="flex-between" style="font-size:12px;margin-bottom:0.25rem;">
+            <span>${t.cat}</span>
+            <span class="num">${AUD(t.spent)} <span class="text-muted">of ${AUD(t.limit)}</span></span>
           </div>
-        `;
-      } else if (available > 0) {
-        html += `<p class="text-muted">You're debt-free — that leftover ${AUD(available)} each fortnight can go straight to savings or goals.</p>`;
-      } else {
-        html += `<p class="text-muted">Nothing left over after bills and minimums this fortnight.</p>`;
-      }
-      return html;
+          <div class="progress" style="height:6px;"><div class="progress-fill" style="width:${Math.min(100, t.pct)}%;background:${colour};"></div></div>
+        </div>`;
+      };
+
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">${monthName} so far</h2>
+          <span class="text-muted" style="font-size:12px;">${rows.length} transaction${rows.length === 1 ? '' : 's'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem;">
+          <div><div class="text-muted" style="font-size:11px;">In</div><div class="num" style="font-weight:700;color:var(--success-dark);">${AUD(inc)}</div></div>
+          <div><div class="text-muted" style="font-size:11px;">Out</div><div class="num" style="font-weight:700;color:var(--danger);">${AUD(exp)}</div></div>
+          <div><div class="text-muted" style="font-size:11px;">Net</div><div class="num" style="font-weight:700;color:${net >= 0 ? 'var(--success-dark)' : 'var(--danger)'};">${net >= 0 ? '+' : '−'}${AUD(Math.abs(net))}</div></div>
+        </div>
+        ${budgeted.length === 0
+          ? `<p class="text-muted" style="font-size:12px;margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border);">
+               No budgets set, so nothing can be over. Give it a month of real spending, then set them from what you actually spend rather than a guess.
+             </p>`
+          : `<div style="margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border);">
+               <div class="text-muted" style="font-size:11px;margin-bottom:0.6rem;">Budgets under most pressure</div>
+               ${tracking.map(bar).join('')}
+             </div>`}
+      </div>`;
     }
-    function renderUntilNextPay() {
-      const myPayDate = income.myNextPay;
-      if (!myPayDate) return '<p class="text-muted">Set your pay date above.</p>';
 
-      // No grid wrapper here any more: it held a single child (a leftover from
-      // when this panel showed two people side by side) and only added stray spacing.
-      let html = '';
+    /**
+     * One log box for anything — the dashboard had two, one for pay and one
+     * for spending, asking you to decide which form to use before you could
+     * type an amount.
+     *
+     * The category list is derived rather than hardcoded. The old quick-log
+     * offered seven fixed options and silently omitted Housing, Utilities,
+     * Health, Insurance and Debt Payment, so the fastest way to log put money
+     * in categories the budget tab could not see.
+     */
+    function renderQuickLogCard() {
+      const payHint = income.myPay > 0
+        ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()" style="flex:0 0 auto;">Log pay ${AUD(income.myPay)}</button>`
+        : '';
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Log something</h2>
+          ${payHint}
+        </div>
+        <div class="form-row" style="margin-top:1rem;">
+          <div class="form-group"><label>Amount</label><input type="number" id="quickAmount" placeholder="0" min="0"></div>
+          <div class="form-group"><label>Description</label><input type="text" id="quickName" placeholder="e.g. Groceries"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="quickType" onchange="updateQuickCategories()">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Category</label><select id="quickCategory">${expenseCategoryOptions('Food')}</select></div>
+          <div class="form-group"><label>Date</label><input type="date" id="quickDate" value="${today()}"></div>
+        </div>
+        <button class="btn-primary" onclick="quickLogTx()" style="width:100%;">Add</button>
+        <p class="text-muted" style="font-size:11px;margin-top:0.5rem;">Or send the bot <code>20 fuel, 15 coffee</code> &mdash; several at once.</p>
+      </div>`;
+    }
 
-      const myDays = daysUntil(myPayDate);
-      html += '<div style="padding: 1rem; background: var(--surface); border-radius: 8px; border-left: 4px solid var(--accent);">';
-      if (myDays !== null && myDays >= 0) {
-        html += `<div style="font-weight: 600; margin-bottom: 0.5rem;">Your Pay: <span style="color: var(--accent);"><strong>${myDays}</strong> days</span></div>`;
-        html += `<div class="text-muted" style="font-size: 13px;">Due ${myPayDate}</div>`;
-      } else {
-        // Tell the user what to do about it rather than just stating the problem.
-        const overdueBy = myDays === null ? null : Math.abs(myDays);
-        html += `<div style="font-weight: 600; color: var(--warning-text2); margin-bottom: 0.35rem;">Pay date is out of date</div>`;
-        html += `<div class="text-muted" style="font-size: 13px;">${myPayDate}${overdueBy !== null ? ` — ${overdueBy} day${overdueBy === 1 ? '' : 's'} ago` : ''}. Update it above so the countdown and bill planning work.</div>`;
-      }
-      html += '</div>';
-
-      // Bills due
-      const earliestPay = daysUntil(myPayDate) >= 0 ? myPayDate : null;
-      if (earliestPay) {
-        const dueBefore = bills.filter(b => {
-          if (!b.active || b.paid) return false;
-          const billDay = parseInt(b.dueDay) || 15;
-          const today_date = new Date();
-          const billDate = new Date(today_date.getFullYear(), today_date.getMonth(), billDay);
-          const payDate = new Date(earliestPay + 'T00:00:00');
-          return billDate <= payDate && billDate >= today_date;
-        });
-
-        if (dueBefore.length > 0) {
-          const totalDue = dueBefore.reduce((s, b) => s + b.amount, 0);
-          html += `<div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 8px; border-left: 4px solid var(--warning);">`;
-          html += `<h3 style="margin-bottom: 0.75rem; color: var(--warning-text2);">Bills Due</h3>`;
-          dueBefore.forEach(b => {
-            html += `<div class="flex-between" style="padding: 0.5rem 0; border-bottom: 1px solid rgba(0,0,0,0.1);"><span>${b.name}</span><span class="num" style="font-weight: 600;">${AUD(b.amount)}</span></div>`;
-          });
-          html += `<div class="flex-between" style="padding: 1rem 0; font-weight: 700; color: var(--warning-text2);"><span>Total needed:</span><span class="num">${AUD(totalDue)}</span></div>`;
-          html += '</div>';
-        } else {
-          html += '<div style="margin-top: 1.5rem; padding: 1rem; background: var(--surface); border-radius: 8px; border-left: 4px solid var(--success);"><p class="text-muted" style="margin: 0;">✓ No bills due before payday</p></div>';
-        }
-      }
-
-      return html;
+    /** Income and expenses don't share categories — Salary is not a spend. */
+    function updateQuickCategories() {
+      const type = document.getElementById('quickType')?.value;
+      const sel = document.getElementById('quickCategory');
+      if (!sel) return;
+      sel.innerHTML = type === 'income'
+        ? ['Salary', 'Bonus', 'Other'].map(c => `<option value="${c}">${c}</option>`).join('')
+        : expenseCategoryOptions('Food');
     }
     /**
      * The log is scoped to one month at a time, defaulting to the current one.
@@ -1866,41 +1840,20 @@
      * whole log here made the dashboard long and buried the thing you actually
      * came to press. The analysis lives on the Income tab now.
      */
-    function renderQuickPayCard() {
-      const monthKey = getMonthKey();
-      const soFar = payEntries()
-        .filter(p => String(p.date).startsWith(monthKey))
-        .reduce((s, p) => s + p.amount, 0);
-      const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
-
-      return `<div class="card">
-        <div class="flex-between" style="align-items:baseline;">
-          <h2 style="margin:0;">Log a pay</h2>
-          <span class="text-muted" style="font-size:12px;">${monthName}: <strong class="num">${AUD(soFar)}</strong></span>
-        </div>
-        ${income.myPay > 0 ? `
-        <button class="btn-primary" onclick="quickLogThisPay()" style="width:100%;font-size:1rem;padding:0.85rem;margin-top:1rem;letter-spacing:-0.01em;">
-          Log today's pay &mdash; ${AUD(income.myPay)}
-        </button>` : `
-        <p class="text-muted" style="font-size:13px;margin-top:0.75rem;">No usual pay amount set — add one under Income &rarr; Pay settings for one-tap logging.</p>`}
-        <div style="margin-top:1rem;">
-          <div class="form-row">
-            <input type="number" id="myPayAmount" placeholder="Different amount" min="0">
-            <input type="date" id="myPayDate" value="${today()}">
-            <button class="btn-primary" onclick="logMyPay()" style="flex:0 0 auto;">Log</button>
-          </div>
-          <p class="text-muted" style="font-size:11px;margin-top:0.4rem;">
-            Or tell the bot &mdash; <code>got paid 2400</code>.
-            <a href="#" onclick="switchTab('payplan');return false;" style="color:var(--accent);">See all income &rarr;</a>
-          </p>
-        </div>
-      </div>`;
-    }
-
-    /** Income tab: the full month-by-month log. */
+    /** Income tab: log a pay, and the full month-by-month history. */
     function renderPayLogCard() {
       return `<div class="card">
-        <h2 style="margin:0;">Pay log</h2>
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Pay log</h2>
+          ${income.myPay > 0
+            ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()">Log today's pay &mdash; ${AUD(income.myPay)}</button>`
+            : ''}
+        </div>
+        <div class="form-row" style="margin-top:1rem;">
+          <input type="number" id="myPayAmount" placeholder="Different amount" min="0">
+          <input type="date" id="myPayDate" value="${today()}">
+          <button class="btn-primary" onclick="logMyPay()" style="flex:0 0 auto;">Log</button>
+        </div>
         ${renderPayHistory()}
       </div>`;
     }
@@ -1936,7 +1889,6 @@
         <button class="btn-primary" onclick="saveDashboardIncome()" style="width:100%;margin-top:0.5rem;">Save pay settings</button>
       </div>`;
     }
-    function renderMyPayHistory() { return renderPayHistory(); }
     /* ------------------------------------------------------------------ *
      * Pay log
      *
@@ -2010,13 +1962,14 @@
       const name = document.getElementById('quickName').value.trim();
       const category = document.getElementById('quickCategory').value;
       const type = document.getElementById('quickType').value;
+      const date = document.getElementById('quickDate')?.value || today();
       if (!amount || amount <= 0 || !name) {
         showToast('Please fill in all fields', 'error');
         return;
       }
       transactions.push({
         id: Date.now(),
-        date: today(),
+        date,
         name,
         amount,
         type,
