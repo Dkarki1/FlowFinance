@@ -3653,15 +3653,33 @@
     // ═══════════════════════════════════════════════════════════════
     // SAVINGS RATE
     // ═══════════════════════════════════════════════════════════════
+    /**
+     * The share of income actually kept this month — both sides measured from
+     * transactions.
+     *
+     * It previously divided measured spending by PROJECTED income, which is
+     * how August came to record a savings rate of 99%: the projection said
+     * $5,657 had come in, almost nothing had been logged as spent, and the
+     * difference was filed as savings. Mixing a projection with a measurement
+     * produces a number that is neither.
+     *
+     * Returns null when no income has been logged for the month, because the
+     * rate is then genuinely unmeasurable rather than 0% or 100%.
+     */
     function currentSavingsRate() {
-      const inc = monthlyIncome();
-      if (inc === 0) return 0;
-      const spent = transactions.filter(t => t.type === 'expense' && getMonthKey(new Date(t.date + 'T00:00:00')) === getMonthKey()).reduce((s, t) => s + t.amount, 0);
-      return Math.max(0, Math.round(((inc - spent) / inc) * 100));
+      const monthKey = getMonthKey();
+      const rows = (transactions || []).filter(t => t && String(t.date).startsWith(monthKey));
+      const earned = rows.filter(t => t.type === 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      if (earned <= 0) return null;
+      const spent = rows.filter(t => t.type !== 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      return Math.max(0, Math.round(((earned - spent) / earned) * 100));
     }
     function recordSavingsRate() {
       const key = getMonthKey();
       const rate = currentSavingsRate();
+      // A month with no income logged has no rate to record. Writing one
+      // anyway is what put a meaningless 99% into the history.
+      if (rate === null) return;
       const existing = savingsRateHistory.find(h => h.month === key);
       if (!existing) { savingsRateHistory.push({ month: key, rate }); saveSavingsRateHistory(); }
       else if (existing.rate !== rate) { existing.rate = rate; saveSavingsRateHistory(); }
@@ -3670,11 +3688,16 @@
       return renderSavingsRate() + renderNetWorth();
     }
     function renderSavingsRate() {
-      const rate = currentSavingsRate();
+      const measured = currentSavingsRate();
+      // No income logged yet this month — show an empty ring rather than a
+      // confident 0%, which reads as "you saved nothing" instead of
+      // "nothing to measure".
+      const unmeasured = measured === null;
+      const rate = unmeasured ? 0 : measured;
       const history = [...savingsRateHistory].sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
       const avg = history.length ? Math.round(history.reduce((s, h) => s + h.rate, 0) / history.length) : rate;
-      const color = rate >= 20 ? '#34C759' : rate >= 10 ? '#FF9500' : '#FF3B30';
-      const label = rate >= 20 ? 'On Track' : rate >= 10 ? 'Getting There' : 'Needs Work';
+      const color = unmeasured ? '#D2D2D7' : rate >= 20 ? '#34C759' : rate >= 10 ? '#FF9500' : '#FF3B30';
+      const label = unmeasured ? 'No income logged yet' : rate >= 20 ? 'On Track' : rate >= 10 ? 'Getting There' : 'Needs Work';
       const circumference = 2 * Math.PI * 45;
       const offset = circumference - (rate / 100) * circumference;
       return `
@@ -4109,7 +4132,7 @@ Income:         ${AUD(monthlyIncome())}
 Bills:          ${AUD(monthlyBillsTotal())}
 Debt Mins:      ${AUD(monthlyDebtMin())}
 Surplus:        ${AUD(monthlySurplus())}
-Savings Rate:   ${currentSavingsRate()}%
+Savings Rate:   ${currentSavingsRate() === null ? 'n/a (no income logged)' : currentSavingsRate() + '%'}
 Net Worth:      ${AUD(netWorth())}
 Total Debt:     ${AUD(totalDebt())}
 
