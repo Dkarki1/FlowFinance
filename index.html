@@ -1085,6 +1085,7 @@
     // State
     let income = { myPay: 0, myFreq: 'fortnightly', myNextPay: '' };
     let variableIncome = []; // Track actual variable pay amounts
+    let creditScores = []; // [{ id, date, score, bureau }] — recorded by hand
     let transactions = [];
     // Written by the CFO backend (Cloud Functions), read-only here.
     let agentLogs = {};
@@ -1252,6 +1253,8 @@
       try {
         const inc = await fbGet('income');
         if (inc) income = inc;
+        const cs2 = await fbGet('creditScores');
+        creditScores = Array.isArray(cs2) ? cs2.filter(Boolean) : [];
         const varInc = await fbGet('variableIncome');
         if (varInc) variableIncome = Array.isArray(varInc) ? varInc : [];
         const txs = await fbGet('transactions');
@@ -1522,6 +1525,7 @@
       { id: 'budget', label: 'Budget' },
       { divider: true },
       { id: 'savingsrate', label: 'Progress' },
+      { id: 'credit', label: 'Credit' },
       { id: 'goals', label: 'Goals' },
       { id: 'checklist', label: 'Checklists' },
       { id: 'afford', label: 'Tools' },
@@ -3790,6 +3794,176 @@
       if (!existing) { savingsRateHistory.push({ month: key, rate }); saveSavingsRateHistory(); }
       else if (existing.rate !== rate) { existing.rate = rate; saveSavingsRateHistory(); }
     }
+    /* ------------------------------------------------------------------ *
+     * Credit
+     *
+     * An honest limit shapes this whole tab: no consumer app can fetch an
+     * Australian credit score. Equifax, Experian and illion run proprietary
+     * models on data this app cannot see, and none of them expose an API.
+     * Any app claiming to "monitor" your score is either reselling a bureau's
+     * own dashboard or estimating — and an estimated credit score is worse
+     * than none, because it invites decisions on a number nobody uses.
+     *
+     * So: you record readings, this charts them, and the factors behind them
+     * are computed from your own data where they genuinely can be.
+     * ------------------------------------------------------------------ */
+
+    const BUREAU_MAX = { equifax: 1200, experian: 1000, illion: 1000 };
+
+    function renderCreditTab() {
+      const c = (cfoSnapshot && cfoSnapshot.credit) || null;
+      const scores = [...(creditScores || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const latest = scores.length ? scores[scores.length - 1] : null;
+
+      const mark = {
+        good: ['var(--success)', 'Good'],
+        watch: ['var(--warning)', 'Worth fixing'],
+        poor: ['var(--danger)', 'Hurting you'],
+        unknown: ['var(--text-muted)', 'Can\'t see this']
+      };
+
+      const scoreCard = latest
+        ? `<div class="card" style="text-align:center;">
+             <div class="kpi-label">${latest.bureau.charAt(0).toUpperCase() + latest.bureau.slice(1)} score</div>
+             <div class="num" style="font-size:44px;font-weight:700;margin:0.5rem 0 0;">${latest.score}<span class="text-muted" style="font-size:18px;font-weight:400;"> / ${BUREAU_MAX[latest.bureau] || 1200}</span></div>
+             <div class="text-muted" style="font-size:12px;">recorded ${latest.date}</div>
+             ${c && c.scoreChange ? `<div style="margin-top:0.5rem;font-size:13px;color:${c.scoreChange.delta >= 0 ? 'var(--success)' : 'var(--danger)'};">
+               ${c.scoreChange.delta >= 0 ? '+' : ''}${c.scoreChange.delta} since ${c.scoreChange.since}
+             </div>` : ''}
+           </div>`
+        : `<div class="card">
+             <h2>No score recorded yet</h2>
+             <p class="text-muted" style="font-size:13px;margin-top:0.5rem;">
+               Every Australian is entitled to a free credit report from each bureau. Check one, then record the number below and this starts tracking it.
+             </p>
+           </div>`;
+
+      return `
+        ${scoreCard}
+        ${scores.length > 1 ? `<div class="card"><h2>Score over time</h2><canvas id="creditScoreChart" height="120"></canvas>
+          <p class="text-muted" style="font-size:11px;margin-top:0.5rem;">One line per bureau. They use different scales — Equifax runs to 1200, Experian and illion to 1000 — so they're never plotted as the same number.</p></div>` : ''}
+
+        <div class="card">
+          <h2>Record a reading</h2>
+          <div class="form-row" style="margin-top:0.75rem;">
+            <div class="form-group"><label>Score</label><input type="number" id="creditScoreInput" min="0" max="1200" placeholder="e.g. 672"></div>
+            <div class="form-group"><label>Bureau</label><select id="creditBureauInput">
+              <option value="equifax">Equifax (of 1200)</option>
+              <option value="experian">Experian (of 1000)</option>
+              <option value="illion">illion (of 1000)</option>
+            </select></div>
+            <div class="form-group"><label>Date</label><input type="date" id="creditDateInput" value="${today()}"></div>
+          </div>
+          <button class="btn-primary" onclick="addCreditScore()" style="width:100%;">Record</button>
+          <p class="text-muted" style="font-size:11px;margin-top:0.6rem;">
+            Or tell the bot <code>score 672</code>. Free checks: Equifax, Experian and illion each owe you a free report — and checking your own score is a soft enquiry, so it never affects it.
+          </p>
+        </div>
+
+        ${c ? `
+        <div class="card">
+          <h2>What's driving it</h2>
+          <p class="text-muted" style="font-size:12px;margin:0.4rem 0 1rem;">Computed from your own data. Where a factor can't be seen from here, it says so rather than guessing.</p>
+          ${c.factors.map(f => {
+            const [colour, word] = mark[f.status] || mark.unknown;
+            return `<div style="padding:0.9rem 0;border-top:1px solid var(--border);">
+              <div class="flex-between" style="align-items:baseline;">
+                <strong style="font-size:14px;">${f.label}</strong>
+                <span style="font-size:11px;font-weight:600;color:${colour};text-transform:uppercase;">${word}</span>
+              </div>
+              <p style="font-size:13px;margin-top:0.35rem;">${f.detail}</p>
+              ${f.action && f.status !== 'good' ? `<p style="font-size:13px;margin-top:0.4rem;padding:0.5rem 0.75rem;background:var(--surface);border-left:3px solid ${colour};border-radius:6px;">${f.action}</p>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+
+        ${c.lines && c.lines.length ? `
+        <div class="card">
+          <h2>Card utilisation</h2>
+          <p class="text-muted" style="font-size:12px;margin:0.4rem 0 1rem;">Overall ${c.overallUtilisation}% of ${AUD(c.totalLimit)} in limits. Under 30% is where this stops weighing on a score.</p>
+          ${c.lines.map(l => {
+            const colour = l.percent > 90 ? 'var(--danger)' : l.percent > 30 ? 'var(--warning)' : 'var(--success)';
+            return `<div style="margin-bottom:0.9rem;">
+              <div class="flex-between" style="font-size:13px;margin-bottom:0.3rem;">
+                <span>${l.name}</span>
+                <span class="num" style="font-weight:600;color:${colour};">${l.percent}% <span class="text-muted" style="font-weight:400;">${AUD(l.balance)} of ${AUD(l.limit)}</span></span>
+              </div>
+              <div class="progress" style="height:7px;"><div class="progress-fill" style="width:${Math.min(100, l.percent)}%;background:${colour};"></div></div>
+              ${l.toReachThirty > 0 ? `<p class="text-muted" style="font-size:11px;margin-top:0.3rem;">${AUD(l.toReachThirty)} to get under 30%</p>` : ''}
+            </div>`;
+          }).join('')}
+        </div>` : `
+        <div class="card">
+          <h2>Card utilisation</h2>
+          <p class="text-muted" style="font-size:13px;margin-top:0.5rem;">No credit limits recorded. Add one on each card in the Debts tab — utilisation is one of the biggest factors and it's the one you can change fastest.</p>
+        </div>`}
+
+        <div class="card">
+          <h2>What I can't see</h2>
+          <p class="text-muted" style="font-size:13px;margin-top:0.5rem;">
+            Defaults, court judgments, accounts you haven't entered here, and the bureaus' own weightings. No app has access to those —
+            anything promising to monitor your real score is either showing you a bureau's dashboard or estimating.
+            Check the real thing free a couple of times a year and record it here; what's above is the part you can actually act on.
+          </p>
+        </div>` : `
+        <div class="card">
+          <p class="text-muted" style="font-size:13px;">The factor breakdown appears once the CFO agent next refreshes — ask the bot anything and reload.</p>
+        </div>`}
+      `;
+    }
+
+    async function addCreditScore() {
+      const score = parseInt(document.getElementById('creditScoreInput').value, 10);
+      const bureau = document.getElementById('creditBureauInput').value;
+      const date = document.getElementById('creditDateInput').value || today();
+      const max = BUREAU_MAX[bureau] || 1200;
+
+      if (!score || score <= 0) { showToast('Enter a score', 'error'); return; }
+      // Catch the easy mistake of entering an Equifax number against Experian.
+      if (score > max) { showToast(`${bureau} runs to ${max} — check the bureau`, 'error'); return; }
+
+      creditScores.push({ id: Date.now(), score, bureau, date });
+      await fbSet('creditScores', creditScores);
+      renderAll();
+      showToast('✓ Score recorded', 'success');
+    }
+
+    function drawCreditScoreChart() {
+      const ctx = document.getElementById('creditScoreChart')?.getContext('2d');
+      if (!ctx) return;
+      if (window.creditChartInstance) window.creditChartInstance.destroy();
+
+      const scores = [...(creditScores || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const dates = [...new Set(scores.map(s => s.date))].sort();
+      const colours = { equifax: '#0F95A8', experian: '#5E5CE6', illion: '#FF9500' };
+
+      // One dataset per bureau. Plotting an Equifax 700 next to an Experian 700
+      // as a single line would imply they mean the same thing; they don't.
+      const datasets = [...new Set(scores.map(s => s.bureau))].map(bureau => ({
+        label: `${bureau} (of ${BUREAU_MAX[bureau] || 1200})`,
+        data: dates.map(d => {
+          const hit = scores.find(s => s.date === d && s.bureau === bureau);
+          return hit ? hit.score : null;
+        }),
+        borderColor: colours[bureau] || '#6E6E73',
+        backgroundColor: 'transparent',
+        borderWidth: 2.5, pointRadius: 4, tension: 0.3, spanGaps: true
+      }));
+
+      window.creditChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: dates.map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })), datasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { font: { size: 10 }, color: '#1D1D1F', padding: 10 } } },
+          scales: {
+            y: { ticks: { color: '#6E6E73' }, grid: { color: '#D2D2D7' } },
+            x: { ticks: { color: '#6E6E73' }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
     function renderProgressTab() {
       return renderSavingsRate() + renderNetWorth();
     }
@@ -5577,6 +5751,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         case 'debts': html = renderDebtsTab(); break;
         case 'budget': html = renderBudget(); break;
         case 'savingsrate': html = renderProgressTab(); break;
+        case 'credit': html = renderCreditTab(); break;
         case 'goals': html = renderGoals(); break;
         case 'checklist': html = renderChecklistsTab(); break;
         case 'afford': html = renderToolsTab(); break;
@@ -5604,6 +5779,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       }
       if (currentTab === 'payplan') {
         setTimeout(() => drawIncomeMonthChart(), 0);
+      }
+      if (currentTab === 'credit') {
+        setTimeout(() => drawCreditScoreChart(), 0);
       }
       if (currentTab === 'budget') {
         setTimeout(() => renderBudgetCharts(), 0);
