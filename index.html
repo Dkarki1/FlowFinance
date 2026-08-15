@@ -1616,6 +1616,7 @@
         </div>
         ${renderCashForecastCard()}
         ${renderMonthStatusCard()}
+        ${renderRunwayCard()}
         ${renderEmergencyFundCard()}
         <div class="card">
           <h2>Bills Due This Week</h2>
@@ -2467,7 +2468,69 @@
     }
     // Debts
     function renderDebtsTab() {
-      return renderDebts() + (debts.length > 0 ? renderDebtTimeline() : '');
+      return renderPromoCliffCard() + renderDebts() + (debts.length > 0 ? renderDebtTimeline() : '');
+    }
+
+    /**
+     * A promotional rate is a deadline wearing the costume of a bargain.
+     *
+     * The minimum payment on a 0% card is set so that it will NOT clear the
+     * balance before the promo lapses — that is the product working as
+     * designed — and whatever survives starts accruing at the go-to rate on
+     * the day. Everything here is computed by the backend promo engine and
+     * published into cfoSnapshot, so this card and the bot say the same thing.
+     */
+    function renderPromoCliffCard() {
+      const cliffs = (cfoSnapshot && cfoSnapshot.promoCliffs) || [];
+      if (!cliffs.length) return '';
+
+      return cliffs.map(c => {
+        const paid = c.payingMinimumOnly || {};
+        const clear = c.toClearInTime || {};
+        const missed = c.ifMissed || {};
+
+        if (c.alreadyLapsed) {
+          return `<div class="card" style="border-left:4px solid var(--danger);">
+            <h2 style="margin:0;">${c.debt} — promo has ended</h2>
+            <p style="font-size:13px;margin-top:0.5rem;">
+              The rate reverted on ${c.promoEnds}. ${AUD(c.balance)} is accruing at
+              ${missed.goToRate === 'unknown — not recorded' ? 'a rate that isn\'t recorded' : missed.goToRate + '%'}.
+            </p>
+          </div>`;
+        }
+
+        const urgent = c.monthsLeft <= 9;
+        return `<div class="card" style="border-left:4px solid ${urgent ? 'var(--warning)' : 'var(--accent)'};">
+          <div class="flex-between" style="align-items:baseline;">
+            <h2 style="margin:0;">${c.debt} — ${c.monthsLeft} month${c.monthsLeft === 1 ? '' : 's'} of 0% left</h2>
+            <span class="text-muted" style="font-size:12px;">ends ${c.promoEnds}</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.25rem;">
+            <div style="padding:0.9rem;background:var(--surface);border-radius:8px;">
+              <div class="text-muted" style="font-size:11px;text-transform:uppercase;">Paying the minimum</div>
+              <div class="num" style="font-size:20px;font-weight:700;margin-top:0.3rem;">${AUD(paid.monthly)}<span class="text-muted" style="font-size:12px;font-weight:400;">/mo</span></div>
+              <div style="font-size:12px;margin-top:0.4rem;color:var(--danger);">
+                leaves <strong>${AUD(paid.stillOwingAtCliff)}</strong> owing when it reverts
+              </div>
+            </div>
+            <div style="padding:0.9rem;background:var(--surface);border-radius:8px;">
+              <div class="text-muted" style="font-size:11px;text-transform:uppercase;">To clear it in time</div>
+              <div class="num" style="font-size:20px;font-weight:700;margin-top:0.3rem;color:var(--success-dark);">${AUD(clear.monthly)}<span class="text-muted" style="font-size:12px;font-weight:400;">/mo</span></div>
+              <div style="font-size:12px;margin-top:0.4rem;">
+                <strong>${AUD(clear.extraPerMonth)}</strong> more than the minimum
+              </div>
+            </div>
+          </div>
+
+          ${missed.firstYearInterest != null
+            ? `<p style="font-size:13px;margin-top:1rem;">At ${missed.goToRate}%, the ${AUD(paid.stillOwingAtCliff)} left over costs about <strong>${AUD(missed.firstYearInterest)}</strong> in its first year.</p>`
+            : `<div style="margin-top:1rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
+                 <strong>The go-to rate isn't recorded</strong>, so I can't price what missing this costs — and every payoff projection is assuming 0% forever.
+                 Add it in the card below and everything sharpens up.
+               </div>`}
+        </div>`;
+      }).join('');
     }
     function renderDebts() {
       const sorted = getSortedDebts();
@@ -2583,7 +2646,9 @@
             <div class="form-group" style="margin-bottom: 0;"><label>Rate (%)</label><input type="number" value="${debt.rate}" onchange="updateDebtRate(${debt.id}, this.value)" min="0" step="0.1"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Promo ends</label><input type="date" value="${debt.promoEndDate || ''}" onchange="updateDebtPromoEnd(${debt.id}, this.value)"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Go-to rate (%)</label><input type="number" value="${debt.postPromoRate ?? ''}" onchange="updateDebtPostPromoRate(${debt.id}, this.value)" min="0" step="0.1" placeholder="after promo"></div>
+            <div class="form-group" style="margin-bottom: 0;"><label>Credit limit</label><input type="number" value="${debt.creditLimit ?? ''}" onchange="updateDebtCreditLimit(${debt.id}, this.value)" min="0" placeholder="cards only"></div>
           </div>
+          ${renderUtilisation(debt)}
           ${debt.promoEndDate && (debt.postPromoRate === undefined || debt.postPromoRate === null) ? `<div style="margin: -1rem 0 1.25rem; padding: 0.6rem 0.9rem; background: var(--surface); border-left: 3px solid var(--warning); border-radius: 6px; font-size: 12px; color: var(--warning-text2);">Promo ends ${debt.promoEndDate} but no go-to rate is set — payoff projections assume ${debt.rate}% forever, so they're optimistic.</div>` : ''}
           <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
             <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Log a Payment</label>
@@ -2616,6 +2681,47 @@
     // Promotional-rate handling. A 0% balance-transfer card is only 0% until the
     // promo ends; without a go-to rate the payoff projection assumes it stays
     // free forever, which understates interest and gets the payoff ORDER wrong.
+    function updateDebtCreditLimit(id, value) {
+      const d = debts.find(x => x.id === id);
+      if (d) { d.creditLimit = parseFloat(value) || null; saveDebts(); }
+    }
+
+    /**
+     * Credit utilisation — how much of a card's limit is in use.
+     *
+     * This matters separately from the interest. Utilisation is one of the
+     * largest single inputs to a credit score, and a card sitting near its
+     * limit suppresses that score no matter how reliably it's paid. That is
+     * the difference between being offered a refinance on the NAB loan and
+     * not, which is worth far more than the interest on the card itself.
+     *
+     * Shown only when a limit has been entered — inventing one would be worse
+     * than staying quiet.
+     */
+    function renderUtilisation(debt) {
+      const limit = Number(debt.creditLimit) || 0;
+      if (limit <= 0) return '';
+
+      const used = Math.max(0, Number(debt.balance) || 0);
+      const pct = (used / limit) * 100;
+      // 30% is the conventional threshold below which utilisation stops
+      // dragging on a score.
+      const target = limit * 0.3;
+      const toTarget = Math.max(0, used - target);
+      const colour = pct > 90 ? 'var(--danger)' : pct > 30 ? 'var(--warning)' : 'var(--success)';
+
+      return `<div style="margin: -1rem 0 1.25rem;">
+        <div class="flex-between" style="font-size:12px;margin-bottom:0.35rem;">
+          <span>Credit used</span>
+          <span class="num" style="font-weight:600;color:${colour};">${pct.toFixed(0)}% <span class="text-muted" style="font-weight:400;">of ${AUD(limit)}</span></span>
+        </div>
+        <div class="progress" style="height:6px;"><div class="progress-fill" style="width:${Math.min(100, pct)}%;background:${colour};"></div></div>
+        ${toTarget > 0
+          ? `<p class="text-muted" style="font-size:11px;margin-top:0.4rem;">Paying down ${AUD(toTarget)} would bring this under 30% — the point where utilisation stops holding your credit score down. Worth doing before any application to refinance.</p>`
+          : `<p class="text-muted" style="font-size:11px;margin-top:0.4rem;">Under 30% — not dragging on your credit score.</p>`}
+      </div>`;
+    }
+
     function updateDebtPromoEnd(id, value) {
       const d = debts.find(x => x.id === id);
       if (d) { d.promoEndDate = value || null; saveDebts(); }
@@ -4940,6 +5046,53 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // Progress toward a three-month buffer. Expressed in months of cover as
     // well as dollars — "1.5 months of essential costs" reads better than a
     // bare number.
+    /**
+     * Runway — the emergency fund's question asked in a way that's harder to
+     * shrug at.
+     *
+     * "Three months of costs saved" is a target. "Your money runs out on the
+     * 24th" is a date. Same arithmetic, computed by the backend savings
+     * engine; only the framing differs, and the framing is the point.
+     */
+    function renderRunwayCard() {
+      const r = cfoSnapshot && cfoSnapshot.runway;
+      if (!r || r.unknown) return '';
+
+      const colour = r.status === 'critical' ? 'var(--danger)'
+        : r.status === 'thin' ? 'var(--warning)'
+        : r.status === 'adequate' ? 'var(--accent)' : 'var(--success)';
+      const verdict = {
+        critical: 'This is what makes the emergency fund urgent rather than sensible.',
+        thin: 'Under a month. One unexpected bill and it\'s gone.',
+        adequate: 'Enough to absorb a shock, not enough to job-hunt calmly.',
+        comfortable: 'Comfortable — you could take time to find the right thing.'
+      }[r.status];
+
+      // Three months of essential costs is the usual target, so the bar reads
+      // against something rather than floating.
+      const pct = Math.max(0, Math.min(100, (r.days / 90) * 100));
+
+      return `<div class="card" style="border-left:4px solid ${colour};">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">If income stopped today</h2>
+          <span class="text-muted" style="font-size:12px;">${AUD(r.availableCash)} available</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:0.6rem;margin-top:0.85rem;">
+          <span class="num" style="font-size:34px;font-weight:700;color:${colour};line-height:1;">${r.days}</span>
+          <span style="font-size:15px;">day${r.days === 1 ? '' : 's'}</span>
+          <span class="text-muted" style="font-size:12px;">— money gone around ${new Date(r.runsOutOn + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })}</span>
+        </div>
+        <div class="progress" style="height:8px;margin:0.85rem 0 0.5rem;">
+          <div class="progress-fill" style="width:${pct}%;background:${colour};"></div>
+        </div>
+        <div class="flex-between text-muted" style="font-size:11px;">
+          <span>burning ${AUD(r.dailyBurn)}/day</span>
+          <span>${r.daysIfDebtDeferred} days if debt repayments were deferred</span>
+        </div>
+        <p style="font-size:13px;margin-top:0.75rem;">${verdict}</p>
+      </div>`;
+    }
+
     function renderEmergencyFundCard() {
       const ef = cfoSnapshot && cfoSnapshot.emergencyFund;
       if (!ef) return '';
