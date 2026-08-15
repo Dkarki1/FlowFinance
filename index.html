@@ -1514,7 +1514,7 @@
     const tabs = [
       { id: 'dashboard', label: 'Dashboard' },
       { divider: true },
-      { id: 'payplan', label: 'Income & Payday' },
+      { id: 'payplan', label: 'Income' },
       { divider: true },
       { id: 'transactions', label: 'Transactions' },
       { id: 'bills', label: 'Bills' },
@@ -1540,12 +1540,15 @@
           : `<button class="tab ${currentTab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`
       ).join('');
       nav.querySelectorAll('.tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentTab = btn.dataset.tab;
-          renderTabs();
-          renderMain();
-        });
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       });
+    }
+    /** Switching tabs from anywhere, not just the nav bar. */
+    function switchTab(id) {
+      currentTab = id;
+      renderTabs();
+      renderMain();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     // Dashboard
     function renderBillsDueWidget() {
@@ -1613,49 +1616,7 @@
         </div>
         ${renderCashForecastCard()}
         ${renderEmergencyFundCard()}
-        <div class="card">
-          <div class="flex-between" style="align-items:baseline;">
-            <h2 style="margin:0;">Income log</h2>
-            <span class="text-muted" style="font-size:12px;">${income.myPay > 0 ? `${AUD(income.myPay)} ${income.myFreq}` : 'No pay amount set'}</span>
-          </div>
-          ${income.myPay > 0 ? `
-          <button class="btn-primary" onclick="quickLogThisPay()" style="width: 100%; font-size: 1rem; padding: 0.85rem; margin-top: 1rem; letter-spacing: -0.01em;">
-            Log today's pay &mdash; ${AUD(income.myPay)}
-          </button>` : ''}
-          <div style="margin-top: 1rem;">
-            <label style="font-weight:600;margin-bottom:0.5rem;display:block;font-size:13px;">Or log a different amount</label>
-            <div class="form-row">
-              <input type="number" id="myPayAmount" placeholder="Amount" min="0">
-              <input type="date" id="myPayDate" value="${today()}">
-              <button class="btn-primary" onclick="logMyPay()" style="flex: 0 0 auto;">Log</button>
-            </div>
-            <p class="text-muted" style="font-size:11px;margin-top:0.4rem;">Or tell the bot &mdash; <code>got paid 2400</code>. Either way it lands here and in Transactions.</p>
-          </div>
-          ${renderMyPayHistory()}
-          <details style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
-            <summary style="cursor:pointer;font-weight:600;font-size:13px;">Pay settings</summary>
-            <p class="text-muted" style="font-size:12px;margin:0.5rem 0 0.75rem;">These drive your surplus, budgets and the 30-day cash forecast &mdash; not the log above.</p>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Pay Frequency</label>
-                <select id="myFreq">
-                  <option value="weekly" ${income.myFreq === 'weekly' ? 'selected' : ''}>Weekly</option>
-                  <option value="fortnightly" ${income.myFreq === 'fortnightly' ? 'selected' : ''}>Fortnightly</option>
-                  <option value="monthly" ${income.myFreq === 'monthly' ? 'selected' : ''}>Monthly</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Usual Pay Amount ($)</label>
-                <input type="number" id="myFixedPay" placeholder="e.g. 2400" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
-              </div>
-              <div class="form-group">
-                <label>Next Pay Date</label>
-                <input type="date" id="myNextPay" value="${income.myNextPay}">
-              </div>
-            </div>
-            <button class="btn-primary" onclick="saveDashboardIncome()" style="width: 100%; margin-top: 0.5rem;">Save pay settings</button>
-          </details>
-        </div>
+        ${renderQuickPayCard()}
         <div class="card">
           <h2>Bills Due This Week</h2>
           ${renderBillsDueWidget()}
@@ -1894,6 +1855,85 @@
           </select>
         </div>
         <div id="payLogBody">${renderPayLogBody()}</div>
+      </div>`;
+    }
+
+    /**
+     * Dashboard: logging only.
+     *
+     * Logging a pay is a ten-second action you do once a fortnight; reading
+     * income history is a different job on a different rhythm. Keeping the
+     * whole log here made the dashboard long and buried the thing you actually
+     * came to press. The analysis lives on the Income tab now.
+     */
+    function renderQuickPayCard() {
+      const monthKey = getMonthKey();
+      const soFar = payEntries()
+        .filter(p => String(p.date).startsWith(monthKey))
+        .reduce((s, p) => s + p.amount, 0);
+      const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
+
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Log a pay</h2>
+          <span class="text-muted" style="font-size:12px;">${monthName}: <strong class="num">${AUD(soFar)}</strong></span>
+        </div>
+        ${income.myPay > 0 ? `
+        <button class="btn-primary" onclick="quickLogThisPay()" style="width:100%;font-size:1rem;padding:0.85rem;margin-top:1rem;letter-spacing:-0.01em;">
+          Log today's pay &mdash; ${AUD(income.myPay)}
+        </button>` : `
+        <p class="text-muted" style="font-size:13px;margin-top:0.75rem;">No usual pay amount set — add one under Income &rarr; Pay settings for one-tap logging.</p>`}
+        <div style="margin-top:1rem;">
+          <div class="form-row">
+            <input type="number" id="myPayAmount" placeholder="Different amount" min="0">
+            <input type="date" id="myPayDate" value="${today()}">
+            <button class="btn-primary" onclick="logMyPay()" style="flex:0 0 auto;">Log</button>
+          </div>
+          <p class="text-muted" style="font-size:11px;margin-top:0.4rem;">
+            Or tell the bot &mdash; <code>got paid 2400</code>.
+            <a href="#" onclick="switchTab('payplan');return false;" style="color:var(--accent);">See all income &rarr;</a>
+          </p>
+        </div>
+      </div>`;
+    }
+
+    /** Income tab: the full month-by-month log. */
+    function renderPayLogCard() {
+      return `<div class="card">
+        <h2 style="margin:0;">Pay log</h2>
+        ${renderPayHistory()}
+      </div>`;
+    }
+
+    /**
+     * Settings, not a daily task — so they sit at the bottom of the Income tab
+     * rather than in front of the thing you press each fortnight. They still
+     * matter: everything above, plus surplus, budgets and the cash forecast,
+     * is derived from these three fields.
+     */
+    function renderPaySettingsCard() {
+      return `<div class="card">
+        <h2>Pay settings</h2>
+        <p class="text-muted" style="font-size:12px;margin:0.4rem 0 1rem;">Your expected income, the surplus, the budget suggestions and the 30-day cash forecast all come from these.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Pay Frequency</label>
+            <select id="myFreq">
+              <option value="weekly" ${income.myFreq === 'weekly' ? 'selected' : ''}>Weekly</option>
+              <option value="fortnightly" ${income.myFreq === 'fortnightly' ? 'selected' : ''}>Fortnightly</option>
+              <option value="monthly" ${income.myFreq === 'monthly' ? 'selected' : ''}>Monthly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Usual Pay Amount ($)</label>
+            <input type="number" id="myFixedPay" placeholder="e.g. 2400" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
+          </div>
+          <div class="form-group">
+            <label>Next Pay Date</label>
+            <input type="date" id="myNextPay" value="${income.myNextPay}">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveDashboardIncome()" style="width:100%;margin-top:0.5rem;">Save pay settings</button>
       </div>`;
     }
     function renderMyPayHistory() { return renderPayHistory(); }
@@ -3123,61 +3163,240 @@
     const fortnightlySurplus = () => fortnightlyIncome() - fortnightlyBills() - fortnightlyDebtMin();
 
     // ── PAY PLAN TAB ─────────────────────────────────────────────────────────
+    /* ------------------------------------------------------------------ *
+     * Income dashboard
+     *
+     * This tab used to show only projections — income, bills, debts and a
+     * surplus, all derived from the settings and none of it from what you were
+     * actually paid. It could not tell you that a pay was short, late, or
+     * missing, because it never looked at a single logged pay.
+     * ------------------------------------------------------------------ */
+
+    /**
+     * The dates you'd expect to be paid in a given month, walked from the
+     * next-pay anchor rather than assumed.
+     *
+     * A fortnightly wage lands twice in most months and three times in some,
+     * so "monthly income" (pay x 26 / 12) never equals any real month. Using it
+     * as the expectation would flag a perfectly normal two-pay month as a
+     * shortfall every time.
+     */
+    function expectedPayDates(monthKey) {
+      const anchor = income.myNextPay;
+      if (!anchor || !(income.myPay > 0)) return [];
+
+      const [y, m] = monthKey.split('-').map(Number);
+      const monthStart = new Date(y, m - 1, 1);
+      const monthEnd = new Date(y, m, 0);
+      const step = { weekly: 7, fortnightly: 14 }[income.myFreq];
+      const dates = [];
+
+      if (!step) {
+        // Monthly: the same day each month, clamped to short months.
+        const day = new Date(anchor + 'T00:00:00').getDate();
+        dates.push(new Date(y, m - 1, Math.min(day, monthEnd.getDate())));
+        return dates;
+      }
+
+      // Walk strictly BEFORE the month first, then forward to the first
+      // payday inside it. Stopping the moment the anchor lands inside the
+      // month would miss every earlier payday in it — with a 20 Aug anchor
+      // that reported one August pay instead of two, and so declared a
+      // shortfall in a perfectly normal month.
+      const d = new Date(anchor + 'T00:00:00');
+      while (d >= monthStart) d.setDate(d.getDate() - step);
+      while (d < monthStart) d.setDate(d.getDate() + step);
+      while (d <= monthEnd) { dates.push(new Date(d)); d.setDate(d.getDate() + step); }
+      return dates;
+    }
+
+    /** Income totals for the last `n` months, oldest first. */
+    function incomeByMonth(n = 12) {
+      const pays = payEntries();
+      const out = [];
+      for (let i = n - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(1);
+        d.setMonth(d.getMonth() - i);
+        const key = getMonthKey(d);
+        out.push({
+          key,
+          label: d.toLocaleDateString('en-AU', { month: 'short' }),
+          total: pays.filter(p => String(p.date).startsWith(key)).reduce((s, p) => s + p.amount, 0)
+        });
+      }
+      return out;
+    }
+
+    /** Where this month's actual income went — measured, not projected. */
+    function incomeAllocation(monthKey) {
+      const inMonth = (transactions || []).filter(t => t && String(t.date).startsWith(monthKey));
+      const earned = inMonth.filter(t => t.type === 'income').reduce((s, t) => s + (+t.amount || 0), 0);
+      const debt = inMonth.filter(t => t.type !== 'income' && t.category === 'Debt Payment').reduce((s, t) => s + (+t.amount || 0), 0);
+      const spent = inMonth.filter(t => t.type !== 'income' && t.category !== 'Debt Payment').reduce((s, t) => s + (+t.amount || 0), 0);
+      return { earned, debt, spent, left: earned - debt - spent };
+    }
+
     function renderPayPlan() {
-      const monthlyInc = monthlyIncome();
-      const monthlyBills = monthlyBillsTotal();
-      const monthlyDebt = monthlyDebtMin();
-      const monthlySurp = monthlySurplus();
+      const monthKey = getMonthKey();
+      const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
+      const expected = expectedPayDates(monthKey);
+      const expectedTotal = expected.length * (income.myPay || 0);
+      const actualTotal = payEntries()
+        .filter(p => String(p.date).startsWith(monthKey))
+        .reduce((s, p) => s + p.amount, 0);
+      const gap = actualTotal - expectedTotal;
+
+      // Only pay dates that have already passed can be "missing" — an upcoming
+      // payday is not a shortfall, and calling it one would cry wolf all month.
+      const todayStr = today();
+      const due = expected.filter(d => getMonthKey(d) === monthKey &&
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` <= todayStr);
+      const dueTotal = due.length * (income.myPay || 0);
+      const shortSoFar = actualTotal - dueTotal;
+
+      const nextDate = expected.find(d => {
+        const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return s > todayStr;
+      });
+
+      let verdict, verdictColour;
+      if (!(income.myPay > 0) || expected.length === 0) {
+        verdict = 'Set your pay amount and next pay date below and this compares what you were actually paid against what you should have been.';
+        verdictColour = 'var(--text-muted)';
+      } else if (Math.abs(shortSoFar) < 1) {
+        verdict = due.length === 0
+          ? `No pay due yet this month. First one ${nextDate ? nextDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : 'soon'}.`
+          : `On track — ${due.length} of ${expected.length} pays received, exactly as expected.`;
+        verdictColour = 'var(--success)';
+      } else if (shortSoFar < 0) {
+        verdict = `${AUD(Math.abs(shortSoFar))} short of what you should have been paid by now (${due.length} pay${due.length === 1 ? '' : 's'} due, ${AUD(actualTotal)} logged).`;
+        verdictColour = 'var(--danger)';
+      } else {
+        verdict = `${AUD(shortSoFar)} more than expected so far — overtime, a bonus, or a pay you logged early.`;
+        verdictColour = 'var(--success)';
+      }
+
+      const alloc = incomeAllocation(monthKey);
+      const allocRow = (label, amount, colour) => {
+        const pct = alloc.earned > 0 ? Math.max(0, Math.min(100, (amount / alloc.earned) * 100)) : 0;
+        return `<div style="margin-bottom:0.85rem;">
+          <div class="flex-between" style="font-size:13px;margin-bottom:0.3rem;">
+            <span>${label}</span>
+            <span class="num" style="font-weight:600;">${AUD(amount)}${alloc.earned > 0 ? ` <span class="text-muted" style="font-weight:400;">${pct.toFixed(0)}%</span>` : ''}</span>
+          </div>
+          <div class="progress" style="height:8px;"><div class="progress-fill" style="width:${pct}%;background:${colour};"></div></div>
+        </div>`;
+      };
 
       return `
         <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%); color: white; border-radius: 16px;">
-          <h2 style="color: white; margin-bottom: 0.5rem;">Your Fixed Income</h2>
-          <p style="opacity: 0.8; font-size: 13px; margin-bottom: 1.5rem;">Simple breakdown: Income → Bills + Debts → What's Left</p>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-            <div style="text-align: center; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1rem;">
-              <div style="font-size: 12px; opacity: 0.7; margin-bottom: 0.5rem;">Monthly Income</div>
-              <div style="font-size: 24px; font-weight: 700;" class="num">${AUD(monthlyInc)}</div>
+          <h2 style="color: white; margin-bottom: 0.25rem;">${monthName} income</h2>
+          <p style="opacity:0.8;font-size:13px;">What you were actually paid, against what you should have been.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1.25rem;">
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Received</div>
+              <div style="font-size:22px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(actualTotal)}</div>
             </div>
-            <div style="text-align: center; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1rem;">
-              <div style="font-size: 12px; opacity: 0.7; margin-bottom: 0.5rem;">Bills + Debts</div>
-              <div style="font-size: 24px; font-weight: 700;" class="num">${AUD(monthlyBills + monthlyDebt)}</div>
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Expected</div>
+              <div style="font-size:22px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(expectedTotal)}</div>
+              <div style="font-size:10px;opacity:0.6;margin-top:0.2rem;">${expected.length} pay${expected.length === 1 ? '' : 's'} this month</div>
+            </div>
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Difference</div>
+              <div style="font-size:22px;font-weight:700;margin-top:0.25rem;color:${gap >= 0 ? '#6EE7B7' : '#FCA5A5'};" class="num">${gap >= 0 ? '+' : '−'}${AUD(Math.abs(gap))}</div>
             </div>
           </div>
-
-          <div style="background: rgba(255,255,255,0.15); border-radius: 10px; padding: 1rem; text-align: center;">
-            <div style="font-size: 12px; opacity: 0.8; margin-bottom: 0.5rem;">✓ What's Left Each Month</div>
-            <div style="font-size: 28px; font-weight: 700; color: ${monthlySurp >= 0 ? '#6EE7B7' : '#FCA5A5'};" class="num">${AUD(monthlySurp)}</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>Monthly Breakdown</h2>
-          <div style="display: grid; gap: 1rem;">
-            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--accent);">
-              <span style="font-weight: 600;">Total Monthly Income</span>
-              <span class="num" style="font-weight: 700; font-size: 18px; color: var(--accent);">${AUD(monthlyInc)}</span>
-            </div>
-            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--warning-dark);">
-              <span style="font-weight: 600;">Monthly Bills</span>
-              <span class="num" style="font-weight: 700; color: var(--warning-dark);">${AUD(monthlyBills)}</span>
-            </div>
-            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--danger);">
-              <span style="font-weight: 600;">Monthly Debt Payments</span>
-              <span class="num" style="font-weight: 700; color: var(--danger);">${AUD(monthlyDebt)}</span>
-            </div>
-            <div class="flex-between" style="padding: 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--success); margin-top: 0.5rem;">
-              <span style="font-weight: 600; font-size: 16px;">✓ Available to Spend or Save</span>
-              <span class="num" style="font-weight: 700; font-size: 18px; color: var(--success);">${AUD(monthlySurp)}</span>
-            </div>
+          <div style="margin-top:1rem;padding:0.75rem 1rem;background:rgba(255,255,255,0.12);border-radius:10px;font-size:13px;border-left:3px solid ${verdictColour};">
+            ${verdict}
           </div>
         </div>
 
         <div class="card">
-          <h2>That's It!</h2>
-          <p class="text-muted">Your income is fixed. Bills and debts are set up in other tabs. Every month you have <strong>${AUD(monthlySurp)}</strong> left to spend, save, or put towards your financial goals.</p>
+          <h2>Income by month</h2>
+          <canvas id="incomeMonthChart" height="140"></canvas>
         </div>
+
+        <div class="card">
+          <div class="flex-between" style="align-items:baseline;">
+            <h2 style="margin:0;">Where ${monthName}'s income went</h2>
+            <span class="num" style="font-weight:700;">${AUD(alloc.earned)} in</span>
+          </div>
+          ${alloc.earned === 0
+            ? `<p class="text-muted" style="font-size:13px;margin-top:0.75rem;">Nothing logged yet this month. Log a pay and this fills in.</p>`
+            : `<div style="margin-top:1rem;">
+                ${allocRow('Debt payments', alloc.debt, 'var(--danger)')}
+                ${allocRow('Everything else', alloc.spent, 'var(--warning-dark)')}
+                ${allocRow(alloc.left >= 0 ? 'Left over' : 'Overspent', Math.abs(alloc.left), alloc.left >= 0 ? 'var(--success)' : 'var(--danger)')}
+                <p class="text-muted" style="font-size:11px;margin-top:0.5rem;">Measured from this month's transactions, not projected. ${alloc.left < 0 ? 'You spent more than you were paid this month — the difference came from savings or credit.' : ''}</p>
+              </div>`}
+        </div>
+
+        ${renderPayLogCard()}
+
+        <div class="card">
+          <h2>On paper</h2>
+          <p class="text-muted" style="font-size:13px;margin-bottom:1rem;">What your settings say a typical month looks like, before anything actually happens.</p>
+          <div style="display: grid; gap: 0.75rem;">
+            <div class="flex-between" style="padding: 1rem 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--accent);">
+              <span style="font-weight: 600;">Monthly income</span>
+              <span class="num" style="font-weight: 700; font-size: 18px; color: var(--accent);">${AUD(monthlyIncome())}</span>
+            </div>
+            <div class="flex-between" style="padding: 1rem 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--warning-dark);">
+              <span style="font-weight: 600;">Bills</span>
+              <span class="num" style="font-weight: 700; color: var(--warning-dark);">${AUD(monthlyBillsTotal())}</span>
+            </div>
+            <div class="flex-between" style="padding: 1rem 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--danger);">
+              <span style="font-weight: 600;">Debt minimums</span>
+              <span class="num" style="font-weight: 700; color: var(--danger);">${AUD(monthlyDebtMin())}</span>
+            </div>
+            <div class="flex-between" style="padding: 1rem 1.25rem; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--success);">
+              <span style="font-weight: 600; font-size: 16px;">Available to spend or save</span>
+              <span class="num" style="font-weight: 700; font-size: 18px; color: var(--success);">${AUD(monthlySurplus())}</span>
+            </div>
+          </div>
+        </div>
+
+        ${renderPaySettingsCard()}
       `;
+    }
+
+    function drawIncomeMonthChart() {
+      const ctx = document.getElementById('incomeMonthChart')?.getContext('2d');
+      if (!ctx) return;
+      if (window.incomeMonthInstance) window.incomeMonthInstance.destroy();
+      const series = incomeByMonth(12);
+      const currentKey = getMonthKey();
+
+      window.incomeMonthInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: series.map(s => s.label),
+          datasets: [{
+            label: 'Income',
+            data: series.map(s => s.total),
+            // The current month is still filling up, so it's shown lighter —
+            // otherwise a half-finished month reads as a collapse in income.
+            backgroundColor: series.map(s => s.key === currentKey ? 'rgba(52,199,89,0.45)' : '#34C759'),
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              title: items => new Date(series[items[0].dataIndex].key + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }),
+              label: c => AUD(c.parsed.y) + (series[c.dataIndex].key === currentKey ? ' (month in progress)' : '')
+            } }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: '#6E6E73', callback: v => '$' + (v / 1000).toFixed(1) + 'k' }, grid: { color: '#D2D2D7' } },
+            x: { ticks: { color: '#6E6E73' }, grid: { display: false } }
+          }
+        }
+      });
     }
 
     function buildPaySplit(surplus, goalSavings, extraDebt) {
@@ -5253,6 +5472,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       }
       if (currentTab === 'dashboard') {
         setTimeout(() => drawCashForecastChart(), 0);
+      }
+      if (currentTab === 'payplan') {
+        setTimeout(() => drawIncomeMonthChart(), 0);
       }
       if (currentTab === 'budget') {
         setTimeout(() => renderBudgetCharts(), 0);
