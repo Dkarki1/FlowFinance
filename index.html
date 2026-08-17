@@ -1638,9 +1638,9 @@
             <div class="kpi-value num">${AUD(monthlyIncome())}</div>
             ${kpiNote(
               income.myPay
-                ? `${AUD(income.myPay)} ${income.myFreq || 'monthly'} averaged. ${
+                ? `${AUD(income.myPay)} ${income.myFreq || 'monthly'}, averaged over the year — the same every month. ${
                     receivedThisMonth() > 0
-                      ? `<strong>${AUD(receivedThisMonth())} logged</strong> this month.`
+                      ? `<strong>${AUD(receivedThisMonth())} logged</strong> so far this month.`
                       : '<strong>Nothing logged</strong> this month yet.'
                   }`
                 : 'No pay amount recorded'
@@ -3396,9 +3396,9 @@
               <div style="font-size:22px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(actualTotal)}</div>
             </div>
             <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
-              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Expected</div>
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Due this month</div>
               <div style="font-size:22px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(expectedTotal)}</div>
-              <div style="font-size:10px;opacity:0.6;margin-top:0.2rem;">${expected.length} pay${expected.length === 1 ? '' : 's'} this month</div>
+              <div style="font-size:10px;opacity:0.6;margin-top:0.2rem;">${expected.length} actual payday${expected.length === 1 ? '' : 's'}${expected.length >= 3 ? ' — a three-pay month' : ''}</div>
             </div>
             <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
               <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Difference</div>
