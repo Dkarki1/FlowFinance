@@ -5313,37 +5313,75 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         </div>`;
       }
 
-      const breach = liq.firstBelowBufferDate;
+      // The projection starts from the date the balance was recorded, which
+      // may be days ago. Everything before today is history, not forecast —
+      // charting it made the graph open on a week that had already happened
+      // and headline a "tight" date that had already passed.
+      const ahead = forecastAhead(liq);
       const dayLabel = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '';
-      const headline = liq.isSafe
-        ? `<span style="color:var(--success);font-weight:600;">Clear for 30 days.</span>
-           <span class="text-muted">Lowest point ${AUD(liq.lowestBalance)} on ${dayLabel(liq.lowestDate)}, above your ${AUD(liq.safetyBuffer)} buffer.</span>`
-        : `<span style="color:var(--danger);font-weight:600;">Tight on ${dayLabel(breach || liq.lowestDate)}.</span>
-           <span class="text-muted">Projected down to ${AUD(liq.lowestBalance)}${liq.topUpNeeded > 0 ? ` — about ${AUD(liq.topUpNeeded)} would cover it` : ''}.</span>`;
+
+      if (ahead.length === 0) {
+        return `<div class="card">
+          <h2>Cash forecast</h2>
+          <p class="text-muted" style="font-size:13px;margin-top:0.5rem;">
+            The last projection has run out — it was built on a balance from ${liq.balanceAsOf}.
+            Send <code>balance &lt;amount&gt;</code> to the bot and it rebuilds from today.
+          </p>
+        </div>`;
+      }
+
+      // Recomputed from the days still ahead, so a dip that already happened
+      // isn't reported as something to worry about.
+      const low = ahead.reduce((min, d) => d.closingBalance < min.closingBalance ? d : min, ahead[0]);
+      const firstBreach = ahead.find(d => d.belowBuffer);
+      const isSafe = !firstBreach;
+
+      const headline = isSafe
+        ? `<span style="color:var(--success);font-weight:600;">Clear for the next ${ahead.length} days.</span>
+           <span class="text-muted">Lowest ${AUD(low.closingBalance)} on ${dayLabel(low.date)}, above your ${AUD(liq.safetyBuffer)} buffer.</span>`
+        : `<span style="color:var(--danger);font-weight:600;">Tight on ${dayLabel(firstBreach.date)}.</span>
+           <span class="text-muted">Down to ${AUD(low.closingBalance)}${liq.topUpNeeded > 0 ? ` — about ${AUD(liq.topUpNeeded)} would cover it` : ''}.</span>`;
 
       const stale = (liq.balanceAgeDays || 0) > 7
         ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
-             This is built on a balance from ${liq.balanceAsOf} — ${liq.balanceAgeDays} days old. Send <code>balance &lt;amount&gt;</code> to refresh it.
+             Built on a balance from ${liq.balanceAsOf} — ${liq.balanceAgeDays} days old, so it doesn't know about anything since.
+             Send <code>balance &lt;amount&gt;</code> to refresh it.
            </div>` : '';
 
+      // The chart is folded away by default. The sentence is what you need on
+      // opening the app; the shape of the dip is what you want when you go
+      // looking, and a full-height graph as the first thing on the page is
+      // more weight than a daily glance deserves.
       return `<div class="card">
         <div class="flex-between" style="align-items:baseline;">
           <h2 style="margin:0;">Cash forecast</h2>
-          <span class="num" style="font-weight:700;">${AUD(liq.openingBalance)} <span class="text-muted" style="font-weight:400;font-size:12px;">today</span></span>
+          <span class="num" style="font-weight:700;">${AUD(liq.openingBalance)} <span class="text-muted" style="font-weight:400;font-size:12px;">as at ${dayLabel(liq.balanceAsOf)}</span></span>
         </div>
-        <div style="font-size:13px;margin:0.6rem 0 0.25rem;">${headline}</div>
-        <canvas id="cashForecastChart" height="140"></canvas>
+        <div style="font-size:13px;margin:0.6rem 0 0;">${headline}</div>
         ${stale}
+        <details style="margin-top:0.85rem;" ontoggle="if(this.open) drawCashForecastChart()">
+          <summary style="cursor:pointer;font-size:12px;color:var(--accent);font-weight:600;">Show the day-by-day chart</summary>
+          <canvas id="cashForecastChart" height="140" style="margin-top:0.75rem;"></canvas>
+        </details>
       </div>`;
+    }
+
+    /** The part of the projection that hasn't happened yet. */
+    function forecastAhead(liq) {
+      const from = today();
+      return ((liq && liq.days) || []).filter(d => d && d.date >= from);
     }
 
     function drawCashForecastChart() {
       const liq = cfoSnapshot && cfoSnapshot.liquidity;
       const ctx = document.getElementById('cashForecastChart')?.getContext('2d');
-      if (!liq || !ctx || !Array.isArray(liq.days) || !liq.days.length) return;
-      if (window.cashForecastInstance) window.cashForecastInstance.destroy();
+      if (!liq || !ctx) return;
 
-      const days = liq.days;
+      // Only days still ahead. Plotting from the balance date drew the past as
+      // though it were a projection.
+      const days = forecastAhead(liq);
+      if (!days.length) return;
+      if (window.cashForecastInstance) window.cashForecastInstance.destroy();
       const labels = days.map((d, i) => i % 5 === 0
         ? new Date(d.date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
         : '');
@@ -5774,9 +5812,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           }
         }, 0);
       }
-      if (currentTab === 'dashboard') {
-        setTimeout(() => drawCashForecastChart(), 0);
-      }
+      // The cash chart is inside a collapsed <details> and draws on open, so
+      // it isn't rendered here — a hidden canvas has no size and Chart.js
+      // would lay it out wrong.
       if (currentTab === 'payplan') {
         setTimeout(() => drawIncomeMonthChart(), 0);
       }
