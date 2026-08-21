@@ -1337,7 +1337,6 @@
         recordSavingsRate();
         checkDebtMilestones();
         checkNetWorthMilestones();
-        autoResetBills();
       } catch (e) {
         console.error('Load error:', e);
       } finally {
@@ -1423,22 +1422,6 @@
       document.getElementById('headerSurplus').className = 'stat-value num ' + (monthlySurplus() >= 0 ? 'positive' : 'negative');
     }
     // Debt Helpers
-    function calcPayoff(debt, extra = 0) {
-      let balance = debt.balance || 0;
-      let months = 0;
-      let totalInt = 0;
-      const monthly_payment = toMonthly(debt.minPayment, debt.minFreq || 'monthly') + extra;
-      const monthly_rate = (debt.rate || 0) / 100 / 12;
-      if (balance <= 0) return { months: 0, totalInt: 0 };
-      if (monthly_payment <= 0) return { months: 9999, totalInt: balance };
-      while (balance > 0 && months < 600) {
-        const interest = balance * monthly_rate;
-        totalInt += interest;
-        balance -= monthly_payment - interest;
-        months++;
-      }
-      return { months, totalInt: Math.max(0, totalInt) };
-    }
     function getSortedDebts() {
       if (debtMethod === 'avalanche') {
         return [...debts].sort((a, b) => (b.rate || 0) - (a.rate || 0));
@@ -2433,7 +2416,7 @@
               <thead><tr><th>Name</th><th>Category</th><th style="text-align: right;">Amount</th><th>Freq</th><th>Due</th><th>Status</th><th style="width: 120px;"></th></tr></thead>
               <tbody>
                 ${bills.map(b => {
-                  const status = !b.active ? 'inactive' : b.paid ? 'paid' : (parseInt(b.dueDay) < new Date().getDate() ? 'overdue' : 'due');
+                  const status = !b.active ? 'inactive' : isBillPaid(b) ? 'paid' : (parseInt(b.dueDay) < new Date().getDate() ? 'overdue' : 'due');
                   return `
                     <tr>
                       <td><strong>${b.name}</strong></td>
@@ -2443,7 +2426,7 @@
                       <td>${b.dueDay}</td>
                       <td><span class="bill-status ${status}">${status.toUpperCase()}</span></td>
                       <td style="text-align: right;">
-                        ${b.paid ? `<button class="btn-small btn-secondary" onclick="resetBillPaid(${b.id})">Reset</button>` : `<button class="btn-small btn-success" onclick="markBillPaid(${b.id})">Paid</button>`}
+                        ${isBillPaid(b) ? `<button class="btn-small btn-secondary" onclick="resetBillPaid(${b.id})">Reset</button>` : `<button class="btn-small btn-success" onclick="markBillPaid(${b.id})">Paid</button>`}
                         <button class="btn-small btn-danger" onclick="deleteBill(${b.id})" style="margin-left: 0.5rem;">×</button>
                       </td>
                     </tr>
@@ -2483,19 +2466,93 @@
       document.getElementById('billAmount').value = '';
       showToast('✓ Bill added', 'success');
     }
+    /* ------------------------------------------------------------------ *
+     * Billing periods — mirrors shared/engines/reminders.ts.
+     *
+     * `paid` was one flag reset monthly, which is wrong for a fortnightly
+     * bill: rent falls roughly 2.17 times a month, so "paid" meant "paid at
+     * some point this month" and rent stayed ticked for a fortnight after it
+     * was due again. The reset also only ran if the app happened to be opened
+     * on the 1st, so a bill could stay marked paid indefinitely.
+     *
+     * Paid is now derived from a matching transaction inside the current
+     * period, exactly as the backend derives it, so the two cannot disagree.
+     * ------------------------------------------------------------------ */
+
+    const BILL_PERIOD_DAYS = { weekly: 7, fortnightly: 14 };
+
+    function shiftISO(iso, days) {
+      const d = new Date(iso + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function billAnchorInMonth(dueDay, iso) {
+      const [y, m] = iso.split('-').map(Number);
+      const last = new Date(y, m, 0).getDate();
+      return `${y}-${String(m).padStart(2, '0')}-${String(Math.min(dueDay, last)).padStart(2, '0')}`;
+    }
+
+    function billPeriodStart(bill, iso = today()) {
+      const dueDay = parseInt(bill.dueDay, 10);
+      if (!dueDay) return iso.slice(0, 8) + '01';
+      const step = BILL_PERIOD_DAYS[(bill.freq || 'monthly').toLowerCase()];
+      if (!step) {
+        const thisMonth = billAnchorInMonth(dueDay, iso);
+        if (thisMonth <= iso) return thisMonth;
+        const [y, m] = iso.split('-').map(Number);
+        return billAnchorInMonth(dueDay, `${y}-${String(m - 1 || 12).padStart(2, '0')}-01`);
+      }
+      let cursor = billAnchorInMonth(dueDay, iso);
+      while (cursor > iso) cursor = shiftISO(cursor, -step);
+      while (shiftISO(cursor, step) <= iso) cursor = shiftISO(cursor, step);
+      return cursor;
+    }
+
+    function billNextDue(bill, iso = today()) {
+      const step = BILL_PERIOD_DAYS[(bill.freq || 'monthly').toLowerCase()];
+      const start = billPeriodStart(bill, iso);
+      if (step) return shiftISO(start, step);
+      const [y, m] = start.split('-').map(Number);
+      return billAnchorInMonth(parseInt(bill.dueDay, 10), `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`);
+    }
+
+    /** Paid for the period running right now, judged by a matching transaction. */
+    function isBillPaid(bill, iso = today()) {
+      const from = billPeriodStart(bill, iso);
+      const name = String(bill.name || '').trim().toLowerCase();
+      if (!name) return false;
+      return (transactions || []).some(t => {
+        if (!t || t.type === 'income') return false;
+        if (!t.date || t.date < from || t.date > iso) return false;
+        const tn = String(t.name || '').trim().toLowerCase();
+        return tn && (tn.includes(name) || name.includes(tn));
+      });
+    }
+
     function markBillPaid(id) {
       const bill = bills.find(b => b.id === id);
       if (!bill) return;
-      bill.paid = true;
-      bill.paidDate = today();
-      transactions.push({ id: Date.now(), date: today(), name: bill.name + ' (paid)', amount: bill.amount, type: 'expense', category: bill.category, note: 'Auto from bill' });
-      saveBills();
+      // Only the transaction is written. Paid state is derived from it, so
+      // there is nothing left that can disagree with it.
+      transactions.push({ id: Date.now(), date: today(), name: bill.name, amount: bill.amount, type: 'expense', category: bill.category, note: 'Logged from Bills' });
       saveTx();
-      showToast('✓ Bill marked paid', 'success');
+      showToast(`✓ ${bill.name} logged — ${AUD(bill.amount)}`, 'success');
     }
     function resetBillPaid(id) {
+      // Undoing a payment means removing the transaction that recorded it,
+      // since that is now what "paid" means.
       const bill = bills.find(b => b.id === id);
-      if (bill) { bill.paid = false; bill.paidDate = ''; saveBills(); }
+      if (!bill) return;
+      const from = billPeriodStart(bill);
+      const name = String(bill.name).trim().toLowerCase();
+      const hit = [...transactions].reverse().find(t =>
+        t && t.type !== 'income' && t.date >= from &&
+        String(t.name || '').trim().toLowerCase().includes(name));
+      if (!hit) { showToast('Nothing logged for this period', 'error'); return; }
+      if (!confirm(`Remove the ${AUD(hit.amount)} ${bill.name} payment logged ${hit.date}?`)) return;
+      transactions = transactions.filter(t => t.id !== hit.id);
+      saveTx();
     }
     function deleteBill(id) {
       if (!confirm('Delete this bill? This can\'t be undone.')) return;
@@ -2628,7 +2685,14 @@
       `;
     }
     function renderDebtCard(debt, order) {
-      const payoff = calcPayoff(debt, 0);
+      // When this debt actually clears under the current strategy, taken from
+      // the same portfolio simulation the payoff chart draws. calcPayoff()
+      // looks at one debt in isolation and ignores the minimums that roll onto
+      // it as others clear — so the card and the chart quoted different
+      // payoff dates for the same debt on the same page.
+      const schedule = simulatePayoffSchedule(0);
+      const clearedAt = schedule.cleared.find(c => String(c.id) === String(debt.id));
+      const payoff = { months: clearedAt ? clearedAt.month : 9999, totalInt: 0 };
       const monthlyInt = (debt.balance || 0) * (debt.rate || 0) / 100 / 12;
       const monthsToYears = (m) => {
         if (m >= 9999) return '9999+ years';
@@ -2819,8 +2883,10 @@
       const extra = parseFloat(document.getElementById('extraPayment')?.value || 0);
       document.getElementById('extraPaymentValue').textContent = '$' + extra.toLocaleString() + ' extra';
       const results = debts.map(d => {
-        const payoff = calcPayoff(d, extra);
-        const mths = payoff.months;
+        // Same basis as the chart above it.
+        const sched = simulatePayoffSchedule(extra);
+        const hit = sched.cleared.find(c => String(c.id) === String(d.id));
+        const mths = hit ? hit.month : 9999;
         const yrs = Math.floor(mths / 12);
         const remainder = mths % 12;
         let timeStr = mths >= 9999 ? '9999+ yrs' : (yrs > 0 ? `${yrs}y ${remainder}m` : `${remainder}m`);
@@ -2915,17 +2981,20 @@
         }
       });
     }
+    /**
+     * When the last debt clears.
+     *
+     * This used to work out how long each debt would take ALONE and add those
+     * numbers together — as if you paid one debt, then started the next. Debts
+     * are serviced in parallel, so on this position it reported 139 months
+     * against a real 38: overstated by more than eight years. It now reads the
+     * portfolio simulation, the same one behind the payoff chart.
+     */
     function calcDebtFreeDate() {
       if (debts.length === 0) return null;
-      let totalMonths = 0;
-      getSortedDebts().forEach(debt => {
-        const payoff = calcPayoff({...debt}, 0);
-        totalMonths += payoff.months;
-      });
-      if (totalMonths >= 9999) return null;
-      const future = new Date();
-      future.setMonth(future.getMonth() + totalMonths);
-      return future.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
+      const schedule = simulatePayoffSchedule(0);
+      if (schedule.neverPaysOff || schedule.months === 0) return null;
+      return schedule.debtFreeDate;
     }
     // Budget
     function renderBudget() {
@@ -3179,7 +3248,7 @@
       if (txCount < 5) tasks.push({ key: 'catch-up-log', label: 'Catch up spending log', priority: 'Medium' });
       if (monthlySurplus() > 500) tasks.push({ key: 'allocate-surplus', label: `Allocate ${AUD(monthlySurplus())}`, priority: 'High' });
       if (bills.length === 0) tasks.push({ key: 'add-bills', label: 'Add recurring bills', priority: 'High' });
-      const overdue = bills.find(b => b.active && !b.paid && parseInt(b.dueDay) < new Date().getDate());
+      const overdue = bills.find(b => b.active && !isBillPaid(b) && billPeriodStart(b) < today());
       if (overdue) tasks.push({ key: 'pay-overdue', label: `Pay: ${overdue.name}`, priority: 'Critical' });
       if (effectivePay().amount === 0) tasks.push({ key: 'setup-income', label: 'Set up income', priority: 'Critical' });
       tasks.push({ key: 'review-last-month', label: 'Review last month', priority: 'Medium' });
@@ -4310,15 +4379,15 @@
           ${upcomingBills.length === 0 ? '<p class="text-muted">All bills paid for this month!</p>' :
             upcomingBills.map(b => {
               const daysLeft = parseInt(b.dueDay) - now.getDate();
-              const status = b.paid ? 'paid' : daysLeft < 0 ? 'overdue' : daysLeft <= 3 ? 'due' : '';
+              const status = isBillPaid(b) ? 'paid' : daysLeft < 0 ? 'overdue' : daysLeft <= 3 ? 'due' : '';
               return `<div class="flex-between" style="padding:0.9rem 1rem;border-bottom:1px solid var(--border);">
                 <div>
                   <div style="font-weight:600;">${b.name}</div>
-                  <div style="font-size:12px;color:var(--text-muted);">Day ${b.dueDay} · ${b.paid ? 'Paid' : daysLeft === 0 ? 'Due TODAY' : daysLeft > 0 ? 'In '+daysLeft+' day'+(daysLeft!==1?'s':'') : Math.abs(daysLeft)+' days overdue'}</div>
+                  <div style="font-size:12px;color:var(--text-muted);">Day ${b.dueDay} · ${isBillPaid(b) ? 'Paid' : daysLeft === 0 ? 'Due TODAY' : daysLeft > 0 ? 'In '+daysLeft+' day'+(daysLeft!==1?'s':'') : Math.abs(daysLeft)+' days overdue'}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:1rem;">
-                  <div class="num" style="font-weight:700;${!b.paid&&daysLeft<=3?'color:var(--danger);':''}">${AUD(b.amount)}</div>
-                  ${!b.paid ? `<button class="btn-success btn-small" onclick="markBillPaid(${b.id})">Paid ✓</button>` : `<span class="bill-status paid">PAID</span>`}
+                  <div class="num" style="font-weight:700;${!isBillPaid(b)&&daysLeft<=3?'color:var(--danger);':''}">${AUD(b.amount)}</div>
+                  ${!isBillPaid(b) ? `<button class="btn-success btn-small" onclick="markBillPaid(${b.id})">Paid ✓</button>` : `<span class="bill-status paid">PAID</span>`}
                 </div>
               </div>`;
             }).join('')}
@@ -4844,21 +4913,6 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // ═══════════════════════════════════════════════════════════════
     // BILL AUTO-RESET (1st of each month)
     // ═══════════════════════════════════════════════════════════════
-    function autoResetBills() {
-      const now = new Date();
-      if (now.getDate() !== 1) return;
-      const key = getMonthKey();
-      const resetKey = 'autoReset_' + key;
-      if (localStorage.getItem(resetKey)) return;
-      let changed = false;
-      bills.forEach(b => { if (b.paid) { b.paid = false; b.paidDate = ''; changed = true; } });
-      if (changed) { saveBills(); showToast('Bills reset for new month', 'success'); }
-      localStorage.setItem(resetKey, '1');
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PAYDAY AUTOMATION CHECKLIST
-    // ═══════════════════════════════════════════════════════════════
     function renderPaydayChecklist() {
       const fk = getFortnightKey();
       const done = paydayChecklistDone[fk] || {};
@@ -5258,9 +5312,12 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     function checkUpcomingBillNotifs() {
       if (Notification.permission !== 'granted') return;
       const now = new Date();
-      bills.filter(b => b.active && !b.paid).forEach(b => {
-        const dueDay = parseInt(b.dueDay);
-        const daysLeft = dueDay - now.getDate();
+      bills.filter(b => b.active && !isBillPaid(b)).forEach(b => {
+        // Days to the NEXT due date, which for a fortnightly bill is not
+        // simply its day-of-month minus today.
+        const daysLeft = Math.round(
+          (new Date(billNextDue(b) + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 86400000
+        );
         if (daysLeft === 3) {
           setTimeout(() => new Notification('FlowFinance', { body: b.name + ' due in 3 days — ' + AUD(b.amount) }), 1000);
         }
