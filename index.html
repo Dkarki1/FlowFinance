@@ -1181,34 +1181,9 @@
         .reduce((s, t) => s + (+t.amount || 0), 0);
     };
     // Count how many times a bill with given frequency falls in the current calendar month
-    const billOccurrencesThisMonth = (freq, dueDay) => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      if (freq === 'monthly') return 1;
-      if (freq === 'yearly') {
-        // only once if the due day falls in this month (we treat dueDay as day-of-month, no month info stored)
-        return 1 / 12; // approximate for yearly bills
-      }
-      if (freq === 'weekly') {
-        // Count Mondays (or any anchor) — approximate: count weeks that contain a day <= daysInMonth
-        // Simpler: count how many of the 7-day intervals from dueDay land in this month
-        let count = 0;
-        for (let day = parseInt(dueDay) || 1; day <= daysInMonth; day += 7) count++;
-        return count;
-      }
-      if (freq === 'fortnightly') {
-        let count = 0;
-        for (let day = parseInt(dueDay) || 1; day <= daysInMonth; day += 14) count++;
-        return count;
-      }
-      return 1;
-    };
-    // Bills total: exact amount due THIS calendar month based on frequency and due day
-    const monthlyBillsTotal = () => bills.filter(b => b.active).reduce((s, b) => {
-      return s + (b.amount || 0) * billOccurrencesThisMonth(b.freq, b.dueDay);
-    }, 0);
+    const monthlyBillsTotal = () => bills
+      .filter(b => b.active)
+      .reduce((s, b) => s + toMonthly(b.amount || 0, b.freq), 0);
     const monthlyDebtMin = () => debts.reduce((s,d)=>s+toMonthly(d.minPayment,d.minFreq||'monthly'),0);
     const monthlySurplus = () => monthlyIncome() - monthlyBillsTotal() - monthlyDebtMin();
     const totalDebt = () => debts.reduce((s,d)=>s+(d.balance||0),0);
@@ -2985,8 +2960,46 @@
         </div>
       `;
     }
-    function setBudgetCeiling(cat, value) { budgets[cat] = parseFloat(value) || 0; }
-    function suggestBudgets() { const inc = monthlyIncome(); if (inc === 0) { showToast('Set income first', 'error'); return; } Object.assign(budgets, { 'Housing': inc * 0.25, 'Utilities': inc * 0.08, 'Food': inc * 0.10, 'Transport': inc * 0.05, 'Health': inc * 0.03, 'Entertainment': inc * 0.05, 'Shopping': inc * 0.07, 'Other': inc * 0.02 }); Object.keys(budgets).forEach(cat => { const input = document.querySelector(`input[onchange*="${cat}"]`); if (input) input.value = Math.round(budgets[cat]); }); }
+    // Saves on change. Requiring a separate Save press meant an edited ceiling
+    // could be lost by navigating away, with nothing to say it hadn't stuck.
+    let budgetSaveTimer = null;
+    function setBudgetCeiling(cat, value) {
+      budgets[cat] = parseFloat(value) || 0;
+      clearTimeout(budgetSaveTimer);
+      budgetSaveTimer = setTimeout(() => saveBudgets(), 600);
+    }
+    /**
+     * Suggested ceilings as a share of income.
+     *
+     * It used to change `budgets` in memory and poke the input values, but
+     * never save or re-render — so the ceilings showed in the boxes while every
+     * figure around them still read "of $0", and closing the tab lost them.
+     * Housing is set from the actual rent rather than a flat 25%: a percentage
+     * that doesn't cover the rent is not a budget, it's a guaranteed overspend.
+     */
+    async function suggestBudgets() {
+      const inc = monthlyIncome();
+      if (inc === 0) { showToast('Set your income or log a pay first', 'error'); return; }
+
+      const housing = bills
+        .filter(b => b.active && (b.category === 'Housing' || /rent|mortgage/i.test(b.name || '')))
+        .reduce((s, b) => s + toMonthly(b.amount || 0, b.freq), 0);
+
+      Object.assign(budgets, {
+        'Housing': Math.round(housing > 0 ? housing : inc * 0.25),
+        'Utilities': Math.round(inc * 0.08),
+        'Food': Math.round(inc * 0.10),
+        'Transport': Math.round(inc * 0.05),
+        'Health': Math.round(inc * 0.03),
+        'Entertainment': Math.round(inc * 0.05),
+        'Shopping': Math.round(inc * 0.07),
+        'Other': Math.round(inc * 0.02)
+      });
+
+      await saveBudgets();
+      renderAll();
+      showToast('✓ Ceilings suggested and saved', 'success');
+    }
     function saveBudgetCeilings() { saveBudgets(); showToast('✓ Saved', 'success'); }
     function renderBudgetCharts() {
       const monthKey = getMonthKey();
