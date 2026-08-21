@@ -1155,7 +1155,23 @@
      * the cash forecast) but is confusing next to actuals unless it says so.
      * Hence the KPI is labelled "Expected".
      */
-    const monthlyIncome = () => toMonthly(income.myPay, income.myFreq);
+    const monthlyIncome = () => toMonthly(effectivePay().amount, income.myFreq);
+
+    /**
+     * The per-period pay figure to reason with, and where it came from.
+     *
+     * A set amount wins. Without one — the honest state when pay varies — the
+     * last six logged pays are averaged, which beats a fixed number that has
+     * drifted: the setting here read $2,611 while actual pays were $3,322 and
+     * $3,000. Mirrors derivePayAmount() in shared/engines/payschedule.ts.
+     */
+    const effectivePay = () => {
+      if (income.myPay > 0) return { amount: income.myPay, basis: 'fixed', n: 0 };
+      const recent = payEntries().slice(-6);
+      if (!recent.length) return { amount: 0, basis: 'none', n: 0 };
+      const avg = recent.reduce((s, p) => s + p.amount, 0) / recent.length;
+      return { amount: Math.round(avg * 100) / 100, basis: 'logged-average', n: recent.length };
+    };
 
     /** What has actually arrived this month, from logged income. */
     const receivedThisMonth = () => {
@@ -1636,15 +1652,17 @@
           <div class="kpi-card">
             <div class="kpi-label">Expected Income</div>
             <div class="kpi-value num">${AUD(monthlyIncome())}</div>
-            ${kpiNote(
-              income.myPay
-                ? `${AUD(income.myPay)} ${income.myFreq || 'monthly'}, averaged over the year — the same every month. ${
-                    receivedThisMonth() > 0
-                      ? `<strong>${AUD(receivedThisMonth())} logged</strong> so far this month.`
-                      : '<strong>Nothing logged</strong> this month yet.'
-                  }`
-                : 'No pay amount recorded'
-            )}
+            ${(() => {
+              const p = effectivePay();
+              const logged = receivedThisMonth() > 0
+                ? `<strong>${AUD(receivedThisMonth())} logged</strong> so far this month.`
+                : '<strong>Nothing logged</strong> this month yet.';
+              if (p.basis === 'none') return kpiNote('No pay amount set and nothing logged yet — log a pay and this fills in.');
+              const src = p.basis === 'fixed'
+                ? `${AUD(p.amount)} ${income.myFreq || 'monthly'}`
+                : `${AUD(p.amount)} ${income.myFreq || 'monthly'}, averaged from your last ${p.n} pay${p.n === 1 ? '' : 's'}`;
+              return kpiNote(`${src}, spread over the year. ${logged}`);
+            })()}
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Expected Surplus</div>
@@ -1737,8 +1755,9 @@
      * in categories the budget tab could not see.
      */
     function renderQuickLogCard() {
-      const payHint = income.myPay > 0
-        ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()" style="flex:0 0 auto;">Log pay ${AUD(income.myPay)}</button>`
+      const ep = effectivePay();
+      const payHint = ep.amount > 0
+        ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()" style="flex:0 0 auto;">Log pay ${AUD(ep.amount)}</button>`
         : '';
       return `<div class="card">
         <div class="flex-between" style="align-items:baseline;">
@@ -1884,8 +1903,8 @@
       return `<div class="card">
         <div class="flex-between" style="align-items:baseline;">
           <h2 style="margin:0;">Pay log</h2>
-          ${income.myPay > 0
-            ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()">Log today's pay &mdash; ${AUD(income.myPay)}</button>`
+          ${effectivePay().amount > 0
+            ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()">Log today's pay &mdash; ${AUD(effectivePay().amount)}</button>`
             : ''}
         </div>
         <div class="form-row" style="margin-top:1rem;">
@@ -1918,7 +1937,8 @@
           </div>
           <div class="form-group">
             <label>Usual Pay Amount ($)</label>
-            <input type="number" id="myFixedPay" placeholder="e.g. 2400" min="0" value="${income.myPay || ''}" oninput="if(parseFloat(this.value)>0) income.myPay=parseFloat(this.value);">
+            <input type="number" id="myFixedPay" placeholder="leave empty if it varies" min="0" value="${income.myPay || ''}">
+                <p class="text-muted" style="font-size:11px;margin-top:0.3rem;">Leave this empty if your pay varies — I'll average your last six logged pays instead.</p>
           </div>
           <div class="form-group">
             <label>Next Pay Date</label>
@@ -1968,12 +1988,13 @@
     }
 
     function quickLogThisPay() {
-      if (!income.myPay || income.myPay <= 0) {
-        showToast('Set your usual pay amount first', 'error');
+      const p = effectivePay();
+      if (p.amount <= 0) {
+        showToast('No pay amount set and nothing logged yet — enter one below', 'error');
         return;
       }
-      logPay(income.myPay, today());
-      showToast(`✓ Logged ${AUD(income.myPay)} for today`, 'success');
+      logPay(p.amount, today());
+      showToast(`✓ Logged ${AUD(p.amount)} for today`, 'success');
     }
     function logMyPay() {
       const amount = parseFloat(document.getElementById('myPayAmount').value);
@@ -1992,7 +2013,9 @@
       income.myFreq = document.getElementById('myFreq').value;
       income.myNextPay = document.getElementById('myNextPay').value;
       const fixedPay = parseFloat(document.getElementById('myFixedPay').value);
-      if (!isNaN(fixedPay) && fixedPay > 0) income.myPay = fixedPay;
+      // Emptying the field must actually clear it — otherwise the only way
+      // to stop using a fixed figure is to edit the database.
+      income.myPay = (!isNaN(fixedPay) && fixedPay > 0) ? fixedPay : 0;
       await saveIncome();
       showToast('✓ Income saved', 'success');
     }
@@ -3145,7 +3168,7 @@
       if (bills.length === 0) tasks.push({ key: 'add-bills', label: 'Add recurring bills', priority: 'High' });
       const overdue = bills.find(b => b.active && !b.paid && parseInt(b.dueDay) < new Date().getDate());
       if (overdue) tasks.push({ key: 'pay-overdue', label: `Pay: ${overdue.name}`, priority: 'Critical' });
-      if (income.myPay === 0) tasks.push({ key: 'setup-income', label: 'Set up income', priority: 'Critical' });
+      if (effectivePay().amount === 0) tasks.push({ key: 'setup-income', label: 'Set up income', priority: 'Critical' });
       tasks.push({ key: 'review-last-month', label: 'Review last month', priority: 'Medium' });
       tasks.push({ key: 'wise-transfer', label: 'Use Wise transfers', priority: 'Habit' });
       return tasks;
@@ -3280,7 +3303,7 @@
      */
     function expectedPayDates(monthKey) {
       const anchor = income.myNextPay;
-      if (!anchor || !(income.myPay > 0)) return [];
+      if (!anchor || !(effectivePay().amount > 0)) return [];
 
       const [y, m] = monthKey.split('-').map(Number);
       const monthStart = new Date(y, m - 1, 1);
@@ -3338,7 +3361,7 @@
       const monthKey = getMonthKey();
       const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
       const expected = expectedPayDates(monthKey);
-      const expectedTotal = expected.length * (income.myPay || 0);
+      const expectedTotal = expected.length * effectivePay().amount;
       const actualTotal = payEntries()
         .filter(p => String(p.date).startsWith(monthKey))
         .reduce((s, p) => s + p.amount, 0);
@@ -3349,7 +3372,7 @@
       const todayStr = today();
       const due = expected.filter(d => getMonthKey(d) === monthKey &&
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` <= todayStr);
-      const dueTotal = due.length * (income.myPay || 0);
+      const dueTotal = due.length * effectivePay().amount;
       const shortSoFar = actualTotal - dueTotal;
 
       const nextDate = expected.find(d => {
@@ -3358,7 +3381,7 @@
       });
 
       let verdict, verdictColour;
-      if (!(income.myPay > 0) || expected.length === 0) {
+      if (!(effectivePay().amount > 0) || expected.length === 0) {
         verdict = 'Set your pay amount and next pay date below and this compares what you were actually paid against what you should have been.';
         verdictColour = 'var(--text-muted)';
       } else if (Math.abs(shortSoFar) < 1) {
