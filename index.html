@@ -2416,14 +2416,17 @@
               <thead><tr><th>Name</th><th>Category</th><th style="text-align: right;">Amount</th><th>Freq</th><th>Due</th><th>Status</th><th style="width: 120px;"></th></tr></thead>
               <tbody>
                 ${bills.map(b => {
-                  const status = !b.active ? 'inactive' : isBillPaid(b) ? 'paid' : (parseInt(b.dueDay) < new Date().getDate() ? 'overdue' : 'due');
+                  const status = !b.active ? 'inactive' : isBillPaid(b) ? 'paid' : (billPeriodStart(b) < today() ? 'overdue' : 'due');
                   return `
                     <tr>
                       <td><strong>${b.name}</strong></td>
                       <td><span class="badge badge-neutral">${b.category}</span></td>
                       <td style="text-align: right;" class="num">${AUD(b.amount)}</td>
                       <td>${b.freq}</td>
-                      <td>${b.dueDay}</td>
+                      <td>${['weekly','fortnightly'].includes((b.freq||'').toLowerCase())
+                        ? `<input type="date" value="${b.anchorDate || ''}" onchange="updateBillAnchor(${b.id}, this.value)" style="padding:0.3rem;font-size:12px;" title="A date this cycle falls on — a day number can't hold a fortnightly cycle across month ends">
+                           <div class="text-muted" style="font-size:11px;margin-top:2px;">next ${formatDate(billNextDue(b))}</div>`
+                        : `Day ${b.dueDay}<div class="text-muted" style="font-size:11px;margin-top:2px;">next ${formatDate(billNextDue(b))}</div>`}</td>
                       <td><span class="bill-status ${status}">${status.toUpperCase()}</span></td>
                       <td style="text-align: right;">
                         ${isBillPaid(b) ? `<button class="btn-small btn-secondary" onclick="resetBillPaid(${b.id})">Reset</button>` : `<button class="btn-small btn-success" onclick="markBillPaid(${b.id})">Paid</button>`}
@@ -2444,7 +2447,8 @@
             <div class="form-group"><label>Frequency</label><select id="billFreq"><option value="weekly">Weekly</option><option value="fortnightly">Fortnightly</option><option value="monthly" selected>Monthly</option><option value="yearly">Yearly</option></select></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Due Day</label><input type="number" id="billDueDay" placeholder="1-31" min="1" max="31"></div>
+            <div class="form-group"><label>Due Day <span class="text-muted" style="font-weight:400;">(monthly)</span></label><input type="number" id="billDueDay" placeholder="1-31" min="1" max="31"></div>
+            <div class="form-group"><label>Or a date it falls on <span class="text-muted" style="font-weight:400;">(weekly/fortnightly)</span></label><input type="date" id="billAnchor"></div>
             <div class="form-group"><label>Category</label><select id="billCategory"><option value="Housing">Housing</option><option value="Utilities">Utilities</option><option value="Food">Food</option><option value="Transport">Transport</option><option value="Health">Health</option><option value="Insurance">Insurance</option><option value="Entertainment">Entertainment</option><option value="Shopping">Shopping</option><option value="Family">Family</option><option value="Other">Other</option></select></div>
           </div>
           <div class="form-group"><label style="display: flex; align-items: center; gap: 0.5rem;"><input type="checkbox" id="billActive" checked> Active</label></div>
@@ -2460,7 +2464,8 @@
       const category = document.getElementById('billCategory').value;
       const active = document.getElementById('billActive').checked;
       if (!name || !amount || amount <= 0 || !dueDay) { showToast('Please fill all fields', 'error'); return; }
-      bills.push({ id: Date.now(), name, amount, freq, dueDay, category, active, paid: false, paidDate: '' });
+      const anchorDate = document.getElementById('billAnchor')?.value || null;
+      bills.push({ id: Date.now(), name, amount, freq, dueDay, anchorDate, category, active });
       saveBills();
       document.getElementById('billName').value = '';
       document.getElementById('billAmount').value = '';
@@ -2494,9 +2499,21 @@
     }
 
     function billPeriodStart(bill, iso = today()) {
+      const step = BILL_PERIOD_DAYS[(bill.freq || 'monthly').toLowerCase()];
+
+      // A real anchor date wins for weekly and fortnightly. dueDay is a
+      // day-of-month, re-derived each month, so it cannot hold a fortnightly
+      // cycle across a month end — "the 1st" gives 1 Aug, 15, 29, then 1 Sep,
+      // which is a three-day gap.
+      if (step && bill.anchorDate) {
+        let cursor = String(bill.anchorDate).slice(0, 10);
+        while (cursor > iso) cursor = shiftISO(cursor, -step);
+        while (shiftISO(cursor, step) <= iso) cursor = shiftISO(cursor, step);
+        return cursor;
+      }
+
       const dueDay = parseInt(bill.dueDay, 10);
       if (!dueDay) return iso.slice(0, 8) + '01';
-      const step = BILL_PERIOD_DAYS[(bill.freq || 'monthly').toLowerCase()];
       if (!step) {
         const thisMonth = billAnchorInMonth(dueDay, iso);
         if (thisMonth <= iso) return thisMonth;
@@ -2781,6 +2798,11 @@
     // Promotional-rate handling. A 0% balance-transfer card is only 0% until the
     // promo ends; without a go-to rate the payoff projection assumes it stays
     // free forever, which understates interest and gets the payoff ORDER wrong.
+    function updateBillAnchor(id, value) {
+      const b = bills.find(x => x.id === id);
+      if (b) { b.anchorDate = value || null; saveBills(); }
+    }
+
     function updateDebtCreditLimit(id, value) {
       const d = debts.find(x => x.id === id);
       if (d) { d.creditLimit = parseFloat(value) || null; saveDebts(); }
