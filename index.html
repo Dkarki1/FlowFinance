@@ -173,6 +173,158 @@
         font-size: 14px;
       }
     }
+
+    /* ==================================================================
+     * Mobile layout
+     *
+     * The app is used almost entirely on a phone, but was laid out for a
+     * desktop and squeezed down. Three things made it genuinely hard to use:
+     * fifteen tabs in a sideways-scrolling strip you had to hunt through, a
+     * header and tab bar eating a third of the screen before any content, and
+     * tables with seven columns on a 390px display.
+     *
+     * Under 768px it becomes a phone app: a fixed bottom bar with the four
+     * screens actually used daily plus More, a compact header, and tables that
+     * become stacked rows. Above 768px nothing changes.
+     * ================================================================== */
+
+    .mobile-only { display: none; }
+
+    @media (max-width: 768px) {
+      .desktop-only { display: none !important; }
+      .mobile-only { display: block; }
+
+      /* Header: one line. The three stats move into the page, where they can
+         be read properly, instead of being shrunk to fit a strip. */
+      header {
+        padding: 0.6rem 1rem !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between;
+        gap: 0.5rem !important;
+      }
+      .header-stats { display: none !important; }
+      .header-title h1 { font-size: 17px; }
+      .logo-mark img { width: 26px; height: 26px; }
+
+      nav.tabs { display: none !important; }
+
+      main {
+        padding: 1rem 0.85rem 6.5rem !important;   /* room for the bottom bar */
+      }
+
+      /* KPIs two-up. One per row pushed everything below the fold. */
+      .grid-4, .grid-3, .grid-2 {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.6rem !important;
+      }
+      .kpi-card { padding: 0.85rem 0.6rem !important; }
+      .kpi-value { font-size: 19px !important; }
+      .kpi-label { font-size: 10px !important; letter-spacing: 0.02em; }
+
+      .card { padding: 1.1rem !important; border-radius: 14px !important; margin-bottom: 1rem !important; }
+      .card h2 { font-size: 16px !important; }
+
+      /* Tables become stacked rows. Seven columns cannot work at this width,
+         and a sideways-scrolling table is worse than no table. */
+      table.stackable thead { display: none; }
+      table.stackable, table.stackable tbody, table.stackable tr, table.stackable td {
+        display: block; width: 100%;
+      }
+      table.stackable tr {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0.7rem 0.85rem;
+        margin-bottom: 0.6rem;
+        background: var(--surface);
+      }
+      table.stackable td {
+        border: none !important;
+        padding: 0.2rem 0 !important;
+        text-align: left !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 13px;
+      }
+      table.stackable td::before {
+        content: attr(data-label);
+        color: var(--text-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        flex-shrink: 0;
+      }
+      table.stackable td:empty { display: none; }
+
+      /* Touch targets. 14px buttons on a phone are a coin toss. */
+      button { padding: 0.7rem 1.1rem; font-size: 14px; }
+      .btn-small { padding: 0.5rem 0.8rem !important; font-size: 13px !important; }
+      input, select { font-size: 16px !important; padding: 0.7rem !important; }  /* 16px stops iOS zooming on focus */
+
+      .form-row { grid-template-columns: 1fr !important; gap: 0.6rem !important; }
+    }
+
+    /* Bottom navigation. Four screens that get opened daily, plus everything
+       else behind More — rather than fifteen equal tabs in a scroll strip. */
+    .bottom-nav { display: none; }
+
+    @media (max-width: 768px) {
+      .bottom-nav {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: var(--card);
+        border-top: 1px solid var(--border);
+        padding-bottom: env(safe-area-inset-bottom);  /* iPhone home indicator */
+        z-index: 200;
+      }
+      .bnav-item {
+        background: none; border: none;
+        padding: 0.55rem 0.2rem 0.5rem;
+        display: flex; flex-direction: column; align-items: center; gap: 3px;
+        color: var(--text-muted);
+        font-size: 10px; font-weight: 600;
+        cursor: pointer;
+      }
+      .bnav-item.active { color: var(--accent); }
+      .bnav-icon { font-size: 19px; line-height: 1; }
+
+      /* More sheet */
+      .more-sheet {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.35);
+        z-index: 300;
+        display: none;
+      }
+      .more-sheet.open { display: block; }
+      .more-panel {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        background: var(--card);
+        border-radius: 18px 18px 0 0;
+        padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+        max-height: 78vh; overflow-y: auto;
+      }
+      .more-grip {
+        width: 38px; height: 4px; border-radius: 2px;
+        background: var(--border); margin: 0 auto 0.9rem;
+      }
+      .more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+      .more-item {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 0.85rem 0.4rem;
+        font-size: 12px; font-weight: 600; color: var(--text);
+        cursor: pointer;
+      }
+      .more-item.active { border-color: var(--accent); color: var(--accent); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+
     /* Nav Tabs */
     nav.tabs {
       background: #FFFFFF;
@@ -1546,11 +1698,63 @@
       nav.querySelectorAll('.tab').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       });
+      renderBottomNav();
     }
+    /* ------------------------------------------------------------------ *
+     * Phone navigation
+     *
+     * Four screens carry almost all daily use — checking the dashboard,
+     * logging something, income, debts. Those get the bottom bar; the other
+     * eleven live behind More. Fifteen equal tabs in a scroll strip made
+     * everything equally hard to reach.
+     * ------------------------------------------------------------------ */
+
+    const PRIMARY_TABS = [
+      { id: 'dashboard',    label: 'Home',    icon: '◉' },
+      { id: 'transactions', label: 'Log',     icon: '＋' },
+      { id: 'payplan',      label: 'Income',  icon: '↑' },
+      { id: 'debts',        label: 'Debts',   icon: '▤' }
+    ];
+
+    function renderBottomNav() {
+      const nav = document.getElementById('bottomNav');
+      if (!nav) return;
+      const onPrimary = PRIMARY_TABS.some(t => t.id === currentTab);
+
+      nav.innerHTML = PRIMARY_TABS.map(t => `
+        <button class="bnav-item ${currentTab === t.id ? 'active' : ''}"
+                onclick="switchTab('${t.id}')" aria-current="${currentTab === t.id ? 'page' : 'false'}">
+          <span class="bnav-icon" aria-hidden="true">${t.icon}</span>${t.label}
+        </button>`).join('') + `
+        <button class="bnav-item ${!onPrimary ? 'active' : ''}" onclick="openMoreSheet()">
+          <span class="bnav-icon" aria-hidden="true">≡</span>More
+        </button>`;
+
+      // Every tab appears in More, including the primary four — someone
+      // looking for "Dashboard" by name shouldn't have to know it's "Home".
+      const grid = document.getElementById('moreGrid');
+      if (grid) {
+        grid.innerHTML = tabs.filter(t => !t.divider).map(t => `
+          <button class="more-item ${currentTab === t.id ? 'active' : ''}"
+                  onclick="switchTab('${t.id}'); closeMoreSheet();">${t.label}</button>`).join('');
+      }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMoreSheet(); });
+
+    function openMoreSheet() {
+      renderBottomNav();
+      document.getElementById('moreSheet')?.classList.add('open');
+    }
+    function closeMoreSheet() {
+      document.getElementById('moreSheet')?.classList.remove('open');
+    }
+
     /** Switching tabs from anywhere, not just the nav bar. */
     function switchTab(id) {
       currentTab = id;
       renderTabs();
+      renderBottomNav();
       renderMain();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -2027,7 +2231,7 @@
           <div id="txSummary">${renderTxSummary()}</div>
           <div id="txBulkBar">${renderTxBulkBar()}</div>
           <div style="overflow-x: auto;">
-            <table>
+            <table class="stackable">
               <thead><tr>
                 <th style="width:34px;"><input type="checkbox" id="txSelectAll" onchange="toggleTxSelectAll(this.checked)" title="Select everything shown"></th>
                 <th>Date</th><th>Name</th><th>Category</th><th>Type</th><th style="text-align: right;">Amount</th><th style="width: 50px;"></th>
@@ -2139,13 +2343,13 @@
       }
       return filtered.map(t => `
         <tr${txSelection.has(t.id) ? ' style="background:var(--surface);"' : ''}>
-          <td><input type="checkbox" onchange="toggleTxSelect(${t.id}, this.checked)"${txSelection.has(t.id) ? ' checked' : ''}></td>
-          <td>${formatDate(t.date)}</td>
-          <td>${t.name || '—'}${sourceBadge(t.source)}</td>
-          <td><span class="badge badge-neutral">${t.category}</span></td>
-          <td><span class="badge ${t.type === 'income' ? 'badge-success' : 'badge-danger'}">${t.type}</span></td>
-          <td style="text-align: right;"><span class="amount num ${t.type === 'income' ? 'income' : 'expense'}">${t.type === 'income' ? '+' : '-'}${AUD(t.amount)}</span></td>
-          <td><button class="btn-icon btn-danger btn-small" onclick="deleteTx(${t.id})">×</button></td>
+          <td data-label="Select"><input type="checkbox" onchange="toggleTxSelect(${t.id}, this.checked)"${txSelection.has(t.id) ? ' checked' : ''}></td>
+          <td data-label="Date">${formatDate(t.date)}</td>
+          <td data-label="What">${t.name || '—'}${sourceBadge(t.source)}</td>
+          <td data-label="Category"><span class="badge badge-neutral">${t.category}</span></td>
+          <td data-label="Type"><span class="badge ${t.type === 'income' ? 'badge-success' : 'badge-danger'}">${t.type}</span></td>
+          <td data-label="Amount" style="text-align: right;"><span class="amount num ${t.type === 'income' ? 'income' : 'expense'}">${t.type === 'income' ? '+' : '-'}${AUD(t.amount)}</span></td>
+          <td data-label=""><button class="btn-icon btn-danger btn-small" onclick="deleteTx(${t.id})">×</button></td>
         </tr>
       `).join('');
     }
@@ -2412,23 +2616,23 @@
         <div class="card">
           <h2>All Bills</h2>
           <div style="overflow-x: auto;">
-            <table>
+            <table class="stackable">
               <thead><tr><th>Name</th><th>Category</th><th style="text-align: right;">Amount</th><th>Freq</th><th>Due</th><th>Status</th><th style="width: 120px;"></th></tr></thead>
               <tbody>
                 ${bills.map(b => {
                   const status = !b.active ? 'inactive' : isBillPaid(b) ? 'paid' : (billPeriodStart(b) < today() ? 'overdue' : 'due');
                   return `
                     <tr>
-                      <td><strong>${b.name}</strong></td>
-                      <td><span class="badge badge-neutral">${b.category}</span></td>
-                      <td style="text-align: right;" class="num">${AUD(b.amount)}</td>
-                      <td>${b.freq}</td>
-                      <td>${['weekly','fortnightly'].includes((b.freq||'').toLowerCase())
+                      <td data-label="Bill"><strong>${b.name}</strong></td>
+                      <td data-label="Category"><span class="badge badge-neutral">${b.category}</span></td>
+                      <td data-label="Amount" style="text-align: right;" class="num">${AUD(b.amount)}</td>
+                      <td data-label="Every">${b.freq}</td>
+                      <td data-label="Due">${['weekly','fortnightly'].includes((b.freq||'').toLowerCase())
                         ? `<input type="date" value="${b.anchorDate || ''}" onchange="updateBillAnchor(${b.id}, this.value)" style="padding:0.3rem;font-size:12px;" title="A date this cycle falls on — a day number can't hold a fortnightly cycle across month ends">
                            <div class="text-muted" style="font-size:11px;margin-top:2px;">next ${formatDate(billNextDue(b))}</div>`
                         : `Day ${b.dueDay}<div class="text-muted" style="font-size:11px;margin-top:2px;">next ${formatDate(billNextDue(b))}</div>`}</td>
-                      <td><span class="bill-status ${status}">${status.toUpperCase()}</span></td>
-                      <td style="text-align: right;">
+                      <td data-label="Status"><span class="bill-status ${status}">${status.toUpperCase()}</span></td>
+                      <td data-label="">
                         ${isBillPaid(b) ? `<button class="btn-small btn-secondary" onclick="resetBillPaid(${b.id})">Reset</button>` : `<button class="btn-small btn-success" onclick="markBillPaid(${b.id})">Paid</button>`}
                         <button class="btn-small btn-danger" onclick="deleteBill(${b.id})" style="margin-left: 0.5rem;">×</button>
                       </td>
@@ -5089,7 +5293,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         <div class="card">
           <h2>Month-by-Month Breakdown</h2>
           <div style="overflow-x:auto;">
-            <table>
+            <table style="min-width:520px;">
               <thead><tr><th>Debt</th><th>Balance</th><th>Rate</th><th>Payment/mo</th><th>Payoff Date</th><th>Interest Cost</th></tr></thead>
               <tbody>${timeline.map((t,i) => `
                 <tr>
@@ -6127,5 +6331,14 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       });
     }
   </script>
+
+  <!-- Phone navigation. Hidden above 768px. -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Main"></nav>
+  <div class="more-sheet" id="moreSheet" onclick="if(event.target===this) closeMoreSheet()">
+    <div class="more-panel" role="dialog" aria-label="All sections">
+      <div class="more-grip"></div>
+      <div class="more-grid" id="moreGrid"></div>
+    </div>
+  </div>
 </body>
 </html>
