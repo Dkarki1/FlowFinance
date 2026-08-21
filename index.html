@@ -189,6 +189,8 @@
      * ================================================================== */
 
     .mobile-only { display: none; }
+    .row-meta { display: none; }
+    @media (max-width: 768px) { .row-meta { display: inline; } }
 
     @media (max-width: 768px) {
       .desktop-only { display: none !important; }
@@ -323,6 +325,126 @@
 
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; animation: none !important; }
+    }
+
+
+    /* ==================================================================
+     * Restraint pass
+     *
+     * The app had eighteen distinct font sizes (including an 11.5px), a
+     * filled pill on every category, red on every expense and green on every
+     * dollar that wasn't one. Everything was emphasised, so nothing was.
+     *
+     * Three rules here:
+     *   - one type scale, six steps, no exceptions
+     *   - colour carries meaning or it isn't used: income is green, genuine
+     *     problems are red, everything else is ink
+     *   - separation by whitespace and hairlines, not by boxes inside boxes
+     * ================================================================== */
+
+    :root {
+      --t-caption: 12px;   /* meta, labels */
+      --t-body:    14px;
+      --t-lead:    16px;   /* card titles */
+      --t-figure:  22px;   /* the number a card exists to show */
+      --t-hero:    30px;
+      --ink-soft:  #6E6E73;
+    }
+
+    @media (max-width: 768px) {
+      /* One scale. Anything smaller than 12px was unreadable on a phone
+         anyway, and the half-pixel size was a typo nobody caught. */
+      [style*="font-size:10px"], [style*="font-size: 10px"],
+      [style*="font-size:11px"], [style*="font-size: 11px"],
+      [style*="font-size:11.5px"] { font-size: var(--t-caption) !important; }
+      [style*="font-size:15px"], [style*="font-size: 15px"] { font-size: var(--t-body) !important; }
+      [style*="font-size:18px"], [style*="font-size: 18px"],
+      [style*="font-size:20px"], [style*="font-size: 20px"] { font-size: var(--t-figure) !important; }
+      [style*="font-size:24px"], [style*="font-size: 24px"],
+      [style*="font-size:34px"], [style*="font-size:36px"] { font-size: var(--t-hero) !important; }
+
+      /* Cards: a hairline and space, not a shadow and a border and a radius. */
+      .card, .kpi-card {
+        box-shadow: none !important;
+        border: 1px solid var(--border-soft);
+        border-radius: 14px !important;
+      }
+
+      .kpi-value { font-size: var(--t-figure) !important; font-weight: 600 !important; letter-spacing: -0.02em; }
+      .kpi-label {
+        font-size: var(--t-caption) !important;
+        font-weight: 500 !important;
+        text-transform: none !important;   /* shouting caps on every label */
+        letter-spacing: 0 !important;
+        color: var(--ink-soft) !important;
+      }
+
+      /* Numbers line up. Tabular figures are most of what makes a finance
+         app feel considered rather than assembled. */
+      .num, .kpi-value, .amount { font-variant-numeric: tabular-nums; }
+
+      /* ---- Transactions as a list, not a form ----
+         Each entry was six labelled rows — SELECT, DATE, WHAT, CATEGORY,
+         TYPE, AMOUNT — which is more chrome than content. It reads as one
+         line now: what it was and what it cost, with the detail beneath. */
+      #txTbody tr {
+        display: grid !important;
+        grid-template-columns: auto 1fr auto auto;
+        grid-template-areas:
+          "sel what   amount del"
+          "sel meta   meta   del";
+        align-items: center;
+        column-gap: 0.7rem;
+        row-gap: 0.15rem;
+        padding: 0.75rem 0.9rem !important;
+        border: none !important;
+        border-bottom: 1px solid var(--border-soft) !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+      }
+      #txTbody tr:last-child { border-bottom: none !important; }
+      #txTbody td { display: block !important; padding: 0 !important; }
+      #txTbody td::before { display: none !important; }   /* the labels */
+
+      #txTbody td[data-label="Select"]   { grid-area: sel; }
+      #txTbody td[data-label="What"]     { grid-area: what; font-size: var(--t-body); font-weight: 500; }
+      #txTbody td[data-label="Amount"]   { grid-area: amount; text-align: right !important; font-size: var(--t-body); font-weight: 600; }
+      #txTbody td[data-label="Date"]     { grid-area: meta; font-size: var(--t-caption); color: var(--ink-soft); }
+      #txTbody td[data-label="Category"] { display: none !important; }
+      #txTbody td[data-label="Type"]     { display: none !important; }
+      #txTbody td:last-child             { grid-area: del; }
+
+      /* Expenses are ink. Only money arriving is green — if every figure is
+         coloured, the colour says nothing. */
+      #txTbody .amount.expense { color: var(--text) !important; }
+      #txTbody .amount.income  { color: var(--success-dark) !important; }
+
+      /* The delete control shouldn't be the brightest thing on screen. */
+      #txTbody .btn-danger {
+        background: transparent !important;
+        color: var(--text-dim) !important;
+        border: none !important;
+        padding: 0.35rem !important;
+        font-size: var(--t-lead) !important;
+        box-shadow: none !important;
+      }
+
+      /* Badges: type, not decoration. */
+      .badge {
+        background: transparent !important;
+        border: 1px solid var(--border) !important;
+        color: var(--ink-soft) !important;
+        font-weight: 500 !important;
+        font-size: var(--t-caption) !important;
+        padding: 0.1rem 0.45rem !important;
+      }
+
+      .card h2 { font-size: var(--t-lead) !important; font-weight: 600 !important; letter-spacing: -0.01em; }
+      .text-muted { color: var(--ink-soft) !important; }
+
+      /* Progress bars as hairlines rather than slabs. */
+      .progress { height: 4px !important; border-radius: 2px !important; }
     }
 
     /* Nav Tabs */
@@ -1804,7 +1926,7 @@
           <div class="kpi-card">
             <div class="kpi-label">Net Worth</div>
             <div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}">${AUD(netWorth())}</div>
-            ${kpiNote(`${AUD(totalAssets())} assets less ${AUD(totalDebt())} owed`)}
+            ${kpiNote(`${AUD(totalAssets())} assets, ${AUD(totalDebt())} owed`)}
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Total Debt</div>
@@ -1820,16 +1942,17 @@
                 ? `<strong>${AUD(receivedThisMonth())} logged</strong> so far this month.`
                 : '<strong>Nothing logged</strong> this month yet.';
               if (p.basis === 'none') return kpiNote('No pay amount set and nothing logged yet — log a pay and this fills in.');
+              // Two clauses. A KPI card is a number and a hint, not a paragraph.
               const src = p.basis === 'fixed'
                 ? `${AUD(p.amount)} ${income.myFreq || 'monthly'}`
-                : `${AUD(p.amount)} ${income.myFreq || 'monthly'}, averaged from your last ${p.n} pay${p.n === 1 ? '' : 's'}`;
-              return kpiNote(`${src}, spread over the year. ${logged}`);
+                : `avg ${AUD(p.amount)} ${income.myFreq || 'monthly'}`;
+              return kpiNote(`${src} · ${logged}`);
             })()}
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Expected Surplus</div>
             <div class="kpi-value num ${monthlySurplus() >= 0 ? 'positive' : 'negative'}">${AUD(monthlySurplus())}</div>
-            ${kpiNote('Projected: expected income less bills and debt minimums')}
+            ${kpiNote('After bills and debt minimums')}
           </div>
         </div>
         ${renderCashForecastCard()}
@@ -2344,7 +2467,7 @@
       return filtered.map(t => `
         <tr${txSelection.has(t.id) ? ' style="background:var(--surface);"' : ''}>
           <td data-label="Select"><input type="checkbox" onchange="toggleTxSelect(${t.id}, this.checked)"${txSelection.has(t.id) ? ' checked' : ''}></td>
-          <td data-label="Date">${formatDate(t.date)}</td>
+          <td data-label="Date">${formatDate(t.date)}<span class="row-meta"> · ${t.category}</span></td>
           <td data-label="What">${t.name || '—'}${sourceBadge(t.source)}</td>
           <td data-label="Category"><span class="badge badge-neutral">${t.category}</span></td>
           <td data-label="Type"><span class="badge ${t.type === 'income' ? 'badge-success' : 'badge-danger'}">${t.type}</span></td>
