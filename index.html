@@ -447,6 +447,66 @@
       .progress { height: 4px !important; border-radius: 2px !important; }
     }
 
+
+    /* ---- Bills ----
+     * These were table rows, which on a phone became six labelled lines per
+     * bill — BILL, CATEGORY, AMOUNT, EVERY, DUE, STATUS — for four words of
+     * actual content. A bill is a name, an amount, when it's next due and
+     * whether it's been handled. That fits one card at any width, so the grid
+     * simply reflows: one column on a phone, two or three on a desktop.
+     */
+    .bill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 0.75rem;
+    }
+    .bill-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      background: var(--card);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .bill-card.inactive { opacity: 0.5; }
+    .bill-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .bill-name { font-weight: 600; font-size: 15px; }
+    .bill-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; text-transform: capitalize; }
+    .bill-amount { font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .bill-state {
+      font-size: 12px; font-weight: 600;
+      align-self: flex-start;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .bill-state.good  { color: var(--success-dark); border-color: var(--success); }
+    .bill-state.bad   { color: var(--danger); border-color: var(--danger); }
+    .bill-state.watch { color: var(--warning-text2); border-color: var(--warning); }
+    .bill-state.muted { color: var(--text-muted); }
+
+    .bill-when {
+      font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    }
+    .bill-when label { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .bill-when input { padding: 0.25rem 0.4rem; font-size: 12px; width: auto; }
+
+    .bill-actions { display: flex; gap: 0.5rem; }
+    .bill-actions .btn-small { flex: 1; }
+    .bill-remove {
+      flex: 0 0 auto !important;
+      background: transparent; color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    /* Desktop deserves the same care as the phone: content shouldn't stretch
+       to the full width of a monitor just because it can. */
+    @media (min-width: 1100px) {
+      main { max-width: 1100px; }
+    }
+
     /* Nav Tabs */
     nav.tabs {
       background: #FFFFFF;
@@ -1909,6 +1969,9 @@
 
         if (!paid) {
           const since = daysBetween(billPeriodStart(bill), from);
+          // "Overdue" accuses. All the app actually knows is that nothing has
+          // been logged against this period — a direct debit that went out on
+          // time looks identical from here.
           // Only call it overdue for a few days. Past that it almost certainly
           // means the bill is on direct debit and simply isn't being logged —
           // "24 days overdue" on a wifi bill that was paid automatically is
@@ -1919,22 +1982,24 @@
           }
         }
 
-        // Paid: show it only if the next one lands within the week.
+        // Paid: show the next one only if it lands within the week, and mark
+        // it as already handled so it doesn't read as outstanding.
         const next = billNextDue(bill);
         const days = daysBetween(from, next);
-        if (days >= 0 && days <= 7) rows.push({ bill, when: next, days, overdue: false });
+        if (days >= 0 && days <= 7) rows.push({ bill, when: next, days, overdue: false, settled: true });
       }
 
       if (!rows.length) return '<p class="text-muted" style="font-size:13px;">Nothing due in the next 7 days.</p>';
       rows.sort((a, b) => a.days - b.days);
 
-      return rows.map(({ bill, when, days, overdue }) => {
+      return rows.map(({ bill, when, days, overdue, settled }) => {
         const label = overdue
-          ? (days === -1 ? 'Due yesterday' : `${-days} days overdue`)
+          ? (days === -1 ? 'Not logged — due yesterday' : `Not logged — due ${-days} days ago`)
           : days === 0 ? 'Due today'
           : days === 1 ? 'Due tomorrow'
           : `In ${days} days`;
-        const colour = overdue || days === 0 ? 'var(--danger)'
+        const colour = settled ? 'var(--success-dark)'
+          : overdue || days === 0 ? 'var(--danger)'
           : days === 1 ? 'var(--warning)' : 'var(--text-muted)';
         const weight = overdue || days <= 1 ? '700' : '400';
         const day = new Date(when + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -1983,7 +2048,6 @@
             ${kpiNote('After bills and debt minimums')}
           </div>
         </div>
-        ${renderCashForecastCard()}
         ${renderMonthStatusCard()}
         ${renderRunwayCard()}
         ${renderEmergencyFundCard()}
@@ -2766,32 +2830,42 @@
         `).join('')}</div>` : ''}
         <div class="card">
           <h2>All Bills</h2>
-          <div style="overflow-x: auto;">
-            <table class="stackable">
-              <thead><tr><th>Name</th><th>Category</th><th style="text-align: right;">Amount</th><th>Freq</th><th>Due</th><th>Status</th><th style="width: 120px;"></th></tr></thead>
-              <tbody>
-                ${bills.map(b => {
-                  const status = !b.active ? 'inactive' : isBillPaid(b) ? 'paid' : (billPeriodStart(b) < today() ? 'overdue' : 'due');
-                  return `
-                    <tr>
-                      <td data-label="Bill"><strong>${b.name}</strong></td>
-                      <td data-label="Category"><span class="badge badge-neutral">${b.category}</span></td>
-                      <td data-label="Amount" style="text-align: right;" class="num">${AUD(b.amount)}</td>
-                      <td data-label="Every">${b.freq}</td>
-                      <td data-label="Due">${['weekly','fortnightly'].includes((b.freq||'').toLowerCase())
-                        ? `<input type="date" value="${b.anchorDate || ''}" onchange="updateBillAnchor(${b.id}, this.value)" style="padding:0.3rem;font-size:12px;" title="A date this cycle falls on — a day number can't hold a fortnightly cycle across month ends">
-                           <div class="text-muted" style="font-size:11px;margin-top:2px;">next ${formatDate(billNextDue(b))}</div>`
-                        : `Day ${b.dueDay}<div class="text-muted" style="font-size:11px;margin-top:2px;">next ${formatDate(billNextDue(b))}</div>`}</td>
-                      <td data-label="Status"><span class="bill-status ${status}">${status.toUpperCase()}</span></td>
-                      <td data-label="">
-                        ${isBillPaid(b) ? `<button class="btn-small btn-secondary" onclick="resetBillPaid(${b.id})">Reset</button>` : `<button class="btn-small btn-success" onclick="markBillPaid(${b.id})">Paid</button>`}
-                        <button class="btn-small btn-danger" onclick="deleteBill(${b.id})" style="margin-left: 0.5rem;">×</button>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
+          <div class="bill-grid">
+            ${bills.map(b => {
+              const paid = isBillPaid(b);
+              const next = billNextDue(b);
+              const periodStart = billPeriodStart(b);
+              const days = Math.round((new Date(next + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 86400000);
+              const late = !paid && periodStart < today();
+              const state = !b.active ? { text: 'Inactive', tone: 'muted' }
+                : paid ? { text: 'Paid this cycle', tone: 'good' }
+                : late ? { text: 'Not logged yet', tone: 'bad' }
+                : { text: days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : 'Due in ' + days + ' days', tone: 'watch' };
+              const cadence = ['weekly','fortnightly'].includes((b.freq||'').toLowerCase());
+
+              return `<div class="bill-card${!b.active ? ' inactive' : ''}">
+                <div class="bill-top">
+                  <div>
+                    <div class="bill-name">${b.name}</div>
+                    <div class="bill-meta">${b.category} &middot; ${b.freq}</div>
+                  </div>
+                  <div class="bill-amount num">${AUD(b.amount)}</div>
+                </div>
+                <div class="bill-state ${state.tone}">${state.text}</div>
+                <div class="bill-when">
+                  <span>Next ${formatDate(next)}</span>
+                  ${cadence
+                    ? `<label>from <input type="date" value="${b.anchorDate || ''}" onchange="updateBillAnchor(${b.id}, this.value)"></label>`
+                    : `<span>day ${b.dueDay} monthly</span>`}
+                </div>
+                <div class="bill-actions">
+                  ${paid
+                    ? `<button class="btn-small" onclick="resetBillPaid(${b.id})">Undo payment</button>`
+                    : `<button class="btn-small btn-success" onclick="markBillPaid(${b.id})">Log ${AUD(b.amount)}</button>`}
+                  <button class="btn-small bill-remove" onclick="deleteBill(${b.id})">Delete</button>
+                </div>
+              </div>`;
+            }).join('')}
           </div>
         </div>
         <div class="card">
