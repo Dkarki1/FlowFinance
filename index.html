@@ -1801,6 +1801,8 @@
       const startingTotal = working.reduce((s, d) => s + d.balance, 0);
       const balances = [startingTotal];
       const cleared = [];
+      const perDebt = {};   // id -> { interest, payment, clearedMonth }
+      working.forEach(d => { perDebt[d.id] = { interest: 0, payment: d.minimum, clearedMonth: null }; });
       let totalInterest = 0;
       let month = 0;
 
@@ -1826,9 +1828,14 @@
             pool -= applied;
           }
           totalInterest += interest;
+          perDebt[debt.id].interest += interest;
+          // The largest payment this debt ever receives — once the rollover
+          // reaches it, that is what is actually clearing it.
+          perDebt[debt.id].payment = Math.max(perDebt[debt.id].payment, payment);
           debt.balance = Math.max(0, debt.balance + interest - payment);
           if (debt.balance <= 0.005 && !cleared.some(c => c.id === debt.id)) {
             cleared.push({ id: debt.id, name: debt.name, month });
+            perDebt[debt.id].clearedMonth = month;
           }
         }
         balances.push(working.reduce((s, d) => s + d.balance, 0));
@@ -1841,6 +1848,7 @@
         totalInterest,
         balances,
         cleared,
+        perDebt,
         debtFreeDate: debtFree.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }),
         // A run that hit the cap never actually pays off — say so rather than
         // drawing a confident line to a date that will never arrive.
@@ -5441,103 +5449,93 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     // ═══════════════════════════════════════════════════════════════
     // DEBT PAYOFF TIMELINE
     // ═══════════════════════════════════════════════════════════════
+    /**
+     * When each debt actually clears, under the plan the rest of the app uses.
+     *
+     * This was a fourth implementation of debt payoff, and it disagreed with
+     * all three others. It assumed half the monthly surplus went to debt —
+     * a figure nobody had entered — which is where "$2,048/mo" against a $133
+     * minimum came from. It simulated every debt from today in isolation, so
+     * they all appeared to start at once. And it read the debt-free date off
+     * the LAST debt in sort order rather than the latest date, which is how
+     * the headline could say June 2029 while a debt on the same card finished
+     * June 2030.
+     *
+     * It now reads simulatePayoffSchedule — minimums only, the same basis as
+     * the chart and the KPI — so the whole tab tells one story.
+     */
     function renderDebtTimeline() {
       if (debts.length === 0) return '<div class="card"><p class="text-muted text-center">No debts added yet.</p></div>';
-      const sorted = getSortedDebts();
-      const extraMonthly = Math.max(0, monthlySurplus() * 0.5);
-      let remaining = extraMonthly;
-      const timeline = [];
+
+      const schedule = simulatePayoffSchedule(0);
       const now = new Date();
-      sorted.forEach((d, i) => {
-        let balance = d.balance || 0;
-        const minMonthly = toMonthly(d.minPayment, d.minFreq || 'monthly');
-        const extra = i === 0 ? remaining : 0;
-        const payment = minMonthly + extra;
-        const rate = (d.rate || 0) / 100 / 12;
-        let months = 0;
-        let totalInterest = 0;
-        let bal = balance;
-        while (bal > 0 && months < 600) {
-          const interest = bal * rate;
-          totalInterest += interest;
-          bal -= (payment - interest);
-          months++;
-        }
-        const payoffDate = new Date(now);
-        payoffDate.setMonth(payoffDate.getMonth() + months);
-        timeline.push({ ...d, months, totalInterest, payoffDate, payment, extra });
-        remaining += minMonthly; // snowball freed payment
-      });
-      const maxMonths = Math.max(...timeline.map(t => t.months), 1);
-      const colors = ['#FF3B30','#F97316','#FF9500','#34C759','#0F95A8','#5E5CE6'];
+      const dateAfter = (months) => {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() + months);
+        return d.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
+      };
+
+      // Ordered by when they actually clear, which is the order they'll be
+      // dealt with rather than a nominal priority list.
+      const rows = schedule.cleared
+        .map((c, i) => {
+          const debt = debts.find(d => String(d.id) === String(c.id)) || {};
+          const stats = schedule.perDebt[c.id] || { interest: 0, payment: 0 };
+          return { ...debt, order: i + 1, months: c.month, stats };
+        });
+
+      const maxMonths = Math.max(...rows.map(r => r.months), 1);
+      const colours = ['#FF3B30', '#F97316', '#FF9500', '#34C759', '#0F95A8', '#5E5CE6'];
+
       return `
         <div class="card" style="background: linear-gradient(135deg, var(--text) 0%, #2C2C2E 100%);color:white;border-radius:16px;">
-          <h2 style="color:white;">Debt Payoff Timeline</h2>
-          <p style="opacity:0.8;font-size:13px;margin-top:0.25rem;">${debtMethod === 'avalanche' ? 'Avalanche' : 'Snowball'} method · surplus rolled into next debt</p>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
-            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
-              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Total Debt</div>
-              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(totalDebt())}</div>
+          <h2 style="color:white;margin:0;">Payoff timeline</h2>
+          <p style="opacity:0.75;font-size:13px;margin-top:0.35rem;">
+            ${debtMethod === 'avalanche' ? 'Highest rate first' : 'Smallest balance first'} ·
+            minimums only, with each cleared debt's payment rolling onto the next
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-top:1.25rem;">
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:0.9rem 0.5rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Owing</div>
+              <div style="font-size:19px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(totalDebt())}</div>
             </div>
-            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
-              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Total Interest</div>
-              <div style="font-size:20px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(Math.round(timeline.reduce((s,t) => s+t.totalInterest, 0)))}</div>
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:0.9rem 0.5rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Interest</div>
+              <div style="font-size:19px;font-weight:700;margin-top:0.25rem;" class="num">${AUD(Math.round(schedule.totalInterest))}</div>
             </div>
-            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem;">
-              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Debt Free</div>
-              <div style="font-size:16px;font-weight:700;margin-top:0.25rem;">${timeline.length > 0 ? timeline[timeline.length-1].payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'}) : '—'}</div>
+            <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:0.9rem 0.5rem;">
+              <div style="font-size:11px;opacity:0.7;text-transform:uppercase;">Debt free</div>
+              <div style="font-size:16px;font-weight:700;margin-top:0.4rem;">${schedule.neverPaysOff ? 'not on these minimums' : schedule.debtFreeDate}</div>
             </div>
           </div>
         </div>
-        <div class="card">
-          <h2>Visual Timeline</h2>
-          ${timeline.map((t, i) => {
-            const widthPct = Math.min(100, (t.months / maxMonths) * 100);
-            const milestones = getMilestonesForDebt(t.id);
-            return `
-              <div style="margin-bottom:1.5rem;">
-                <div class="flex-between" style="margin-bottom:0.5rem;">
-                  <div>
-                    <span style="font-weight:700;">${i+1}. ${t.name}</span>
-                    ${milestones.map(m => `<span class="milestone-badge" style="margin-left:0.5rem;">${m.pct}% ✓</span>`).join('')}
-                  </div>
-                  <div style="text-align:right;font-size:13px;">
-                    <div class="num" style="font-weight:700;">${AUD(t.balance)}</div>
-                    <div style="color:var(--text-muted);">${t.months}mo · ${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</div>
-                  </div>
-                </div>
-                <div style="height:28px;background:var(--border-soft);border-radius:8px;overflow:hidden;position:relative;">
-                  <div style="height:100%;width:${widthPct}%;background:${colors[i%colors.length]};border-radius:8px;display:flex;align-items:center;padding:0 0.75rem;transition:width 0.6s ease;">
-                    <span style="color:white;font-size:11px;font-weight:600;white-space:nowrap;">${t.rate}% · ${AUD(t.payment)}/mo</span>
-                  </div>
-                </div>
-                <div style="font-size:11px;color:var(--text-dim);margin-top:0.3rem;">Interest cost: ${AUD(Math.round(t.totalInterest))} · freed payment after: ${AUD(t.payment)}/mo</div>
-              </div>`;
-          }).join('')}
-        </div>
-        <div class="card">
-          <h2>Month-by-Month Breakdown</h2>
-          <div style="overflow-x:auto;">
-            <table style="min-width:520px;">
-              <thead><tr><th>Debt</th><th>Balance</th><th>Rate</th><th>Payment/mo</th><th>Payoff Date</th><th>Interest Cost</th></tr></thead>
-              <tbody>${timeline.map((t,i) => `
-                <tr>
-                  <td><strong>${i+1}. ${t.name}</strong></td>
-                  <td class="num">${AUD(t.balance)}</td>
-                  <td style="color:var(--danger);">${t.rate}%</td>
-                  <td class="num">${AUD(Math.round(t.payment))}/mo</td>
-                  <td><strong>${t.payoffDate.toLocaleDateString('en-AU',{month:'short',year:'numeric'})}</strong></td>
-                  <td class="num" style="color:var(--danger);">${AUD(Math.round(t.totalInterest))}</td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }
 
-    // ═══════════════════════════════════════════════════════════════
-    // CATEGORY SPENDING TRENDS
-    // ═══════════════════════════════════════════════════════════════
+        <div class="card">
+          <h2>Order they clear</h2>
+          <div style="display:flex;flex-direction:column;gap:1.1rem;margin-top:1rem;">
+            ${rows.map((r, i) => `
+              <div>
+                <div class="flex-between" style="align-items:baseline;gap:1rem;">
+                  <div style="font-weight:600;font-size:15px;">${r.order}. ${r.name}</div>
+                  <div style="text-align:right;">
+                    <div class="num" style="font-weight:700;">${AUD(r.balance)}</div>
+                    <div class="text-muted" style="font-size:12px;">${r.months} mo &middot; ${dateAfter(r.months)}</div>
+                  </div>
+                </div>
+                <div class="progress" style="height:8px;margin:0.5rem 0 0.35rem;">
+                  <div class="progress-fill" style="width:${Math.max(4, (r.months / maxMonths) * 100)}%;background:${colours[i % colours.length]};"></div>
+                </div>
+                <div class="text-muted" style="font-size:12px;">
+                  ${r.rate}% &middot; interest ${AUD(Math.round(r.stats.interest))} &middot; clearing at ${AUD(Math.round(r.stats.payment))}/mo
+                </div>
+              </div>`).join('')}
+          </div>
+          <p class="text-muted" style="font-size:11px;margin-top:1rem;">
+            Payments rise as debts clear — the minimum that was servicing one rolls onto the next. Use the slider above to see what extra does.
+          </p>
+        </div>
+      `;
+    }
     function renderTrends() {
       const categories = ['Food','Transport','Entertainment','Shopping','Housing','Utilities','Health','Other'];
       const sixMonths = [];
