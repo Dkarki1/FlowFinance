@@ -5779,7 +5779,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         : ef.status === 'building' ? 'var(--warning)' : 'var(--danger)';
       return `<div class="card">
         <div class="flex-between" style="align-items:baseline;">
-          <h2 style="margin:0;">Emergency fund</h2>
+          <h2 style="margin:0;">${ef.accountName || 'Savings'}</h2>
           <span class="num" style="font-weight:700;">${AUD(ef.currentSavings || 0)} <span class="text-muted" style="font-weight:400;font-size:12px;">of ${AUD(ef.targetAmount || 0)}</span></span>
         </div>
         <div class="progress" style="height:10px;margin:0.85rem 0 0.5rem;">
@@ -5789,6 +5789,15 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <span>${ef.coverageMonths || 0} month${ef.coverageMonths === 1 ? '' : 's'} of essential costs covered</span>
           <span>${ef.shortfall > 0 ? AUD(ef.shortfall) + ' to go' : 'Funded'}</span>
         </div>
+        ${ef.contribution ? `
+        <div class="flex-between" style="font-size:12px;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border-soft);">
+          <span>Paying in ${AUD(ef.contribution.amount)} ${ef.contribution.freq}</span>
+          <span class="text-muted">${
+            ef.monthsToTarget != null && ef.monthsToTarget > 0
+              ? `3 months' cover by ${new Date(new Date().setMonth(new Date().getMonth() + Math.ceil(ef.monthsToTarget))).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`
+              : ef.shortfall > 0 ? '' : 'target reached'
+          }</span>
+        </div>` : ''}
         ${!ef.savingsRecorded
           ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet. Tell the bot what you have set aside and this starts tracking.</div>`
           : ef.largePaymentSince
