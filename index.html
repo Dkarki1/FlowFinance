@@ -1881,41 +1881,69 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     // Dashboard
+    /**
+     * Bills due, and bills overdue.
+     *
+     * This was a third implementation of billing cycles, and wrong in three
+     * ways at once. It re-derived the anchor from the day-of-month every month,
+     * so it drifted and ignored anchorDate entirely — rent's 1 September date
+     * meant nothing to it. It compared a date at midnight against `now` at
+     * whatever time you opened the app, so a 13.64-day gap rounded to 14 and
+     * the bill announced itself a day early. And it never checked whether the
+     * bill had been paid, which is why health insurance showed "Due today"
+     * five days after it was logged.
+     *
+     * It now uses the same billPeriodStart / billNextDue / isBillPaid the rest
+     * of the app does, so there is one answer to "when is this due".
+     */
     function renderBillsDueWidget() {
-      const now = new Date();
-      const due = [];
+      const from = today();
+      const dayMs = 86400000;
+      const daysBetween = (a, b) =>
+        Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / dayMs);
+
+      const rows = [];
       for (const bill of bills) {
         if (!bill.active) continue;
-        for (let d = 0; d <= 7; d++) {
-          const check = new Date(now);
-          check.setDate(now.getDate() + d);
-          let match = false;
-          if (bill.freq === 'monthly' && check.getDate() === parseInt(bill.dueDay)) {
-            match = true;
-          } else if (bill.freq === 'weekly' || bill.freq === 'fortnightly') {
-            const startDay = parseInt(bill.dueDay) || 1;
-            const cycle = bill.freq === 'weekly' ? 7 : 14;
-            const monthStart = new Date(check.getFullYear(), check.getMonth(), startDay);
-            const diff = Math.round((check - monthStart) / 86400000);
-            if (diff >= 0 && diff % cycle === 0) match = true;
-          } else if (bill.freq === 'yearly' && check.getDate() === parseInt(bill.dueDay)) {
-            match = true;
+        const paid = isBillPaid(bill);
+
+        if (!paid) {
+          const since = daysBetween(billPeriodStart(bill), from);
+          // Only call it overdue for a few days. Past that it almost certainly
+          // means the bill is on direct debit and simply isn't being logged —
+          // "24 days overdue" on a wifi bill that was paid automatically is
+          // alarming and wrong. After the window it just shows its next date.
+          if (since <= 5) {
+            rows.push({ bill, when: billPeriodStart(bill), days: -since, overdue: since > 0 });
+            continue;
           }
-          if (match) { due.push({ ...bill, daysUntil: d, checkDate: check }); break; }
         }
+
+        // Paid: show it only if the next one lands within the week.
+        const next = billNextDue(bill);
+        const days = daysBetween(from, next);
+        if (days >= 0 && days <= 7) rows.push({ bill, when: next, days, overdue: false });
       }
-      due.sort((a, b) => a.daysUntil - b.daysUntil);
-      if (!due.length) return '<p class="text-muted" style="font-size:13px;">No bills due in the next 7 days.</p>';
-      return due.map(function(b) {
-        var labelText = b.daysUntil === 0 ? 'Due today' : b.daysUntil === 1 ? 'Due tomorrow' : 'In ' + b.daysUntil + ' days';
-        var labelColor = b.daysUntil === 0 ? '#FF3B30' : b.daysUntil === 1 ? '#FF9500' : '#6E6E73';
-        var labelWeight = b.daysUntil <= 1 ? '700' : '400';
-        var day = b.checkDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+
+      if (!rows.length) return '<p class="text-muted" style="font-size:13px;">Nothing due in the next 7 days.</p>';
+      rows.sort((a, b) => a.days - b.days);
+
+      return rows.map(({ bill, when, days, overdue }) => {
+        const label = overdue
+          ? (days === -1 ? 'Due yesterday' : `${-days} days overdue`)
+          : days === 0 ? 'Due today'
+          : days === 1 ? 'Due tomorrow'
+          : `In ${days} days`;
+        const colour = overdue || days === 0 ? 'var(--danger)'
+          : days === 1 ? 'var(--warning)' : 'var(--text-muted)';
+        const weight = overdue || days <= 1 ? '700' : '400';
+        const day = new Date(when + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+
         return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--surface);">'
-          + '<div><div style="font-weight:600;font-size:14px;">' + b.name + '</div>'
-          + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + day + ' · ' + b.freq + '</div></div>'
-          + '<div style="text-align:right;"><div class="num" style="font-weight:700;">' + AUD(b.amount) + '</div>'
-          + '<div style="font-size:11px;margin-top:2px;color:' + labelColor + ';font-weight:' + labelWeight + ';">' + labelText + '</div>'
+          + '<div><div style="font-weight:600;font-size:14px;">' + bill.name + '</div>'
+          + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + day + ' \u00b7 ' + bill.freq + '</div></div>'
+          + '<div style="text-align:right;"><div class="num" style="font-weight:700;">' + AUD(bill.amount) + '</div>'
+          + '<div style="font-size:11px;margin-top:2px;color:' + colour + ';font-weight:' + weight + ';">' + label + '</div>'
           + '</div></div>';
       }).join('');
     }
@@ -5761,7 +5789,15 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <span>${ef.coverageMonths || 0} month${ef.coverageMonths === 1 ? '' : 's'} of essential costs covered</span>
           <span>${ef.shortfall > 0 ? AUD(ef.shortfall) + ' to go' : 'Funded'}</span>
         </div>
-        ${!ef.savingsRecorded ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet. Send <code>savings 4200</code> to the bot to start tracking this.</div>` : ''}
+        ${!ef.savingsRecorded
+          ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet. Tell the bot what you have set aside and this starts tracking.</div>`
+          : ef.largePaymentSince
+          ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
+               This is what you told me on ${ef.savingsAsOf}. You've logged a large debt payment since — if it came out of savings, this figure is too high. Tell the bot the new number.
+             </div>`
+          : (ef.savingsDaysAgo || 0) > 30
+          ? `<div class="text-muted" style="font-size:11px;margin-top:0.5rem;">Last updated ${ef.savingsAsOf}.</div>`
+          : ''}
       </div>`;
     }
 
@@ -5818,10 +5854,15 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         : `<span style="color:var(--danger);font-weight:600;">Tight on ${dayLabel(firstBreach.date)}.</span>
            <span class="text-muted">Down to ${AUD(low.closingBalance)}${liq.topUpNeeded > 0 ? ` — about ${AUD(liq.topUpNeeded)} would cover it` : ''}.</span>`;
 
-      const stale = (liq.balanceAgeDays || 0) > 7
+      // Where the starting figure came from, said once and coherently. It
+      // used to print the rolled-forward date next to the original reading's
+      // age — "a balance from 2026-08-22, 13 days old" — which cannot both be
+      // true and made the whole card look broken.
+      const rolled = liq.rolledForwardBy || 0;
+      const stale = (liq.recordedDaysAgo || 0) > 7
         ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
-             Built on a balance from ${liq.balanceAsOf} — ${liq.balanceAgeDays} days old, so it doesn't know about anything since.
-             Send <code>balance &lt;amount&gt;</code> to refresh it.
+             Estimated from ${AUD(liq.recordedBalance)} recorded on ${dayLabel(liq.recordedOn)}${rolled ? `, plus ${rolled} transaction${rolled === 1 ? '' : 's'} logged since` : ''}.
+             That reading is ${liq.recordedDaysAgo} days old, so anything unlogged isn't in it — tell the bot your actual balance and this sharpens up.
            </div>` : '';
 
       // The chart is folded away by default. The sentence is what you need on
@@ -5831,7 +5872,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       return `<div class="card">
         <div class="flex-between" style="align-items:baseline;">
           <h2 style="margin:0;">Cash forecast</h2>
-          <span class="num" style="font-weight:700;">${AUD(liq.openingBalance)} <span class="text-muted" style="font-weight:400;font-size:12px;">as at ${dayLabel(liq.balanceAsOf)}</span></span>
+          <span class="num" style="font-weight:700;">${AUD(liq.openingBalance)} <span class="text-muted" style="font-weight:400;font-size:12px;">estimated today</span></span>
         </div>
         <div style="font-size:13px;margin:0.6rem 0 0;">${headline}</div>
         ${stale}
