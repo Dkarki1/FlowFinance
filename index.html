@@ -270,7 +270,12 @@
 
     /* Bottom navigation. Four screens that get opened daily, plus everything
        else behind More — rather than fifteen equal tabs in a scroll strip. */
-    .bottom-nav { display: none; }
+    /* Both hidden by default. The mobile rules below turn them on — writing
+       the "display: none" inside the media query instead left them with no
+       rule at all above 768px, so the More sheet rendered as a plain block at
+       the bottom of every desktop page: a second, full-width copy of the whole
+       tab bar. */
+    .bottom-nav, .more-sheet { display: none; }
 
     @media (max-width: 768px) {
       .bottom-nav {
