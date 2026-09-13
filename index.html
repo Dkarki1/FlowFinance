@@ -2372,7 +2372,9 @@
       const out = rows.filter(t => t.type !== 'income').reduce((s, t) => s + (+t.amount || 0), 0);
       const left = inc - out;
       const pay = effectivePay();
-      const nextPay = income.myNextPay ? expectedPayDates(key).find(d => d >= today()) || income.myNextPay : null;
+      // expectedPayDates returns Date objects and this compared them to a
+      // string, so it never matched and always showed the stale stored date.
+      const nextPay = nextPayOnOrAfter(income.myNextPay, income.myFreq, today());
 
       const kpi = (label, value, cls, note) => `
         <div class="kpi-card">
@@ -2485,7 +2487,7 @@
     function renderQuickLogCard() {
       const ep = effectivePay();
       const payHint = ep.amount > 0
-        ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()" style="flex:0 0 auto;">Log pay ${AUD(ep.amount)}</button>`
+        ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()" style="flex:0 0 auto;">Log a pay</button>`
         : '';
       return `<div class="card">
         <div class="flex-between" style="align-items:baseline;">
@@ -2632,7 +2634,7 @@
         <div class="flex-between" style="align-items:baseline;">
           <h2 style="margin:0;">Pay log</h2>
           ${effectivePay().amount > 0
-            ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()">Log today's pay &mdash; ${AUD(effectivePay().amount)}</button>`
+            ? `<button class="btn-secondary btn-small" onclick="quickLogThisPay()">Log a pay</button>`
             : ''}
         </div>
         <div class="form-row" style="margin-top:1rem;">
@@ -2715,14 +2717,36 @@
       saveTx();
     }
 
+    /**
+     * Logging a pay from the button.
+     *
+     * It used to log your AVERAGE pay, dated TODAY, in a single tap, with no
+     * check for a pay already logged — which is how a $3,107.33 "pay" landed
+     * on 8 September on top of the $3,000 logged on the 3rd. It now asks what
+     * actually landed and when, and stops to check if a pay went in during
+     * the last week.
+     */
     function quickLogThisPay() {
       const p = effectivePay();
-      if (p.amount <= 0) {
-        showToast('No pay amount set and nothing logged yet — enter one below', 'error');
+      const now = today();
+      const daysApart = (a, b) => Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000);
+      const recent = payEntries().filter(e => e && e.date && daysApart(e.date, now) <= 7);
+      if (recent.length) {
+        const last = recent[recent.length - 1];
+        if (!confirm(`You already logged ${AUD(last.amount)} pay on ${formatDate(last.date)}. Log another pay?`)) return;
+      }
+      const raw = prompt('How much landed? Use the exact amount from your bank.', p.amount > 0 ? String(p.amount) : '');
+      if (raw === null) return;
+      const amount = parseFloat(String(raw).replace(/[$,\s]/g, ''));
+      if (!(amount > 0)) { showToast('Enter the amount that landed', 'error'); return; }
+      const date = prompt('Which day did it land? (YYYY-MM-DD)', now);
+      if (date === null) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > now) {
+        showToast('Use a date like 2026-09-17, and not in the future', 'error');
         return;
       }
-      logPay(p.amount, today());
-      showToast(`✓ Logged ${AUD(p.amount)} for today`, 'success');
+      logPay(amount, date);
+      showToast(`✓ Logged ${AUD(amount)} pay on ${formatDate(date)}`, 'success');
     }
     function logMyPay() {
       const amount = parseFloat(document.getElementById('myPayAmount').value);
@@ -4156,6 +4180,32 @@
      * as the expectation would flag a perfectly normal two-pay month as a
      * shortfall every time.
      */
+    /**
+     * The next payday on or after today, walked forward from the stored date.
+     * The stored date is set once and goes stale a fortnight later — it said
+     * 3 September on the 13th. Mirrors nextPayOnOrAfter() in
+     * shared/engines/payschedule.ts; the parity test keeps them in step.
+     */
+    function nextPayOnOrAfter(anchorDate, frequency, todayISO) {
+      if (!anchorDate) return null;
+      const start = new Date(String(anchorDate).slice(0, 10) + 'T00:00:00Z');
+      if (Number.isNaN(start.getTime())) return null;
+      const todayD = new Date(todayISO + 'T00:00:00Z');
+      const iso = d => d.toISOString().slice(0, 10);
+      const step = { weekly: 7, fortnightly: 14 }[String(frequency || '').toLowerCase()];
+      if (step) {
+        const d = new Date(start);
+        while (d < todayD) d.setUTCDate(d.getUTCDate() + step);
+        return iso(d);
+      }
+      const day = start.getUTCDate();
+      const on = (y, m) => new Date(Date.UTC(y, m, Math.min(day, new Date(Date.UTC(y, m + 1, 0)).getUTCDate())));
+      let y = start.getUTCFullYear(), m = start.getUTCMonth();
+      let d = on(y, m);
+      while (d < todayD) { m += 1; if (m > 11) { m = 0; y += 1; } d = on(y, m); }
+      return iso(d);
+    }
+
     function expectedPayDates(monthKey) {
       const anchor = income.myNextPay;
       if (!anchor || !(effectivePay().amount > 0)) return [];
@@ -5855,7 +5905,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         </div>
         ${ef.contribution ? `
         <div class="flex-between" style="font-size:12px;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border-soft);">
-          <span>Paying in ${AUD(ef.contribution.amount)} ${ef.contribution.freq}</span>
+          <span>Paying in ${AUD(ef.contribution.amount)} ${ef.contribution.freq}${ef.depositsSince > 0 ? ` · includes ${ef.depositsSince} deposit${ef.depositsSince === 1 ? '' : 's'} since ${AUD(ef.savingsRecordedAmount)} on ${formatDate(ef.savingsAsOf)}` : ''}</span>
           <span class="text-muted">${
             ef.monthsToTarget != null && ef.monthsToTarget > 0
               ? `3 months' cover by ${new Date(new Date().setMonth(new Date().getMonth() + Math.ceil(ef.monthsToTarget))).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`
@@ -5866,7 +5916,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet. Tell the bot what you have set aside and this starts tracking.</div>`
           : ef.largePaymentSince
           ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
-               This is what you told me on ${ef.savingsAsOf}. You've logged a large debt payment since — if it came out of savings, this figure is too high. Tell the bot the new number.
+               Based on what you told me on ${formatDate(ef.savingsAsOf)}${ef.depositsSince > 0 ? ', plus your regular deposits since' : ''}. You've logged a large debt payment since — if it came out of savings, this figure is too high. Tell the bot the new number.
              </div>`
           : (ef.savingsDaysAgo || 0) > 30
           ? `<div class="text-muted" style="font-size:11px;margin-top:0.5rem;">Last updated ${ef.savingsAsOf}.</div>`
@@ -6352,7 +6402,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-06.3';
+    const FF_BUILD = '2026-09-13.1';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
