@@ -10,7 +10,7 @@
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#34C759">
+  <meta name="theme-color" content="#FFFFFF">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1196,8 +1196,13 @@
      * and colour reserved for numbers that mean something.
      * ══════════════════════════════════════════════════════════════════ */
 
+    /* The dark tokens live on <body>, so <html> keeps the light background and
+       shows through below short pages as a white band. Covering the viewport
+       is simpler and safer than moving the theme class up a level. */
+    html { background: var(--bg); }
     body {
       background: var(--bg);
+      min-height: 100dvh;
       color: var(--text);
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -1393,6 +1398,107 @@
     .card-hero [style*="opacity: 0.9"] { opacity: 1 !important; color: var(--text-muted) !important; }
 
     /* ══════════════════════════════════════════════════════════════════
+     * Palette, elevation and motion
+     *
+     * Three things separated this from something a designer had touched:
+     * every colour was a single flat value with no tints to build surfaces
+     * from, there was one shadow doing all the work, and nothing moved — a
+     * tap changed the whole screen instantly, which reads as a document
+     * reloading rather than an app responding.
+     *
+     * Ramps below are generated from the accent hue so hovers, selected
+     * states and tinted panels are all the same colour family. Motion is
+     * short and mostly vertical: 140ms for something that answers a tap,
+     * 220ms for something entering. Anything longer feels sluggish on a
+     * phone you use twenty times a day.
+     * ══════════════════════════════════════════════════════════════════ */
+    :root {
+      --accent-50:  #EFF8F9;
+      --accent-100: #D6EDF0;
+      --accent-200: #AEDCE2;
+      --accent-400: #3FA3B1;
+      --accent-600: #0F7B8A;
+      --accent-700: #0A5E6A;
+
+      --elev-1: 0 1px 2px rgba(16,24,32,.05);
+      --elev-2: 0 2px 4px rgba(16,24,32,.06), 0 4px 12px rgba(16,24,32,.05);
+      --elev-3: 0 8px 24px rgba(16,24,32,.10), 0 2px 6px rgba(16,24,32,.06);
+
+      --dur-1: 140ms;
+      --dur-2: 220ms;
+      --dur-3: 320ms;
+      --ease: cubic-bezier(.2, .7, .2, 1);
+      --ease-spring: cubic-bezier(.2, .9, .3, 1.2);
+    }
+    :root:not(.dark) body { }
+    body.dark {
+      --accent-50:  #10262B;
+      --accent-100: #143840;
+      --accent-200: #1B5561;
+      --accent-400: #3EB8CB;
+      --accent-600: #57C9D9;
+      --accent-700: #8ADEE9;
+
+      --elev-1: 0 1px 2px rgba(0,0,0,.4);
+      --elev-2: 0 2px 6px rgba(0,0,0,.45);
+      --elev-3: 0 10px 30px rgba(0,0,0,.55);
+    }
+
+    /* Elevation, consistently. */
+    .card, .kpi-card, .debt-card { box-shadow: var(--elev-1); }
+    .card:hover { box-shadow: var(--elev-2); }
+    .more-panel { box-shadow: var(--elev-3); }
+
+    /* Things that respond to a tap. */
+    button, .tab, .subnav-btn, .toggle-btn, .bnav-item, .more-item {
+      transition: background-color var(--dur-1) var(--ease),
+                  color var(--dur-1) var(--ease),
+                  border-color var(--dur-1) var(--ease),
+                  transform var(--dur-1) var(--ease),
+                  box-shadow var(--dur-1) var(--ease);
+    }
+    button:active, .subnav-btn:active, .more-item:active, .bnav-item:active { transform: scale(0.97); }
+    .subnav-btn:hover, .toggle-btn:hover { background: var(--accent-50); }
+    .btn-primary:hover, button.btn-primary:hover { background: var(--accent-700); }
+    .card { transition: box-shadow var(--dur-2) var(--ease); }
+
+    /* A section arriving, rather than blinking into place. */
+    @keyframes ff-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    #mainContent > * { animation: ff-rise var(--dur-2) var(--ease) both; }
+    #mainContent > *:nth-child(2) { animation-delay: 20ms; }
+    #mainContent > *:nth-child(3) { animation-delay: 40ms; }
+    #mainContent > *:nth-child(n+4) { animation-delay: 60ms; }
+
+    /* Bars grow from empty, so the length registers as a quantity. */
+    @keyframes ff-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .progress-fill {
+      transform-origin: left center;
+      animation: ff-grow var(--dur-3) var(--ease) both;
+      transition: width var(--dur-2) var(--ease);
+    }
+
+    /* The sheet overshoots very slightly, the way a physical panel would. */
+    .more-panel { transition: transform var(--dur-3) var(--ease-spring); }
+
+    /* Loading: the shape of the page, not a spinner over a blank screen. */
+    @keyframes ff-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+    .skeleton {
+      border-radius: var(--r-sm);
+      background: linear-gradient(90deg, var(--surface) 25%, var(--border) 37%, var(--surface) 63%);
+      background-size: 200% 100%;
+      animation: ff-shimmer 1.4s linear infinite;
+      color: transparent !important;
+    }
+    .skeleton-line { height: 12px; margin-bottom: 0.6rem; }
+    .skeleton-line.tall { height: 28px; width: 60%; margin-bottom: 0.9rem; }
+    .skeleton-line.short { width: 40%; }
+
+    @media (prefers-reduced-motion: reduce) {
+      #mainContent > *, .progress-fill, .skeleton { animation: none !important; }
+      button:active, .subnav-btn:active, .more-item:active, .bnav-item:active { transform: none; }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
      * Mobile refresh
      *
      * The screens read as one flat wall: every section shouted in uppercase
@@ -1465,6 +1571,7 @@
     .subnav-btn { scroll-snap-align: start; }
 
     @media (max-width: 480px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
       /* Desktop padding on a phone is most of why everything needs scrolling. */
       .card { padding: var(--sp-4); margin-bottom: var(--sp-3); border-radius: 14px; }
       .kpi-card { padding: var(--sp-4); }
@@ -1541,7 +1648,7 @@
         <h1>FlowFinance</h1>
       </div>
     </div>
-    <button onclick="toggleDarkMode()" id="darkModeBtn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.75rem;cursor:pointer;font-size:16px;color:var(--text-muted);" title="Toggle dark mode">🌙</button>
+    <button onclick="cycleTheme()" id="darkModeBtn" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.75rem;cursor:pointer;font-size:16px;color:var(--text-muted);" title="Toggle dark mode">🌙</button>
     <div class="header-stats">
       <div class="stat-item">
         <div class="stat-label">Net Worth</div>
@@ -1780,6 +1887,8 @@
     let debtMilestones = {};
     let savingsRateHistory = [];
     let darkMode = false;
+    let themeMode = 'system'; // 'system' | 'light' | 'dark'
+    let appLoading = false;   // true while the first load is in flight
     let goalContributions = {}; // { goalId: { 'fortnightKey': true } }
     let netWorthHistory = []; // [{ month: 'YYYY-MM', netWorth: N }]
     let checklistDone = {};
@@ -1924,6 +2033,7 @@
     async function saveDebtMilestones() { await fbSet('debtMilestones', debtMilestones); }
     async function saveSavingsRateHistory() { await fbSet('savingsRateHistory', savingsRateHistory); }
     async function saveDarkMode() { await fbSet('darkMode', darkMode); }
+    async function saveThemeMode() { await fbSet('themeMode', themeMode); }
     async function saveNetWorthMilestones() { await fbSet('netWorthMilestones', netWorthMilestones); }
     async function savePaydayChecklistDone() { await fbSet('paydayChecklistDone', paydayChecklistDone); }
     // Resets in-memory state to defaults. Must run before loading a user's
@@ -1991,8 +2101,11 @@
         if (dm2) debtMilestones = dm2 || {};
         const srh = await fbGet('savingsRateHistory');
         if (srh) savingsRateHistory = Array.isArray(srh) ? srh : [];
+        const tm = await fbGet('themeMode');
         const dk = await fbGet('darkMode');
-        if (dk !== null) { darkMode = !!dk; applyDarkMode(); }
+        // An older saved preference still counts, until the theme is set here.
+        themeMode = (tm === 'light' || tm === 'dark' || tm === 'system') ? tm : (dk === null ? 'system' : (dk ? 'dark' : 'light'));
+        applyTheme();
         const nwm = await fbGet('netWorthMilestones');
         if (nwm) netWorthMilestones = nwm || {};
         const pcd = await fbGet('paydayChecklistDone');
@@ -2285,7 +2398,12 @@
     const tabById = id => NAV.find(t => t.id === id);
     function resolveRoute(raw) {
       let [tab, section] = String(raw || '').replace(/^#/, '').split('/');
-      if (TAB_ALIASES[tab]) [tab, section] = TAB_ALIASES[tab].split('/').concat(section ? [section] : []);
+      // Only translate an id that isn't a tab in its own right. 'spending' is
+      // both an old id (the Insights tab) and a current one, and the alias was
+      // winning — so asking for spending/budget landed on Categories.
+      if (!tabById(tab) && TAB_ALIASES[tab]) {
+        [tab, section] = TAB_ALIASES[tab].split('/').concat(section ? [section] : []);
+      }
       const t = tabById(tab) || NAV[0];
       const s = t.sections.find(x => x.id === section) || t.sections[0];
       return { tab: t, section: s };
@@ -3849,7 +3967,7 @@
       const datasets = [{
         label: 'Minimums only',
         data: pad(base.balances),
-        borderColor: '#FF3B30',
+        borderColor: token('--neg', '#C0362C'),
         backgroundColor: 'rgba(255,59,48,0.06)',
         borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.2
       }];
@@ -3857,7 +3975,7 @@
         datasets.push({
           label: `+ ${AUD(extra)}/mo`,
           data: pad(withExtra.balances),
-          borderColor: '#34C759',
+          borderColor: token('--pos', '#12805C'),
           backgroundColor: 'rgba(52,199,89,0.10)',
           borderWidth: 2.5, pointRadius: 0, fill: true, tension: 0.2
         });
@@ -3885,12 +4003,12 @@
           responsive: true,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { display: !!withExtra, labels: { font: { size: 10 }, color: '#1D1D1F', padding: 10 } },
+            legend: { display: !!withExtra, labels: { font: { size: 10 }, color: token('--text', '#18181B'), padding: 10 } },
             tooltip: { callbacks: { label: c => `${c.dataset.label}: ${AUD(c.parsed.y)}` } }
           },
           scales: {
-            y: { beginAtZero: true, ticks: { color: '#6E6E73', callback: v => '$' + (v / 1000).toFixed(0) + 'k' }, grid: { color: '#D2D2D7' } },
-            x: { ticks: { color: '#6E6E73', maxRotation: 0, autoSkip: false }, grid: { display: false } }
+            y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73'), callback: v => '$' + (v / 1000).toFixed(0) + 'k' }, grid: { color: token('--border', '#E4E4E7') } },
+            x: { ticks: { color: token('--text-muted', '#6B6B73'), maxRotation: 0, autoSkip: false }, grid: { display: false } }
           }
         }
       });
@@ -3987,13 +4105,13 @@
     function renderBudgetCharts() {
       const monthKey = getMonthKey();
       const categories = ['Housing', 'Utilities', 'Food', 'Transport', 'Health', 'Entertainment', 'Shopping', 'Other'];
-      const colors = ['#0F95A8', '#34C759', '#FF9500', '#FF3B30', '#5E5CE6', '#EC4899', '#14B8A6', '#6366F1'];
+      const colors = chartPalette();
       const catSpending = {};
       categories.forEach(cat => { catSpending[cat] = transactions.filter(t => t.type === 'expense' && t.category === cat && getMonthKey(new Date(t.date + 'T00:00:00')) === monthKey).reduce((s, t) => s + t.amount, 0); });
       const pieCTX = document.getElementById('pieChart')?.getContext('2d');
       if (pieCTX) {
         if (window.pieChart) window.pieChart.destroy();
-        window.pieChart = new Chart(pieCTX, { type: 'doughnut', data: { labels: categories, datasets: [{ data: categories.map(c => catSpending[c]), backgroundColor: colors, borderColor: '#FFFFFF', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { family: '-apple-system', size: 10 }, padding: 10, color: '#1D1D1F' } } } } });
+        window.pieChart = new Chart(pieCTX, { type: 'doughnut', data: { labels: categories, datasets: [{ data: categories.map(c => catSpending[c]), backgroundColor: colors, borderColor: token('--card', '#FFFFFF'), borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, color: token('--text', '#18181B') } } } } });
       }
       const sixMonths = [];
       for (let i = 5; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth() - i); sixMonths.push(getMonthKey(d)); }
@@ -4002,7 +4120,7 @@
         if (window.barChart) window.barChart.destroy();
         const incomeData = sixMonths.map(m => { const txInc = transactions.filter(t => t.type === 'income' && getMonthKey(new Date(t.date + 'T00:00:00')) === m).reduce((s, t) => s + t.amount, 0); return txInc > 0 ? txInc : monthlyIncome() || 0; });
         const expenseData = sixMonths.map(m => transactions.filter(t => isSpend(t) && getMonthKey(new Date(t.date + 'T00:00:00')) === m).reduce((s, t) => s + t.amount, 0));
-        window.barChart = new Chart(barCTX, { type: 'bar', data: { labels: sixMonths.map(m => new Date(m + '-01').toLocaleDateString('en-AU', { month: 'short' })), datasets: [{ label: 'Income', data: incomeData, backgroundColor: '#34C759', borderRadius: 4 }, { label: 'Expenses', data: expenseData, backgroundColor: '#FF3B30', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, ticks: { color: '#6E6E73' }, grid: { color: '#D2D2D7' } }, x: { ticks: { color: '#6E6E73' }, grid: { display: false } } }, plugins: { legend: { labels: { font: { family: '-apple-system', size: 10 }, color: '#1D1D1F', padding: 10 } } } } });
+        window.barChart = new Chart(barCTX, { type: 'bar', data: { labels: sixMonths.map(m => new Date(m + '-01').toLocaleDateString('en-AU', { month: 'short' })), datasets: [{ label: 'Income', data: incomeData, backgroundColor: token('--pos', '#12805C'), borderRadius: 4 }, { label: 'Expenses', data: expenseData, backgroundColor: token('--neg', '#C0362C'), borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73') }, grid: { color: token('--border', '#E4E4E7') } }, x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display: false } } }, plugins: { legend: { labels: { font: { size: 11 }, color: token('--text', '#18181B'), padding: 10 } } } } });
       }
     }
     // Net Worth
@@ -4010,7 +4128,7 @@
       const history = [...netWorthHistory].sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
       return `
         <div class="card" style="text-align:center;">
-          <div class="kpi-label">Current Net Worth</div>
+          <div class="kpi-label">Net worth today</div>
           <div class="kpi-value num ${netWorth() >= 0 ? 'positive' : 'negative'}" style="font-size:36px; margin-top:0.5rem;">${AUD(netWorth())}</div>
         </div>
         ${history.length > 1 ? `
@@ -4041,14 +4159,14 @@
               ${debts.map(d => `
                 <div class="flex-between" style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
                   <div><strong>${d.name}</strong><br><span class="text-muted">${d.rate}%</span></div>
-                  <div style="text-align: right;"><div class="num" style="font-weight: 700; color: var(--danger);">${AUD(d.balance)}</div></div>
+                  <div style="text-align: right;"><div class="num" style="font-weight: 600;">${AUD(d.balance)}</div></div>
                 </div>
               `).join('')}
             </div>
-            <div style="padding: 1rem; background: var(--surface); border-radius: 8px;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px; color: var(--danger);">${AUD(totalDebt())}</span></div></div>
+            <div style="padding: 1rem; background: var(--surface); border-radius: 8px;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 600; font-size: 18px;">${AUD(totalDebt())}</span></div></div>
           </div>
         </div>
-        <div class="card"><h2>Summary</h2><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;"><div style="text-align: center;"><div class="text-muted">Assets</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: var(--success);" class="num">${AUD(totalAssets())}</div></div><div style="text-align: center;"><div class="text-muted">Liabilities</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: var(--danger);" class="num">${AUD(totalDebt())}</div></div><div style="text-align: center;"><div class="text-muted">Net Worth</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: ${netWorth() >= 0 ? 'var(--success)' : 'var(--danger)'};" class="num">${AUD(netWorth())}</div></div></div></div>
+        <div class="card"><h2>Summary</h2><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;"><div style="text-align: center;"><div class="text-muted">Assets</div><div style="font-size: 20px; font-weight: 600; margin-top: 0.5rem;" class="num">${AUD(totalAssets())}</div></div><div style="text-align: center;"><div class="text-muted">Liabilities</div><div style="font-size: 20px; font-weight: 600; margin-top: 0.5rem;" class="num">${AUD(totalDebt())}</div></div><div style="text-align: center;"><div class="text-muted">Net worth</div><div style="font-size: 20px; font-weight: 700; margin-top: 0.5rem; color: ${netWorth() >= 0 ? 'var(--success)' : 'var(--danger)'};" class="num">${AUD(netWorth())}</div></div></div></div>
       `;
     }
     function renderNetWorthChart() {
@@ -4067,10 +4185,10 @@
           datasets: [{
             label: 'Net Worth',
             data,
-            borderColor: positive ? '#34C759' : '#FF3B30',
+            borderColor: positive ? token('--pos', '#12805C') : token('--neg', '#C0362C'),
             backgroundColor: positive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
             borderWidth: 2.5,
-            pointBackgroundColor: positive ? '#34C759' : '#FF3B30',
+            pointBackgroundColor: positive ? token('--pos', '#12805C') : token('--neg', '#C0362C'),
             pointRadius: 4,
             fill: true,
             tension: 0.4
@@ -4080,8 +4198,8 @@
           responsive: true,
           plugins: { legend: { display: false } },
           scales: {
-            y: { ticks: { color: '#6E6E73', callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#D2D2D7' } },
-            x: { ticks: { color: '#6E6E73' }, grid: { display: false } }
+            y: { ticks: { color: token('--text-muted', '#6B6B73'), callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: token('--border', '#E4E4E7') } },
+            x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display: false } }
           }
         }
       });
@@ -4566,7 +4684,7 @@
             data: series.map(s => s.total),
             // The current month is still filling up, so it's shown lighter —
             // otherwise a half-finished month reads as a collapse in income.
-            backgroundColor: series.map(s => s.key === currentKey ? 'rgba(52,199,89,0.45)' : '#34C759'),
+            backgroundColor: series.map(s => s.key === currentKey ? token('--accent', '#0F7B8A') : token('--accent-200', '#AEDCE2')),
             borderRadius: 4
           }]
         },
@@ -4580,8 +4698,8 @@
             } }
           },
           scales: {
-            y: { beginAtZero: true, ticks: { color: '#6E6E73', callback: v => '$' + (v / 1000).toFixed(1) + 'k' }, grid: { color: '#D2D2D7' } },
-            x: { ticks: { color: '#6E6E73' }, grid: { display: false } }
+            y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73'), callback: v => '$' + (v / 1000).toFixed(1) + 'k' }, grid: { color: token('--border', '#E4E4E7') } },
+            x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display: false } }
           }
         }
       });
@@ -4825,6 +4943,46 @@
     function applyDarkMode() {
       document.body.classList.toggle('dark', darkMode);
     }
+    /**
+     * Light / Dark / System.
+     *
+     * It used to be a stored boolean, so the app ignored the phone's own
+     * setting entirely — dark everywhere else, and this one screen white at
+     * midnight. System is the default; the button cycles through the three.
+     */
+    function effectiveDark() {
+      if (themeMode === 'dark') return true;
+      if (themeMode === 'light') return false;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    function applyTheme() {
+      const dark = effectiveDark();
+      darkMode = dark;                      // kept in step for older saved data
+      document.body.classList.toggle('dark', dark);
+      // The phone tints its status bar with this; it was hardcoded green.
+      const surface = getComputedStyle(document.body).getPropertyValue('--card').trim() || (dark ? '#1C1C20' : '#FFFFFF');
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', surface);
+      const btn = document.getElementById('darkModeBtn');
+      if (btn) {
+        btn.textContent = themeMode === 'system' ? '◐' : themeMode === 'dark' ? '☾' : '☀';
+        btn.title = `Theme: ${themeMode} — tap to change`;
+      }
+      if (window.Chart) applyChartTheme();
+    }
+    function cycleTheme() {
+      themeMode = themeMode === 'system' ? 'light' : themeMode === 'light' ? 'dark' : 'system';
+      applyTheme();
+      renderMain();
+      saveThemeMode();
+      showToast(`Theme: ${themeMode}`);
+    }
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (themeMode === 'system') { applyTheme(); renderMain(); }
+      });
+    }
+
     function toggleDarkMode() {
       darkMode = !darkMode;
       applyDarkMode();
@@ -5028,7 +5186,7 @@
 
       const scores = [...(creditScores || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
       const dates = [...new Set(scores.map(s => s.date))].sort();
-      const colours = { equifax: '#0F95A8', experian: '#5E5CE6', illion: '#FF9500' };
+      const colours = { equifax: token('--accent', '#0F7B8A'), experian: token('--accent-400', '#3FA3B1'), illion: token('--warn', '#A96208') };
 
       // One dataset per bureau. Plotting an Equifax 700 next to an Experian 700
       // as a single line would imply they mean the same thing; they don't.
@@ -5038,7 +5196,7 @@
           const hit = scores.find(s => s.date === d && s.bureau === bureau);
           return hit ? hit.score : null;
         }),
-        borderColor: colours[bureau] || '#6E6E73',
+        borderColor: colours[bureau] || token('--text-muted', '#6B6B73'),
         backgroundColor: 'transparent',
         borderWidth: 2.5, pointRadius: 4, tension: 0.3, spanGaps: true
       }));
@@ -5048,10 +5206,10 @@
         data: { labels: dates.map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })), datasets },
         options: {
           responsive: true,
-          plugins: { legend: { labels: { font: { size: 10 }, color: '#1D1D1F', padding: 10 } } },
+          plugins: { legend: { labels: { font: { size: 10 }, color: token('--text', '#18181B'), padding: 10 } } },
           scales: {
-            y: { ticks: { color: '#6E6E73' }, grid: { color: '#D2D2D7' } },
-            x: { ticks: { color: '#6E6E73' }, grid: { display: false } }
+            y: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { color: token('--border', '#E4E4E7') } },
+            x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display: false } }
           }
         }
       });
@@ -5066,7 +5224,7 @@
       const rate = unmeasured ? 0 : measured;
       const history = [...savingsRateHistory].sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
       const avg = history.length ? Math.round(history.reduce((s, h) => s + h.rate, 0) / history.length) : rate;
-      const color = unmeasured ? '#D2D2D7' : rate >= 20 ? '#34C759' : rate >= 10 ? '#FF9500' : '#FF3B30';
+      const color = unmeasured ? token('--border', '#E4E4E7') : rate >= 20 ? token('--pos', '#12805C') : rate >= 10 ? token('--warn', '#A96208') : token('--neg', '#C0362C');
       const label = unmeasured ? 'No income logged yet' : rate >= 20 ? 'On Track' : rate >= 10 ? 'Getting There' : 'Needs Work';
       const circumference = 2 * Math.PI * 45;
       const offset = circumference - (rate / 100) * circumference;
@@ -5077,7 +5235,7 @@
           <div style="display:flex; align-items:center; justify-content:center; gap:3rem; flex-wrap:wrap;">
             <div class="rate-ring">
               <svg width="120" height="120" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="45" fill="none" stroke="#D2D2D7" stroke-width="10"/>
+                <circle cx="60" cy="60" r="45" fill="none" stroke="${token('--border', '#E4E4E7')}" stroke-width="10"/>
                 <circle cx="60" cy="60" r="45" fill="none" stroke="${color}" stroke-width="10"
                   stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
                   stroke-linecap="round" style="transition:stroke-dashoffset 0.6s ease;"/>
@@ -5139,22 +5297,22 @@
           datasets: [{
             label: 'Savings Rate %',
             data: history.map(h => h.rate),
-            backgroundColor: history.map(h => h.rate >= 20 ? '#34C759' : h.rate >= 10 ? '#FF9500' : '#FF3B30'),
+            backgroundColor: history.map(h => h.rate >= 20 ? token('--pos', '#12805C') : h.rate >= 10 ? token('--warn', '#A96208') : token('--neg', '#C0362C')),
             borderRadius: 6
           }, {
             label: 'Target 20%',
             data: history.map(() => 20),
-            type: 'line', borderColor: '#0F95A8', borderDash: [6,3],
+            type: 'line', borderColor: token('--accent', '#0F7B8A'), borderDash: [6,3],
             borderWidth: 2, pointRadius: 0, fill: false
           }]
         },
         options: {
           responsive: true,
           scales: {
-            y: { beginAtZero: true, max: 100, ticks: { color:'#6E6E73', callback: v => v+'%' }, grid: { color:'#D2D2D7' } },
-            x: { ticks: { color:'#6E6E73' }, grid: { display:false } }
+            y: { beginAtZero: true, max: 100, ticks: { color: token('--text-muted', '#6B6B73'), callback: v => v+'%' }, grid: { color: token('--border', '#E4E4E7') } },
+            x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display:false } }
           },
-          plugins: { legend: { labels: { font: { family:'-apple-system', size:10 }, color:'#1D1D1F', padding:10 } } }
+          plugins: { legend: { labels: { font: { size: 11 }, color: token('--text', '#18181B'), padding:10 } } }
         }
       });
     }
@@ -5176,15 +5334,15 @@
           datasets: [{
             label: 'Projected Cumulative Savings',
             data: cumulative,
-            backgroundColor: '#0F95A8',
+            backgroundColor: token('--accent', '#0F7B8A'),
             borderRadius: 6
           }]
         },
         options: {
           responsive: true,
           scales: {
-            y: { beginAtZero: true, ticks: { color:'#6E6E73', callback: v => '$' + v.toLocaleString() }, grid: { color:'#D2D2D7' } },
-            x: { ticks: { color:'#6E6E73' }, grid: { display:false } }
+            y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73'), callback: v => '$' + v.toLocaleString() }, grid: { color: token('--border', '#E4E4E7') } },
+            x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display:false } }
           },
           plugins: { legend: { display: false } }
         }
@@ -5306,7 +5464,7 @@
       for (let d = 1; d <= daysInMonth; d++) {
         const isToday = d === now.getDate();
         const dayBills = billsByDay[d] || [];
-        const colors = ['#0F95A8','#34C759','#FF9500','#FF3B30','#5E5CE6'];
+        const colors = chartPalette();
         calHTML += `<div class="cal-day ${isToday ? 'today' : ''}">
           <div class="cal-day-num">${d}</div>
           ${dayBills.map((b,i) => `<div class="cal-bill" style="background:${colors[i%colors.length]}20;color:${colors[i%colors.length]};font-weight:600;">${b.name.substring(0,10)}${b.name.length>10?'…':''}</div>`).join('')}
@@ -5585,7 +5743,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         { key: 'bills', label: 'Check bills due this fortnight', desc: AUD(fortnightlyBills()) + ' in bills this period', color: '#F97316' },
         ...goalItems.map(g => ({ key: g.key, label: g.label, desc: 'Move money NOW before spending', color: '#5E5CE6' })),
         ...(extra > 50 && focusDebt ? [{ key: 'extra_debt', label: 'Extra' + AUD(extra) + ' → ' + focusDebt.name, desc: 'Attack highest-rate debt with surplus', color: '#EA580C' }] : []),
-        { key: 'no_spend', label: 'Review discretionary spending', desc: 'Check what\'s left for the fortnight', color: '#6E6E73' },
+        { key: 'no_spend', label: 'Review discretionary spending', desc: 'Check what\'s left for the fortnight', color: token('--text-muted', '#6B6B73') },
         { key: 'update_balances', label: 'Update debt balances', desc: 'Keep payoff timeline accurate', color: '#34C759' },
         { key: 'review_bills', label: 'Open Bill Calendar tab', desc: 'See what\'s coming before next pay', color: '#0EA5E9' },
       ];
@@ -5809,7 +5967,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     }
     function renderTrendCharts() {
       const categories = ['Food','Transport','Entertainment','Shopping','Housing','Utilities','Health','Other'];
-      const colors = ['#0F95A8','#34C759','#FF9500','#FF3B30','#5E5CE6','#EC4899','#14B8A6','#6366F1'];
+      const colors = chartPalette();
       const sixMonths = [];
       for (let i = 5; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth()-i); sixMonths.push(getMonthKey(d)); }
       const labels = sixMonths.map(m => new Date(m+'-01').toLocaleDateString('en-AU',{month:'short'}));
@@ -5824,7 +5982,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       })).filter(d => d.data.some(v => v > 0));
       window.trendsChart = new Chart(ctx, {
         type: 'line', data: { labels, datasets },
-        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { color:'#6E6E73', callback: v => '$'+v }, grid: { color:'#D2D2D7' } }, x: { ticks: { color:'#6E6E73' }, grid: { display:false } } }, plugins: { legend: { labels: { font: { family:'-apple-system', size:10 }, color:'#1D1D1F', padding:8 } } } }
+        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73'), callback: v => '$'+v }, grid: { color: token('--border', '#E4E4E7') } }, x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display:false } } }, plugins: { legend: { labels: { font: { size: 11 }, color: token('--text', '#18181B'), padding:8 } } } }
       });
     }
 
@@ -6438,6 +6596,16 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         : '';
 
       const content = document.getElementById('mainContent');
+      if (appLoading) {
+        // The shape of what's coming. A spinner over a blank screen tells you
+        // nothing, and the layout jumping in afterwards feels broken.
+        const card = lines => `<div class="card">${lines}</div>`;
+        content.innerHTML = subnav +
+          card('<div class="skeleton skeleton-line tall"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div>') +
+          card('<div class="skeleton skeleton-line tall"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div>') +
+          card('<div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div>');
+        return;
+      }
       content.innerHTML = subnav + section.render();
       // Charts need a laid-out parent before Chart.js can size them.
       if (section.after) setTimeout(section.after, 0);
@@ -6449,6 +6617,49 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       if (!slider) return;
       slider.addEventListener('input', updateSimulator);
       updateSimulator();
+    }
+
+    /**
+     * Charts read their colours from the same tokens as everything else.
+     *
+     * Every chart carried hardcoded hex and '-apple-system', so they stayed
+     * light-mode grey on a dark screen and used a different green and red
+     * from the rest of the app. Chart.js defaults are also a tell: heavy
+     * gridlines, boxed legends, a tooltip that looks like a different
+     * product.
+     */
+    function token(name, fallback) {
+      const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+      return v || fallback;
+    }
+    function chartPalette() {
+      return [token('--accent', '#0F7B8A'), token('--pos', '#12805C'), token('--warn', '#A96208'),
+              token('--neg', '#C0362C'), token('--accent-400', '#3FA3B1'), token('--text-dim', '#9A9AA2')];
+    }
+    function applyChartTheme() {
+      if (!window.Chart) return;
+      const C = window.Chart;
+      C.defaults.font.family = getComputedStyle(document.body).fontFamily;
+      C.defaults.font.size = 11;
+      C.defaults.color = token('--text-muted', '#6B6B73');
+      C.defaults.borderColor = token('--border', '#E4E4E7');
+      C.defaults.maintainAspectRatio = false;
+      C.defaults.animation = { duration: 320, easing: 'easeOutQuart' };
+      C.defaults.elements.bar.borderRadius = 4;
+      C.defaults.elements.line.tension = 0.35;
+      C.defaults.elements.point.radius = 0;
+      C.defaults.elements.point.hitRadius = 12;
+      if (C.defaults.plugins) {
+        C.defaults.plugins.legend.labels.usePointStyle = true;
+        C.defaults.plugins.legend.labels.boxWidth = 6;
+        C.defaults.plugins.legend.labels.padding = 14;
+        C.defaults.plugins.tooltip.backgroundColor = token('--text', '#18181B');
+        C.defaults.plugins.tooltip.titleColor = token('--card', '#fff');
+        C.defaults.plugins.tooltip.bodyColor = token('--card', '#fff');
+        C.defaults.plugins.tooltip.cornerRadius = 8;
+        C.defaults.plugins.tooltip.padding = 10;
+        C.defaults.plugins.tooltip.displayColors = false;
+      }
     }
 
     function renderAll() { renderHeader(); renderMain(); }
@@ -6527,8 +6738,13 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
 
     async function init() {
       try {
+        applyTheme();                 // before the first paint, not after
+        applyChartTheme();
+        appLoading = true;
         renderTabs();
+        renderMain();                 // skeletons, not a blank screen
         await loadData();
+        appLoading = false;
         renderTabs();
       } catch (e) {
         console.error('Init error:', e);
@@ -6553,7 +6769,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-13.3';
+    const FF_BUILD = '2026-09-13.4';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
