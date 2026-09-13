@@ -4262,6 +4262,62 @@
       return { earned, debt, spent, left: earned - debt - spent };
     }
 
+    /**
+     * The plan for a pay: 40% needs, 20% emergency fund, 20% debt and fun
+     * money, 15% long-term goals, 5% business. Mirrors
+     * shared/engines/paysplit.ts — the bot and this screen must show the same
+     * dollars, so a parity test compares them.
+     *
+     * The largest share absorbs the rounding remainder, so the parts always
+     * add up to the pay exactly.
+     */
+    function splitPay(amount, rules) {
+      // The percentages live inside the function on purpose: the parity test
+      // extracts this function from the page, and a constant declared beside
+      // it wouldn't come with it.
+      const set = rules || [
+        { key: 'needs',     label: 'Needs',                    percent: 40 },
+        { key: 'emergency', label: 'Emergency fund',           percent: 20 },
+        { key: 'debtFun',   label: 'Pay off debt + fun money', percent: 20 },
+        { key: 'goals',     label: 'Long-term goals',          percent: 15 },
+        { key: 'business',  label: 'Business / side hustles',  percent: 5 }
+      ];
+      const r2 = n => Math.round(n * 100) / 100;
+      const pay = Number(amount);
+      if (!Number.isFinite(pay) || pay <= 0) return set.map(r => ({ ...r, amount: 0 }));
+      const shares = set.map(r => ({ ...r, amount: r2((pay * r.percent) / 100) }));
+      const drift = r2(r2(pay) - shares.reduce((s, r) => s + r.amount, 0));
+      if (drift !== 0) {
+        let biggest = 0;
+        shares.forEach((s, i) => { if (s.amount > shares[biggest].amount) biggest = i; });
+        shares[biggest] = { ...shares[biggest], amount: r2(shares[biggest].amount + drift) };
+      }
+      return shares;
+    }
+
+    /** The plan for the next pay. Nothing here is logged — spending is logged as it happens. */
+    function renderPaySplitCard() {
+      const pay = effectivePay();
+      if (!(pay.amount > 0)) return '';
+      const shares = splitPay(pay.amount);
+      const colours = ['var(--accent)', 'var(--pos)', 'var(--warn)', 'var(--accent)', 'var(--neg)'];
+      return `
+        <div class="card">
+          <h2>Where each pay goes</h2>
+          <p class="text-muted" style="font-size:12px;margin-bottom:1rem;">
+            Based on ${AUD(pay.amount)} a pay${pay.basis === 'logged-average' ? ` (average of your last ${pay.n})` : ''}. A plan, not logged spending.
+          </p>
+          ${shares.map((sh, i) => `
+            <div style="margin-bottom:0.85rem;">
+              <div class="flex-between" style="font-size:13px;margin-bottom:0.3rem;">
+                <span>${sh.label}</span>
+                <span class="num" style="font-weight:600;">${AUD(sh.amount)} <span class="text-muted" style="font-weight:400;">${sh.percent}%</span></span>
+              </div>
+              <div class="progress" style="height:8px;"><div class="progress-fill" style="width:${sh.percent}%;background:${colours[i % colours.length]};"></div></div>
+            </div>`).join('')}
+        </div>`;
+    }
+
     function renderPayPlan() {
       const monthKey = getMonthKey();
       const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
@@ -4368,6 +4424,7 @@
               </div>`}
         </div>
 
+        ${renderPaySplitCard()}
         ${renderPayLogCard()}
 
         <div class="card">
@@ -6402,7 +6459,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-13.1';
+    const FF_BUILD = '2026-09-13.2';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
