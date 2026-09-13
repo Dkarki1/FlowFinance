@@ -1392,6 +1392,90 @@
     .card-hero [style*="opacity:0.9"],
     .card-hero [style*="opacity: 0.9"] { opacity: 1 !important; color: var(--text-muted) !important; }
 
+    /* ══════════════════════════════════════════════════════════════════
+     * Mobile refresh
+     *
+     * The screens read as one flat wall: every section shouted in uppercase
+     * grey, every card carried desktop padding on a 390px phone, and colour
+     * was spent on facts rather than problems (a 0% rate in red, total debt
+     * in red). This pass lowers the voice of everything that isn't a number,
+     * tightens the spacing on phones, and keeps red for things that are
+     * actually wrong.
+     * ══════════════════════════════════════════════════════════════════ */
+
+    /* Section headings are labels, not announcements. */
+    .card h2 {
+      font-size: var(--t-md);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      color: var(--text);
+      margin-bottom: var(--sp-3);
+    }
+    .kpi-label {
+      font-size: var(--t-sm);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-1);
+    }
+    .kpi-value { font-weight: 600; letter-spacing: -0.03em; }
+
+    /* Hairline rows instead of a stack of grey blocks. */
+    /* Four figures, two per row on a phone — at three across the fourth
+       dropped onto a line of its own and looked like an afterthought. */
+    .month-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+      gap: var(--sp-4);
+      margin-top: var(--sp-4);
+    }
+    @media (max-width: 480px) {
+      .month-stats { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3) var(--sp-4); }
+    }
+
+    .row-line { padding: var(--sp-3) 0; border-bottom: 1px solid var(--border); }
+    .row-line:first-child { padding-top: 0; }
+    .row-line:last-child { border-bottom: 0; padding-bottom: 0; }
+
+    /* Settings folded away until asked for. */
+    .editor > summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: var(--t-sm);
+      font-weight: 600;
+      color: var(--accent);
+      padding: var(--sp-2) 0;
+    }
+    .editor > summary::-webkit-details-marker { display: none; }
+    .editor > summary::after { content: " ▾"; color: var(--text-dim); }
+    .editor[open] > summary::after { content: " ▴"; }
+
+    .progress { border-radius: var(--r-full); overflow: hidden; }
+    .progress-fill { border-radius: var(--r-full); }
+
+    /* A bill due today is a diary note, not an emergency. Overdue is red. */
+    .bill-state.watch { color: var(--warn); }
+    .bill-state.good { color: var(--pos); }
+    .bill-state.bad { color: var(--neg); }
+
+    /* The sub-nav snaps, so a half-cut "Subscriptio…" can't sit there. */
+    .subnav { scroll-snap-type: x proximity; }
+    .subnav-btn { scroll-snap-align: start; }
+
+    @media (max-width: 480px) {
+      /* Desktop padding on a phone is most of why everything needs scrolling. */
+      .card { padding: var(--sp-4); margin-bottom: var(--sp-3); border-radius: 14px; }
+      .kpi-card { padding: var(--sp-4); }
+      .kpi-value { font-size: 24px; }
+      .card h2 { font-size: var(--t-sm); }
+      .grid-4 { gap: var(--sp-3); }
+      body { font-size: var(--t-sm); }
+      /* Two-up KPI tiles keep the top of Home to one glance. */
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+    }
+
     /* In-page toggles (payoff method, checklist view) are the same control as
        the sub-navigation. They were a separate filled-pill style, which made
        two different-looking segmented controls sit one above the other. */
@@ -2341,9 +2425,12 @@
           : days === 0 ? 'Due today'
           : days === 1 ? 'Due tomorrow'
           : `In ${days} days`;
-        const colour = settled ? 'var(--success-dark)'
-          : overdue || days === 0 ? 'var(--danger)'
-          : days === 1 ? 'var(--warning)' : 'var(--text-muted)';
+        // Red means you've missed it. Today and tomorrow are amber — they're
+        // diary notes, and colouring them like a failure is why the whole
+        // screen read as alarming.
+        const colour = settled ? 'var(--pos)'
+          : overdue ? 'var(--neg)'
+          : days <= 1 ? 'var(--warn)' : 'var(--text-muted)';
         const weight = overdue || days <= 1 ? '700' : '400';
         const day = new Date(when + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
 
@@ -2387,7 +2474,7 @@
         <div class="grid-4">
           ${cash && cash.estimatedNow != null
             ? kpi('In the bank', AUD(cash.estimatedNow), '',
-                `Last counted ${AUD(cash.lastRecorded)} on ${formatDate(cash.recordedOn)}`)
+                `Last counted ${AUD(cash.lastRecorded)} on ${formatDate(cash.lastRecordedOn || cash.recordedOn)}`)
             : kpi('In the bank', '—', '', 'Tell the bot "balance 1700" and this fills in.')}
           ${kpi(`Left in ${new Date().toLocaleDateString('en-AU', { month: 'long' })}`, AUD(left),
                 left >= 0 ? 'positive' : 'negative',
@@ -2403,7 +2490,7 @@
         ${renderRunwayCard()}
         ${renderEmergencyFundCard()}
         <div class="card">
-          <h2>Bills Due This Week</h2>
+          <h2>Bills due this week</h2>
           ${renderBillsDueWidget()}
         </div>
         ${renderQuickLogCard()}
@@ -2457,7 +2544,7 @@
           <h2 style="margin:0;">${monthName} so far</h2>
           <span class="text-muted" style="font-size:12px;">${rows.length} transaction${rows.length === 1 ? '' : 's'}</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:1rem;margin-top:1rem;">
+        <div class="month-stats">
           <div><div class="text-muted" style="font-size:11px;">In</div><div class="num" style="font-weight:700;color:var(--success-dark);">${AUD(inc)}</div></div>
           <div><div class="text-muted" style="font-size:11px;">Spent</div><div class="num" style="font-weight:700;color:var(--danger);">${AUD(exp)}</div></div>
           ${debtPaid > 0 ? `<div><div class="text-muted" style="font-size:11px;">Debt paid</div><div class="num" style="font-weight:700;color:var(--accent);">${AUD(debtPaid)}</div></div>` : ''}
@@ -2831,7 +2918,7 @@
           </div>
         </div>
         <div class="card">
-          <h2>Add Transaction</h2>
+          <h2>Add transaction</h2>
           ${renderAddTxForm()}
         </div>
         <div class="card">
@@ -3174,29 +3261,35 @@
     // Bills
     function renderBills() {
       const monthlyTotal = monthlyBillsTotal();
-      const upcoming = bills.filter(b => {
-        if (!b.active) return false;
-        const dueDay = parseInt(b.dueDay) || 15;
-        const dueDate = new Date();
-        dueDate.setDate(dueDay);
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() + 14);
-        return dueDate >= new Date() && dueDate <= cutoff;
-      }).sort((a, b) => (parseInt(a.dueDay) || 15) - (parseInt(b.dueDay) || 15));
+      // A fourth place that worked out due dates from the day-of-month alone.
+      // A fortnightly bill has no day-of-month, so rent showed "Due: undefined"
+      // and the count was wrong. billNextDue is the one answer to "when next".
+      const upcoming = bills
+        .filter(b => b.active)
+        .map(b => ({ bill: b, next: billNextDue(b), paid: isBillPaid(b) }))
+        .filter(x => {
+          if (x.paid) return false;
+          const days = Math.round((new Date(x.next + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 86400000);
+          return days >= 0 && days <= 14;
+        })
+        .sort((a, b) => a.next.localeCompare(b.next));
       return `
         <div class="card">
-          <h2>Bills Summary</h2>
-          <div class="flex-between"><span>Total Monthly</span><span class="num" style="font-size: 20px; font-weight: 700;">${AUD(monthlyTotal)}</span></div>
-          <div class="flex-between"><span>Due Next 14 Days</span><span class="num" style="font-size: 20px; font-weight: 700;">${upcoming.length}</span></div>
+          <h2>Bills</h2>
+          <div class="flex-between" style="margin-bottom:0.5rem;"><span class="text-muted">Total a month</span><span class="num" style="font-size: 20px; font-weight: 600;">${AUD(monthlyTotal)}</span></div>
+          <div class="flex-between"><span class="text-muted">Unpaid in the next 14 days</span><span class="num" style="font-size: 20px; font-weight: 600;">${upcoming.length}</span></div>
         </div>
-        ${upcoming.length > 0 ? `<div class="card"><h2>Upcoming</h2>${upcoming.map(b => `
-          <div class="flex-between" style="padding: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem;">
-            <div><strong>${b.name}</strong><br><span class="text-muted">Due: ${b.dueDay}</span></div>
-            <div style="text-align: right;"><div class="num" style="font-weight: 700;">${AUD(b.amount)}</div></div>
-          </div>
-        `).join('')}</div>` : ''}
+        ${upcoming.length > 0 ? `<div class="card"><h2>Coming up</h2>${upcoming.map(({ bill: b, next }) => {
+          const days = Math.round((new Date(next + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 86400000);
+          const when = days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `${formatDate(next)} · in ${days} days`;
+          return `
+          <div class="row-line flex-between" style="align-items:center;">
+            <div><div style="font-weight:600;">${b.name}</div><div class="text-muted" style="font-size:12px;margin-top:0.15rem;">${when}</div></div>
+            <div class="num" style="font-weight:600;${days <= 1 ? 'color:var(--warn);' : ''}">${AUD(b.amount)}</div>
+          </div>`;
+        }).join('')}</div>` : ''}
         <div class="card">
-          <h2>All Bills</h2>
+          <h2>All bills</h2>
           <div class="bill-grid">
             ${bills.map(b => {
               const paid = isBillPaid(b);
@@ -3399,7 +3492,7 @@
           return `<div class="card" style="border-left:4px solid var(--danger);">
             <h2 style="margin:0;">${c.debt} — promo has ended</h2>
             <p style="font-size:13px;margin-top:0.5rem;">
-              The rate reverted on ${c.promoEnds}. ${AUD(c.balance)} is accruing at
+              The rate reverted on ${formatDate(c.promoEnds)}. ${AUD(c.balance)} is accruing at
               ${missed.goToRate === 'unknown — not recorded' ? 'a rate that isn\'t recorded' : missed.goToRate + '%'}.
             </p>
           </div>`;
@@ -3407,9 +3500,9 @@
 
         const urgent = c.monthsLeft <= 9;
         return `<div class="card" style="border-left:4px solid ${urgent ? 'var(--warning)' : 'var(--accent)'};">
-          <div class="flex-between" style="align-items:baseline;">
-            <h2 style="margin:0;">${c.debt} — ${c.monthsLeft} month${c.monthsLeft === 1 ? '' : 's'} of 0% left</h2>
-            <span class="text-muted" style="font-size:12px;">ends ${c.promoEnds}</span>
+          <h2 style="margin:0;">${c.debt}</h2>
+          <div class="text-muted" style="font-size:12px;margin-top:0.2rem;">
+            ${c.monthsLeft} month${c.monthsLeft === 1 ? '' : 's'} of 0% left · ends ${formatDate(c.promoEnds)}
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.25rem;">
@@ -3445,22 +3538,22 @@
       const debtFreeDate = calcDebtFreeDate();
       return `
         <div class="card">
-          <h2>Payoff Strategy</h2>
+          <h2>Payoff strategy</h2>
           <div class="toggle-group">
             <button class="toggle-btn ${debtMethod === 'avalanche' ? 'active' : ''}" onclick="setDebtMethod('avalanche')">Avalanche</button>
             <button class="toggle-btn ${debtMethod === 'snowball' ? 'active' : ''}" onclick="setDebtMethod('snowball')">Snowball</button>
           </div>
         </div>
         <div class="grid-4">
-          <div class="kpi-card"><div class="kpi-label">Total Debt</div><div class="kpi-value num negative">${AUD(totalDebt())}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Monthly Min</div><div class="kpi-value num">${AUD(monthlyMin)}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Daily Interest</div><div class="kpi-value num">${AUD(monthlyInt / 30)}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Debt-Free</div><div class="kpi-value">${debtFreeDate || '—'}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Total debt</div><div class="kpi-value num">${AUD(totalDebt())}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Monthly minimum</div><div class="kpi-value num">${AUD(monthlyMin)}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Daily interest</div><div class="kpi-value num">${AUD(monthlyInt / 30)}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Debt-free</div><div class="kpi-value">${debtFreeDate || '—'}</div></div>
         </div>
         <div class="card">
-          <h2>Payoff Order</h2>
+          <h2>Payoff order</h2>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem;">
-            ${sorted.map((d, i) => `<div style="text-align: center; padding: 1rem; background: var(--bg); border-radius: 8px;"><div style="font-size: 24px; font-weight: 700; color: var(--accent);">${i+1}</div><div style="font-size: 11px; margin-top: 0.5rem;">${d.name}</div><div style="font-size: 11px; color: var(--danger); margin-top: 0.25rem;">${d.rate}%</div></div>`).join('')}
+            ${sorted.map((d, i) => `<div style="text-align: center; padding: 1rem; background: var(--bg); border-radius: 8px;"><div style="font-size: 24px; font-weight: 700; color: var(--accent);">${i+1}</div><div style="font-size: 11px; margin-top: 0.5rem;">${d.name}</div><div style="font-size: 11px; margin-top: 0.25rem; color: ${d.rate > 0 ? 'var(--text-muted)' : 'var(--pos)'};">${d.rate}%</div></div>`).join('')}
           </div>
         </div>
         ${sorted.map((d, i) => renderDebtCard(d, i + 1)).join('')}
@@ -3471,7 +3564,7 @@
           </div>
         </div>` : ''}
         <div class="card">
-          <h2>Extra Payment Simulator</h2>
+          <h2>Extra payment simulator</h2>
           <p class="text-muted" style="font-size: 13px; margin-bottom: 1rem;">See how extra cash speeds up each debt — then log it for real if you've got it spare.</p>
           <div class="form-group"><label>Extra Monthly</label><input type="range" id="extraPayment" min="0" max="1000" value="0" step="50" style="width: 100%; cursor: pointer;"><div style="margin-top: 0.5rem; font-weight: 600; text-align: center;" id="extraPaymentValue">$0</div></div>
           <div id="payoffHeadline" style="margin-top: 1rem;"></div>
@@ -3539,9 +3632,9 @@
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
             <div><div class="text-muted" style="font-size: 11px;">Balance</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(debt.balance)}</div></div>
-            <div><div class="text-muted" style="font-size: 11px;">Rate</div><div style="font-weight: 700; margin-top: 0.25rem; color: var(--danger);">${debt.rate}%</div></div>
-            <div><div class="text-muted" style="font-size: 11px;">Min Pmt</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(toMonthly(debt.minPayment, debt.minFreq || 'monthly'))}/mo</div></div>
-            <div><div class="text-muted" style="font-size: 11px;">Interest</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(monthlyInt)}/mo</div></div>
+            <div><div class="text-muted" style="font-size: 11px;">Rate</div><div style="font-weight: 700; margin-top: 0.25rem; color: ${debt.rate > 0 ? 'var(--text)' : 'var(--pos)'};">${debt.rate}%</div></div>
+            <div><div class="text-muted" style="font-size: 11px;">Minimum</div><div style="font-weight: 700; margin-top: 0.25rem;" class="num">${AUD(toMonthly(debt.minPayment, debt.minFreq || 'monthly'))}/mo</div></div>
+            <div><div class="text-muted" style="font-size: 11px;">Interest</div><div style="font-weight: 700; margin-top: 0.25rem; color: ${monthlyInt > 0 ? 'var(--neg)' : 'var(--text-muted)'};" class="num">${AUD(monthlyInt)}/mo</div></div>
           </div>
           <div style="margin-bottom: 1rem;">
             <div class="flex-between" style="margin-bottom: 0.5rem; font-size: 12px; color: var(--text-muted);"><span>Paid off so far</span><span class="num">${AUD(paidSoFar)} of ${AUD(original)} (${Math.round(progressPct)}%)</span></div>
@@ -3560,17 +3653,20 @@
           ${paidThisMonth > 0 ? `<div style="margin-bottom: 1rem; padding: 0.6rem 0.9rem; background: var(--surface); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: var(--success-dark); font-weight: 600;">Paid this month</span><span class="num" style="font-weight: 700; color: var(--success-dark);">${AUD(paidThisMonth)}</span></div>` : ''}
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 1rem;">At minimums: <strong>${monthsToYears(payoff.months)}</strong>${debtFreeDate ? ` · Debt-free by <strong>${debtFreeDate}</strong>` : ''}</div>
           ${getMilestonesForDebt(debt.id).length > 0 ? `<div style="margin-bottom:1rem;">${getMilestonesForDebt(debt.id).map(m => `<span class="milestone-badge">${m.pct}% paid — ${m.date}</span>`).join('')}</div>` : ''}
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
+          <details class="editor">
+            <summary>Edit details</summary>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin: 0.85rem 0 1.25rem;">
             <div class="form-group" style="margin-bottom: 0;"><label>Balance</label><input type="number" value="${debt.balance}" onchange="updateDebtBalance(${debt.id}, this.value)" min="0"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Rate (%)</label><input type="number" value="${debt.rate}" onchange="updateDebtRate(${debt.id}, this.value)" min="0" step="0.1"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Promo ends</label><input type="date" value="${debt.promoEndDate || ''}" onchange="updateDebtPromoEnd(${debt.id}, this.value)"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Go-to rate (%)</label><input type="number" value="${debt.postPromoRate ?? ''}" onchange="updateDebtPostPromoRate(${debt.id}, this.value)" min="0" step="0.1" placeholder="after promo"></div>
             <div class="form-group" style="margin-bottom: 0;"><label>Credit limit</label><input type="number" value="${debt.creditLimit ?? ''}" onchange="updateDebtCreditLimit(${debt.id}, this.value)" min="0" placeholder="cards only"></div>
-          </div>
+            </div>
+          </details>
           ${renderUtilisation(debt)}
-          ${debt.promoEndDate && (debt.postPromoRate === undefined || debt.postPromoRate === null) ? `<div style="margin: -1rem 0 1.25rem; padding: 0.6rem 0.9rem; background: var(--surface); border-left: 3px solid var(--warning); border-radius: 6px; font-size: 12px; color: var(--warning-text2);">Promo ends ${debt.promoEndDate} but no go-to rate is set — payoff projections assume ${debt.rate}% forever, so they're optimistic.</div>` : ''}
+          ${debt.promoEndDate && (debt.postPromoRate === undefined || debt.postPromoRate === null) ? `<div style="margin: -1rem 0 1.25rem; padding: 0.6rem 0.9rem; background: var(--surface); border-left: 3px solid var(--warning); border-radius: 6px; font-size: 12px; color: var(--warning-text2);">Promo ends ${formatDate(debt.promoEndDate)} but no go-to rate is set — payoff projections assume ${debt.rate}% forever, so they're optimistic.</div>` : ''}
           <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
-            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Log a Payment</label>
+            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Log a payment</label>
             <div class="form-row">
               <input type="number" id="debtPayAmount_${debt.id}" placeholder="Amount paid" min="0">
               <input type="date" id="debtPayDate_${debt.id}" value="${today()}">
@@ -3820,7 +3916,7 @@
       const categories = ['Housing', 'Utilities', 'Food', 'Transport', 'Health', 'Entertainment', 'Shopping', 'Other'];
       return `
         <div class="card">
-          <h2>Budget Ceilings</h2>
+          <h2>Budget ceilings</h2>
           <button class="btn-secondary btn-small" onclick="suggestBudgets()" style="margin-bottom: 1.5rem;">Auto-Suggest</button>
           <div class="category-grid">
             ${categories.map(cat => {
@@ -6371,25 +6467,23 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const total = sorted.reduce((s, [,a]) => s + a, 0);
       return `
         <div class="card">
-          <h2>Spending by Category — ${monthLabel}</h2>
-          <p class="text-muted">Where your money actually goes</p>
+          <h2>Spending by category</h2>
+          <p class="text-muted" style="font-size:12px;margin-bottom:1rem;">${monthLabel} · where your money actually goes</p>
 
           ${sorted.length === 0 ? '<p class="text-muted" style="text-align: center; padding: 2rem;">No expenses this month</p>' : `
-            <div style="display: grid; gap: 1rem;">
+            <div>
               ${sorted.map(([cat, amt]) => {
                 const pct = (amt / total) * 100;
+                const n = monthExpenses.filter(t => t.category === cat).length;
                 return `
-                  <div style="background: var(--bg); padding: 1.25rem; border-radius: 8px;">
-                    <div class="flex-between" style="margin-bottom: 0.75rem;">
+                  <div class="row-line">
+                    <div class="flex-between" style="margin-bottom: 0.4rem;">
                       <span style="font-weight: 600;">${cat}</span>
-                      <span class="num" style="font-weight: 700;">${AUD(amt)}</span>
+                      <span class="num" style="font-weight: 600;">${AUD(amt)}</span>
                     </div>
-                    <div class="progress" style="height: 8px; margin-bottom: 0.5rem;">
-                      <div class="progress-fill" style="width: ${pct}%;"></div>
-                    </div>
-                    <div class="flex-between" style="font-size: 12px; color: #666;">
-                      <span>${Math.round(pct)}% of spending</span>
-                      <span>${monthExpenses.filter(t => t.category === cat).length} transactions</span>
+                    <div class="progress" style="height: 4px;"><div class="progress-fill" style="width: ${pct}%;"></div></div>
+                    <div class="text-muted" style="font-size: 12px; margin-top: 0.35rem;">
+                      ${Math.round(pct)}% of spending · ${n} transaction${n === 1 ? '' : 's'}
                     </div>
                   </div>
                 `;
@@ -6459,7 +6553,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-13.2';
+    const FF_BUILD = '2026-09-13.3';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
