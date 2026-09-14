@@ -447,6 +447,7 @@
          coloured, the colour says nothing. */
       #txTbody .amount.expense { color: var(--text) !important; }
       #txTbody .amount.income  { color: var(--success-dark) !important; }
+      #txTbody .amount.debt    { color: var(--accent) !important; }
 
       /* The delete control shouldn't be the brightest thing on screen. */
       #txTbody .btn-danger {
@@ -850,6 +851,11 @@
     .amount {
       font-weight: 600;
     }
+    /* Debt payments were drawn exactly like purchases — red, with a minus —
+       so a list with two card repayments in it read as if they'd been counted
+       as spending. They never were; Spent excludes them. They're the accent
+       colour now, the same as the "Debt paid" total above the table. */
+    .amount.debt { color: var(--accent); font-weight: 600; }
     .amount.income {
       color: var(--pos);
     }
@@ -3145,7 +3151,7 @@
           <td data-label="What">${t.name || '—'}${sourceBadge(t.source)}</td>
           <td data-label="Category"><span class="badge badge-neutral">${t.category}</span></td>
           <td data-label="Type"><span class="badge ${t.type === 'income' ? 'badge-success' : isDebtPayment(t) ? 'badge-neutral' : 'badge-danger'}">${t.type === 'income' ? 'income' : isDebtPayment(t) ? 'debt' : 'expense'}</span></td>
-          <td data-label="Amount" style="text-align: right;"><span class="amount num ${t.type === 'income' ? 'income' : 'expense'}">${t.type === 'income' ? '+' : '-'}${AUD(t.amount)}</span></td>
+          <td data-label="Amount" style="text-align: right;"><span class="amount num ${t.type === 'income' ? 'income' : isDebtPayment(t) ? 'debt' : 'expense'}">${t.type === 'income' ? '+' : '-'}${AUD(t.amount)}</span></td>
           <td data-label=""><button class="btn-icon btn-danger btn-small" onclick="deleteTx(${t.id})">×</button></td>
         </tr>
       `).join('');
@@ -6778,7 +6784,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-14.1';
+    const FF_BUILD = '2026-09-14.2';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
