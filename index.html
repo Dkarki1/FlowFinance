@@ -3914,15 +3914,21 @@
     function updateSimulator() {
       const extra = parseFloat(document.getElementById('extraPayment')?.value || 0);
       document.getElementById('extraPaymentValue').textContent = '$' + extra.toLocaleString() + ' extra';
+      // Same basis as the chart above it — run once, not once per debt.
+      const sched = simulatePayoffSchedule(extra);
       const results = debts.map(d => {
-        // Same basis as the chart above it.
-        const sched = simulatePayoffSchedule(extra);
+        // A debt already at $0 never "clears" inside the simulation, so it
+        // came back as 9999+ years. It's paid off; say so.
+        if ((+d.balance || 0) <= 0.005) {
+          return `<div class="row-line flex-between"><strong>${d.name}</strong><span style="color:var(--pos);font-weight:600;">Paid off</span></div>`;
+        }
         const hit = sched.cleared.find(c => String(c.id) === String(d.id));
         const mths = hit ? hit.month : 9999;
         const yrs = Math.floor(mths / 12);
         const remainder = mths % 12;
-        let timeStr = mths >= 9999 ? '9999+ yrs' : (yrs > 0 ? `${yrs}y ${remainder}m` : `${remainder}m`);
-        return `<div style="padding: 0.75rem; border-bottom: 1px solid var(--border);"><strong>${d.name}:</strong> ${timeStr}</div>`;
+        const timeStr = mths >= 9999 ? 'Not within 50 years at this rate'
+          : (yrs > 0 ? `${yrs}y ${remainder}m` : `${remainder}m`);
+        return `<div class="row-line flex-between"><strong>${d.name}</strong><span class="num">${timeStr}</span></div>`;
       }).join('');
       document.getElementById('simulatorResults').innerHTML = results || '<p class="text-muted">No debts</p>';
       drawPayoffChart(extra);
@@ -6643,7 +6649,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       C.defaults.font.size = 11;
       C.defaults.color = token('--text-muted', '#6B6B73');
       C.defaults.borderColor = token('--border', '#E4E4E7');
-      C.defaults.maintainAspectRatio = false;
+      // Deliberately NOT turning off maintainAspectRatio. With it off, Chart.js
+      // sizes a chart to its container's height, and these containers have
+      // none — so the chart grew the container, the container grew the chart,
+      // and both charts stretched down the page forever.
       C.defaults.animation = { duration: 320, easing: 'easeOutQuart' };
       C.defaults.elements.bar.borderRadius = 4;
       C.defaults.elements.line.tension = 0.35;
@@ -6769,7 +6778,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-13.4';
+    const FF_BUILD = '2026-09-14.1';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {

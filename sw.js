@@ -16,7 +16,7 @@
  * depends on remembering to.
  */
 
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const CACHE_NAME = `flowfinance-${CACHE_VERSION}`;
 
 // Only genuinely static things belong here. index.html deliberately does not:
