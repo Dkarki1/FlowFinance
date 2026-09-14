@@ -1486,6 +1486,13 @@
     /* The sheet overshoots very slightly, the way a physical panel would. */
     .more-panel { transition: transform var(--dur-3) var(--ease-spring); }
 
+    /* A chart's height is a design decision, not a side effect of its width.
+       Fixed-height boxes stop a chart growing without end, and stop a wide
+       screen turning a 2:1 chart into something 650px tall. */
+    .chart-box { position: relative; height: 280px; width: 100%; margin-top: var(--sp-3); }
+    .chart-box > canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+    @media (max-width: 480px) { .chart-box { height: 220px; } }
+
     /* Loading: the shape of the page, not a spinner over a blank screen. */
     @keyframes ff-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
     .skeleton {
@@ -3692,7 +3699,7 @@
           <p class="text-muted" style="font-size: 13px; margin-bottom: 1rem;">See how extra cash speeds up each debt — then log it for real if you've got it spare.</p>
           <div class="form-group"><label>Extra Monthly</label><input type="range" id="extraPayment" min="0" max="1000" value="0" step="50" style="width: 100%; cursor: pointer;"><div style="margin-top: 0.5rem; font-weight: 600; text-align: center;" id="extraPaymentValue">$0</div></div>
           <div id="payoffHeadline" style="margin-top: 1rem;"></div>
-          <canvas id="payoffChart" height="150" style="margin-top: 0.5rem;"></canvas>
+          <div class="chart-box" style="margin-top: 0.5rem;"><canvas id="payoffChart"></canvas></div>
           <p class="text-muted" style="font-size: 11px; margin-top: 0.5rem;">Every debt at once, with each cleared debt's minimum rolling onto the next — and promo rates ending on their actual date.</p>
           <div id="simulatorResults" style="margin-top: 1.5rem;"></div>
           ${sorted.length > 0 ? `
@@ -4068,8 +4075,8 @@
           <button class="btn-primary" onclick="saveBudgetCeilings()" style="margin-top: 1.5rem;">Save</button>
         </div>
         <div class="grid-2">
-          <div class="card"><h2>Spending</h2><canvas id="pieChart"></canvas></div>
-          <div class="card"><h2>6 Months</h2><canvas id="barChart"></canvas></div>
+          <div class="card"><h2>Spending</h2><div class="chart-box"><canvas id="pieChart"></canvas></div></div>
+          <div class="card"><h2>6 Months</h2><div class="chart-box"><canvas id="barChart"></canvas></div></div>
         </div>
       `;
     }
@@ -4123,7 +4130,7 @@
       const pieCTX = document.getElementById('pieChart')?.getContext('2d');
       if (pieCTX) {
         if (window.pieChart) window.pieChart.destroy();
-        window.pieChart = new Chart(pieCTX, { type: 'doughnut', data: { labels: categories, datasets: [{ data: categories.map(c => catSpending[c]), backgroundColor: colors, borderColor: token('--card', '#FFFFFF'), borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, color: token('--text', '#18181B') } } } } });
+        window.pieChart = new Chart(pieCTX, { type: 'doughnut', data: { labels: categories, datasets: [{ data: categories.map(c => catSpending[c]), backgroundColor: colors, borderColor: token('--card', '#FFFFFF'), borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, color: token('--text', '#18181B') } } } } });
       }
       const sixMonths = [];
       for (let i = 5; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth() - i); sixMonths.push(getMonthKey(d)); }
@@ -4132,7 +4139,7 @@
         if (window.barChart) window.barChart.destroy();
         const incomeData = sixMonths.map(m => { const txInc = transactions.filter(t => t.type === 'income' && getMonthKey(new Date(t.date + 'T00:00:00')) === m).reduce((s, t) => s + t.amount, 0); return txInc > 0 ? txInc : monthlyIncome() || 0; });
         const expenseData = sixMonths.map(m => transactions.filter(t => isSpend(t) && getMonthKey(new Date(t.date + 'T00:00:00')) === m).reduce((s, t) => s + t.amount, 0));
-        window.barChart = new Chart(barCTX, { type: 'bar', data: { labels: sixMonths.map(m => new Date(m + '-01').toLocaleDateString('en-AU', { month: 'short' })), datasets: [{ label: 'Income', data: incomeData, backgroundColor: token('--pos', '#12805C'), borderRadius: 4 }, { label: 'Expenses', data: expenseData, backgroundColor: token('--neg', '#C0362C'), borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73') }, grid: { color: token('--border', '#E4E4E7') } }, x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display: false } } }, plugins: { legend: { labels: { font: { size: 11 }, color: token('--text', '#18181B'), padding: 10 } } } } });
+        window.barChart = new Chart(barCTX, { type: 'bar', data: { labels: sixMonths.map(m => new Date(m + '-01').toLocaleDateString('en-AU', { month: 'short' })), datasets: [{ label: 'Income', data: incomeData, backgroundColor: token('--pos', '#12805C'), borderRadius: 4 }, { label: 'Expenses', data: expenseData, backgroundColor: token('--neg', '#C0362C'), borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: token('--text-muted', '#6B6B73') }, grid: { color: token('--border', '#E4E4E7') } }, x: { ticks: { color: token('--text-muted', '#6B6B73') }, grid: { display: false } } }, plugins: { legend: { labels: { font: { size: 11 }, color: token('--text', '#18181B'), padding: 10 } } } } });
       }
     }
     // Net Worth
@@ -4146,7 +4153,7 @@
         ${history.length > 1 ? `
         <div class="card">
           <h2>Net Worth Trend</h2>
-          <canvas id="nwTrendChart" height="80"></canvas>
+          <div class="chart-box"><canvas id="nwTrendChart"></canvas></div>
         </div>` : ''}
         <div class="grid-2">
           <div class="card">
@@ -4632,7 +4639,7 @@
 
         <div class="card">
           <h2>Income by month</h2>
-          <canvas id="incomeMonthChart" height="140"></canvas>
+          <div class="chart-box"><canvas id="incomeMonthChart"></canvas></div>
         </div>
 
         <div class="card">
@@ -5103,7 +5110,7 @@
 
       return `
         ${scoreCard}
-        ${scores.length > 1 ? `<div class="card"><h2>Score over time</h2><canvas id="creditScoreChart" height="120"></canvas>
+        ${scores.length > 1 ? `<div class="card"><h2>Score over time</h2><div class="chart-box"><canvas id="creditScoreChart"></canvas></div>
           <p class="text-muted" style="font-size:11px;margin-top:0.5rem;">One line per bureau. They use different scales — Equifax runs to 1200, Experian and illion to 1000 — so they're never plotted as the same number.</p></div>` : ''}
 
         <div class="card">
@@ -5281,11 +5288,11 @@
               <div class="num" style="font-size:20px; font-weight:700; margin-top:0.25rem;">${AUD(Math.max(0, monthlySurplus()) * 12)}</div>
             </div>
           </div>
-          <canvas id="savingsProjectionChart" height="90"></canvas>
+          <div class="chart-box"><canvas id="savingsProjectionChart"></canvas></div>
         </div>
         <div class="card">
           <h2>Monthly History</h2>
-          <canvas id="savingsRateChart" height="80"></canvas>
+          <div class="chart-box"><canvas id="savingsRateChart"></canvas></div>
         </div>
         <div class="card">
           <h2>How to Improve Your Rate</h2>
@@ -5921,7 +5928,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         <div class="card">
           <h2>6-Month Spending by Category</h2>
           <p class="text-muted" style="font-size:13px;margin-bottom:1.5rem;">See which categories are creeping up month over month.</p>
-          <canvas id="trendsChart" height="100"></canvas>
+          <div class="chart-box"><canvas id="trendsChart"></canvas></div>
         </div>
         <div class="card">
           <h2>Category Detail</h2>
@@ -6655,10 +6662,12 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       C.defaults.font.size = 11;
       C.defaults.color = token('--text-muted', '#6B6B73');
       C.defaults.borderColor = token('--border', '#E4E4E7');
-      // Deliberately NOT turning off maintainAspectRatio. With it off, Chart.js
-      // sizes a chart to its container's height, and these containers have
-      // none — so the chart grew the container, the container grew the chart,
-      // and both charts stretched down the page forever.
+      // Charts fill their .chart-box, which has a fixed height. That is the one
+      // arrangement where maintainAspectRatio can be off safely: without a sized
+      // parent, the chart grows the container and the container grows the chart,
+      // forever — which is what happened on 13 Sept. With a width-based ratio
+      // instead, a 300×150 chart became 650px tall on a wide screen.
+      C.defaults.maintainAspectRatio = false;
       C.defaults.animation = { duration: 320, easing: 'easeOutQuart' };
       C.defaults.elements.bar.borderRadius = 4;
       C.defaults.elements.line.tension = 0.35;
@@ -6784,7 +6793,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-14.2';
+    const FF_BUILD = '2026-09-14.3';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
