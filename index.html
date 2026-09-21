@@ -1730,31 +1730,44 @@
       }
     }
 
-    // Keeps this tab's transaction list in step with the database.
+    // Keeps this tab in step with the database.
     //
-    // Why this matters: fbSet('transactions', ...) writes the WHOLE array. If a
-    // transaction is added somewhere else while this tab is open — the CFO
-    // Telegram bot, another device, another tab — this tab wouldn't know, and
-    // its next save would silently overwrite it. Listening for changes keeps the
-    // in-memory copy current so that can't happen.
-    let _txRef = null, _txPath = null;
-    function subscribeToRemoteTransactions() {
+    // Why this matters: fbSet() writes the WHOLE node. If a transaction is
+    // added, or a debt balance changed, somewhere else while this tab is open
+    // — the CFO Telegram bot, another device, another tab — this tab wouldn't
+    // know, and its next save would silently overwrite it. Listening for
+    // changes keeps the in-memory copy current so that can't happen.
+    //
+    // This used to watch transactions alone, which left the same hole open on
+    // everything else the bot writes. `paid 500 on nab` lowers a debt balance;
+    // `pay bill` marks a bill paid. With this tab holding a stale copy, the
+    // next saveDebts() or saveBills() put the old numbers straight back and
+    // the payment vanished. Every node both sides write is watched now.
+    const _remote = {};                      // key -> { ref, path }
+    const asList = (v) => Array.isArray(v) ? v : (v ? Object.values(v).filter(Boolean) : []);
+
+    function subscribeRemote(key, shape, assign, read) {
       if (!_db || !currentUser) return;
-      const path = `flowfinance/users/${currentUser.uid}/transactions`;
-      if (_txPath === path) return;          // already listening to this user
-      if (_txRef) _txRef.off();              // switched account — drop the old one
-      _txPath = path;
-      _txRef = _db.ref(path);
-      _txRef.on('value', (snap) => {
-        const remote = snap.val();
-        const list = Array.isArray(remote)
-          ? remote
-          : (remote ? Object.values(remote).filter(Boolean) : []);
+      const path = `flowfinance/users/${currentUser.uid}/${key}`;
+      const held = _remote[key];
+      if (held && held.path === path) return; // already listening to this user
+      if (held && held.ref) held.ref.off();   // switched account — drop the old one
+      const ref = _db.ref(path);
+      _remote[key] = { ref, path };
+      ref.on('value', (snap) => {
+        const next = shape(snap.val());
         // Our own saves echo back here; only re-render on a real change.
-        if (JSON.stringify(list) === JSON.stringify(transactions)) return;
-        transactions = list;
+        if (JSON.stringify(next) === JSON.stringify(read())) return;
+        assign(next);
         renderAll();
       });
+    }
+
+    function subscribeToRemoteTransactions() {
+      subscribeRemote('transactions', asList, v => { transactions = v; }, () => transactions);
+      subscribeRemote('debts', asList, v => { debts = v; }, () => debts);
+      subscribeRemote('bills', asList, v => { bills = v; }, () => bills);
+      subscribeRemote('budgets', v => v || {}, v => { budgets = v; }, () => budgets);
     }
 
     // ── AUTH ─────────────────────────────────────────────────────────────────
@@ -1994,7 +2007,20 @@
     const monthlyDebtMin = () => debts.reduce((s,d)=>s+((+d.balance||0) > 0.005 ? toMonthly(d.minPayment,d.minFreq||'monthly') : 0),0);
     const monthlySurplus = () => monthlyIncome() - monthlyBillsTotal() - monthlyDebtMin();
     const totalDebt = () => debts.reduce((s,d)=>s+(d.balance||0),0);
-    const totalAssets = () => assets.reduce((s,a)=>s+(a.value||0),0);
+    /* Cash and savings are real assets and were missing from net worth
+     * entirely: the figure was simply minus the debt. With $5,000 in the
+     * account and $512 in Raiz that understated the position by $5,512, and
+     * netWorthHistory has been recording the understated number for months.
+     *
+     * They are read from cfoSnapshot rather than copied into the assets list,
+     * because the bot already owns those two numbers — `balance 5000` updates
+     * one, savings deposits the other. A second copy here would be stale the
+     * day after it was typed. Anything the bot doesn't track — a car, super,
+     * a bike — still goes in the assets list by hand. */
+    const snapCash = () => Number(cfoSnapshot && cfoSnapshot.cash && cfoSnapshot.cash.estimatedNow) || 0;
+    const snapSavings = () => Number(cfoSnapshot && cfoSnapshot.emergencyFund && cfoSnapshot.emergencyFund.currentSavings) || 0;
+    const manualAssets = () => assets.reduce((s,a)=>s+(a.value||0),0);
+    const totalAssets = () => manualAssets() + snapCash() + snapSavings();
     const netWorth = () => totalAssets() - totalDebt();
     const today = () => new Date().toISOString().split('T')[0];
     const formatDate = (d) => {
@@ -2386,6 +2412,7 @@
       ]},
       // Behind More: real, but not part of a normal week.
       { id: 'tools', label: 'Tools', icon: '⌘', secondary: true, sections: [
+        { id: 'import',   label: 'Import statement',  render: renderImport },
         { id: 'afford',   label: 'Can I afford it?', render: renderAfford },
         { id: 'windfall', label: 'Windfall',         render: renderWindfall },
         { id: 'currency', label: 'Currency',         render: renderCurrency }
@@ -3480,10 +3507,16 @@
       const name = document.getElementById('billName').value.trim();
       const amount = parseFloat(document.getElementById('billAmount').value);
       const freq = document.getElementById('billFreq').value;
-      const dueDay = document.getElementById('billDueDay').value.trim();
+      // A number, not the string the input hands over. Stored as text, every
+      // reader that checked `typeof === 'number'` fell through to its default
+      // of the 1st: bills showed "due 1 Sept" whatever day you typed, paid-
+      // this-period was measured from the wrong day, and the CFO left those
+      // bills out of "due before your next payday" entirely. The backend was
+      // taught to cope with text; this is the end that was creating it.
+      const dueDay = normaliseDueDay(document.getElementById('billDueDay').value);
       const category = document.getElementById('billCategory').value;
       const active = document.getElementById('billActive').checked;
-      if (!name || !amount || amount <= 0 || !dueDay) { showToast('Please fill all fields', 'error'); return; }
+      if (!name || !amount || amount <= 0 || dueDay === null) { showToast('Please fill all fields', 'error'); return; }
       const anchorDate = document.getElementById('billAnchor')?.value || null;
       bills.push({ id: Date.now(), name, amount, freq, dueDay, anchorDate, category, active });
       saveBills();
@@ -3510,6 +3543,15 @@
       const d = new Date(iso + 'T00:00:00');
       d.setDate(d.getDate() + days);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    /* Mirrors normaliseDueDay in shared/engines/reminders.ts. Self-contained
+     * on purpose: the parity test lifts this function out of the file and runs
+     * it against the backend's, so it must not reach for anything around it. */
+    function normaliseDueDay(value) {
+      if (value === null || value === undefined || value === '') return null;
+      const n = typeof value === 'number' ? value : Number(String(value).trim());
+      return Number.isInteger(n) && n >= 1 && n <= 31 ? n : null;
     }
 
     function billAnchorInMonth(dueDay, iso) {
@@ -4166,6 +4208,15 @@
                 </div>
               `).join('')}
             </div>
+            ${snapCash() || snapSavings() ? `
+              <div style="padding:0.75rem;border-bottom:1px solid var(--border);opacity:0.85;">
+                <div class="flex-between"><div><strong>Cash at bank</strong><br><span class="text-muted">Tracked by the bot</span></div><div class="num">${AUD(snapCash())}</div></div>
+              </div>
+              <div style="padding:0.75rem;border-bottom:1px solid var(--border);opacity:0.85;">
+                <div class="flex-between"><div><strong>Savings</strong><br><span class="text-muted">Tracked by the bot</span></div><div class="num">${AUD(snapSavings())}</div></div>
+              </div>
+              <div class="text-muted" style="font-size:12px;padding:0.5rem 0.75rem;">These two come from the bot — update them by texting it, not here. Don't add them below as well or they'll count twice.</div>
+            ` : ''}
             <div style="padding: 1rem; background: var(--bg); border-radius: 8px; margin-bottom: 1rem;"><div class="flex-between"><span>Total</span><span class="num" style="font-weight: 700; font-size: 18px;">${AUD(totalAssets())}</span></div></div>
             <h3>Add Asset</h3>
             <div class="form-group"><label>Name</label><input type="text" id="assetName" placeholder="e.g. Savings"></div>
@@ -6502,6 +6553,284 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       return html;
     }
 
+    /* ══════════════════════════════════════════════════════════════════
+     * Import a statement
+     *
+     * The weak link in this whole system is typing. Bills and debts look
+     * after themselves; day-to-day spending only exists if someone logs it,
+     * and a fortnight of groceries missed makes every budget figure a
+     * guess. A bank statement already holds all of it.
+     *
+     * Deliberately not automatic. It parses, guesses a category, marks what
+     * looks like it is already logged, and then waits — nothing is written
+     * until the rows are ticked and the button is pressed. An importer that
+     * silently doubled up a fortnight of spending would be worse than no
+     * importer at all.
+     * ══════════════════════════════════════════════════════════════════ */
+
+    /* Keyword → category. Deliberately small and readable: these are the
+     * merchants that actually show up on this account, and anything it can't
+     * place lands in Other for a human to fix with the dropdown. */
+    const STATEMENT_RULES = [
+      [/woolworths|coles|aldi|iga|foodland|grocer|spudshed/i, 'Food'],
+      [/uber\s*eats|menulog|doordash|mcdonald|kfc|domino|hungry|cafe|coffee|restaurant|sushi|pizza|bakery/i, 'Food'],
+      [/bp |caltex|shell|ampol|united petrol|7-eleven|fuel|petrol/i, 'Transport'],
+      [/uber(?!\s*eats)|didi|ola|taxi|bus |transit|parking|toll/i, 'Transport'],
+      [/rego|registration|motor vehicle|tyre|mechanic|service centre/i, 'Transport'],
+      [/jacana|energy|electricity|water corp|power/i, 'Utilities'],
+      [/superloop|telstra|optus|vodafone|internet|mobile|broadband/i, 'Utilities'],
+      [/rent|real estate|property|kalo/i, 'Housing'],
+      [/insurance|budget direct|nib|bupa|medibank|hcf/i, 'Insurance'],
+      [/gym|fitness|anytime|plus fitness|chemist|pharmacy|doctor|medical|dental/i, 'Health'],
+      [/kmart|target|big w|amazon|ebay|myer|cotton on|uniqlo|jb hi|officeworks|bunnings/i, 'Shopping'],
+      [/netflix|spotify|disney|twitch|steam|playstation|cinema|event cinema|ticket/i, 'Entertainment'],
+      [/nab |anz |amex|american express|loan|powertorque|card payment|bpay/i, 'Debt Payment'],
+      [/salary|payroll|wage|pay |direct credit/i, 'Salary'],
+    ];
+
+    function classifyStatementLine(description) {
+      const text = String(description || '');
+      for (const [pattern, category] of STATEMENT_RULES) {
+        if (pattern.test(text)) return category;
+      }
+      return 'Other';
+    }
+
+    /* Australian bank exports vary more than they should: some put debits and
+     * credits in separate columns, some use one signed column, and the date is
+     * usually DD/MM/YYYY but sometimes already ISO. This copes with the shapes
+     * seen in practice and ignores rows it cannot read rather than guessing. */
+    function parseStatementCSV(text) {
+      const rows = [];
+      const lines = String(text || '').split(/\r?\n/).filter(l => l.trim());
+      if (!lines.length) return rows;
+
+      const splitRow = (line) => {
+        const out = []; let cur = '', quoted = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { if (quoted && line[i + 1] === '"') { cur += '"'; i++; } else quoted = !quoted; }
+          else if (ch === ',' && !quoted) { out.push(cur); cur = ''; }
+          else cur += ch;
+        }
+        out.push(cur);
+        return out.map(s => s.trim());
+      };
+
+      const toISO = (raw) => {
+        const s = String(raw || '').trim().replace(/"/g, '');
+        let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+        m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+        if (!m) return null;
+        let [, d, mo, y] = m;
+        if (y.length === 2) y = '20' + y;
+        return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      };
+
+      const num = (raw) => {
+        const s = String(raw || '').replace(/[$,\s"]/g, '');
+        if (!s || s === '-') return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const header = splitRow(lines[0]).map(h => h.toLowerCase());
+      const looksLikeHeader = header.some(h => /date|description|amount|debit|credit|narrative|particulars/.test(h));
+      const idx = (...names) => {
+        for (const n of names) { const i = header.indexOf(n); if (i !== -1) return i; }
+        for (const n of names) { const i = header.findIndex(h => h.includes(n)); if (i !== -1) return i; }
+        return -1;
+      };
+
+      let cDate = 0, cDesc = 1, cAmount = -1, cDebit = -1, cCredit = -1;
+      if (looksLikeHeader) {
+        cDate = Math.max(0, idx('date', 'transaction date'));
+        cDesc = Math.max(0, idx('description', 'narrative', 'particulars', 'details', 'transaction'));
+        cAmount = idx('amount');
+        cDebit = idx('debit', 'withdrawal');
+        cCredit = idx('credit', 'deposit');
+      }
+
+      for (let i = looksLikeHeader ? 1 : 0; i < lines.length; i++) {
+        const cells = splitRow(lines[i]);
+        if (cells.length < 2) continue;
+        const date = toISO(cells[cDate]);
+        if (!date) continue;
+
+        let amount = null, income = false;
+        if (cDebit !== -1 || cCredit !== -1) {
+          const debit = num(cells[cDebit]), credit = num(cells[cCredit]);
+          if (debit) { amount = Math.abs(debit); }
+          else if (credit) { amount = Math.abs(credit); income = true; }
+        } else {
+          // One signed column, or the first number that isn't the date.
+          let raw = cAmount !== -1 ? num(cells[cAmount]) : null;
+          if (raw === null) {
+            for (let c = cells.length - 1; c >= 0; c--) {
+              if (c === cDate || c === cDesc) continue;
+              const n = num(cells[c]);
+              if (n !== null) { raw = n; break; }
+            }
+          }
+          if (raw === null) continue;
+          income = raw > 0;
+          amount = Math.abs(raw);
+        }
+        if (!amount) continue;
+
+        const description = String(cells[cDesc] || '').replace(/"/g, '').trim() || 'Statement entry';
+        const category = income ? 'Salary' : classifyStatementLine(description);
+        rows.push({
+          date, description, amount,
+          type: income ? 'income' : 'expense',
+          category: income ? 'Salary' : category,
+        });
+      }
+      return rows;
+    }
+
+    /* A row counts as already logged when something on the same day for the
+     * same amount is already in the ledger. Crude on purpose — it is only
+     * ever used to UNTICK a row, never to hide it, so a false match costs a
+     * tick and a false miss costs nothing. */
+    function statementRowIsLogged(row) {
+      return (transactions || []).some(t =>
+        t && String(t.date) === row.date && Math.abs((+t.amount || 0) - row.amount) < 0.005
+      );
+    }
+
+    let statementRows = [];
+
+    function readStatementFile(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('statementText').value = e.target.result;
+        parseStatement();
+      };
+      reader.readAsText(file);
+    }
+
+    function parseStatement() {
+      const text = document.getElementById('statementText').value;
+      statementRows = parseStatementCSV(text).map((r, i) => ({
+        ...r, key: i, logged: statementRowIsLogged(r), include: !statementRowIsLogged(r)
+      }));
+      if (!statementRows.length) { showToast('Nothing readable in that — check it is CSV', 'error'); return; }
+      renderMain();
+      showToast(`Found ${statementRows.length} rows`, 'success');
+    }
+
+    function toggleStatementRow(key, on) {
+      const row = statementRows.find(r => r.key === key);
+      if (row) row.include = on;
+      renderMain();
+    }
+    function setStatementCategory(key, category) {
+      const row = statementRows.find(r => r.key === key);
+      if (row) row.category = category;
+    }
+    function selectAllStatement(on) {
+      statementRows.forEach(r => { r.include = on ? !r.logged : false; });
+      renderMain();
+    }
+    function clearStatement() {
+      statementRows = [];
+      const box = document.getElementById('statementText');
+      if (box) box.value = '';
+      renderMain();
+    }
+
+    async function importStatement() {
+      const chosen = statementRows.filter(r => r.include);
+      if (!chosen.length) { showToast('Nothing ticked', 'error'); return; }
+      const dupes = chosen.filter(r => r.logged).length;
+      const warn = dupes ? `\n\n${dupes} of them look like they are already logged.` : '';
+      if (!confirm(`Import ${chosen.length} transaction${chosen.length === 1 ? '' : 's'}?${warn}`)) return;
+      const stamp = Date.now();
+      chosen.forEach((r, i) => {
+        transactions.push({
+          id: stamp + i,
+          date: r.date,
+          name: r.description.slice(0, 80),
+          amount: r.amount,
+          type: r.type,
+          category: r.category,
+          note: 'Imported from statement',
+          source: 'import'
+        });
+      });
+      await saveTx();
+      statementRows = [];
+      const box = document.getElementById('statementText');
+      if (box) box.value = '';
+      renderMain();
+      showToast(`✓ Imported ${chosen.length}`, 'success');
+    }
+
+    function renderImport() {
+      const ready = statementRows.length;
+      const chosen = statementRows.filter(r => r.include);
+      const total = chosen.reduce((s, r) => s + (r.type === 'expense' ? r.amount : 0), 0);
+
+      let html = `
+        <div class="card">
+          <h2>Import a statement</h2>
+          <p class="text-muted" style="font-size:13px;">Export your transactions from internet banking as CSV, then drop the file in or paste the text. Nothing is saved until you press Import.</p>
+          <div class="form-group" style="margin-top:1rem;">
+            <label>CSV file</label>
+            <input type="file" id="statementFile" accept=".csv,text/csv,text/plain" onchange="readStatementFile(this)">
+          </div>
+          <div class="form-group">
+            <label>…or paste it here</label>
+            <textarea id="statementText" rows="5" placeholder="Date,Description,Debit,Credit&#10;21/09/2026,WOOLWORTHS 1234,84.20," style="width:100%;font-family:monospace;font-size:12px;padding:0.5rem;border:1px solid var(--border);border-radius:6px;"></textarea>
+          </div>
+          <button class="btn" onclick="parseStatement()">Read it</button>
+          ${ready ? `<button class="btn-secondary" onclick="clearStatement()" style="margin-left:0.5rem;">Clear</button>` : ''}
+        </div>`;
+
+      if (ready) {
+        html += `
+        <div class="card">
+          <div class="flex-between" style="align-items:center;">
+            <h2 style="margin:0;">${ready} row${ready === 1 ? '' : 's'}</h2>
+            <div>
+              <button class="btn-secondary btn-small" onclick="selectAllStatement(true)">Tick all new</button>
+              <button class="btn-secondary btn-small" onclick="selectAllStatement(false)">Untick all</button>
+            </div>
+          </div>
+          <p class="text-muted" style="font-size:13px;margin-top:0.5rem;">Anything already in your ledger for the same day and amount is unticked and marked below. Check the categories — the guesses are keyword matches, not magic.</p>
+          <div style="margin-top:1rem;">
+            ${statementRows.map(r => `
+              <div class="flex-between" style="padding:0.6rem 0;border-bottom:1px solid var(--border);gap:0.75rem;${r.logged ? 'opacity:0.6;' : ''}">
+                <div style="display:flex;gap:0.6rem;align-items:flex-start;min-width:0;">
+                  <input type="checkbox" ${r.include ? 'checked' : ''} onchange="toggleStatementRow(${r.key}, this.checked)" style="margin-top:0.25rem;">
+                  <div style="min-width:0;">
+                    <strong style="font-size:13px;word-break:break-word;">${r.description}</strong><br>
+                    <span class="text-muted" style="font-size:12px;">${formatDate(r.date)}${r.logged ? ' · already logged' : ''}</span>
+                  </div>
+                </div>
+                <div style="text-align:right;white-space:nowrap;">
+                  <div class="num" style="font-weight:600;color:${r.type === 'income' ? 'var(--success)' : 'inherit'};">${r.type === 'income' ? '+' : ''}${AUD(r.amount)}</div>
+                  <select onchange="setStatementCategory(${r.key}, this.value)" style="margin-top:0.25rem;font-size:12px;padding:0.2rem;border:1px solid var(--border);border-radius:5px;">
+                    ${allCategories().map(c => `<option value="${c}"${c === r.category ? ' selected' : ''}>${c}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div style="margin-top:1rem;padding:1rem;background:var(--bg);border-radius:8px;">
+            <div class="flex-between"><span>Ticked</span><strong>${chosen.length}</strong></div>
+            <div class="flex-between" style="margin-top:0.35rem;"><span>Spending to add</span><strong class="num">${AUD(total)}</strong></div>
+          </div>
+          <button class="btn" onclick="importStatement()" style="margin-top:1rem;" ${chosen.length ? '' : 'disabled'}>Import ${chosen.length || ''}</button>
+        </div>`;
+      }
+      return html;
+    }
+
     /* agentLogs is the biggest thing in the database and the CFO tab is the
      * only reader, so it is fetched the first time that tab is opened rather
      * than on every load. Re-renders once it lands; the counts above simply
@@ -6807,7 +7136,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-21.1';
+    const FF_BUILD = '2026-09-21.2';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
