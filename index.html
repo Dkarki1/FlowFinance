@@ -2080,55 +2080,55 @@
       resetState();
       showLoading();
       try {
-        const inc = await fbGet('income');
-        if (inc) income = inc;
-        const cs2 = await fbGet('creditScores');
-        creditScores = Array.isArray(cs2) ? cs2.filter(Boolean) : [];
-        const varInc = await fbGet('variableIncome');
-        if (varInc) variableIncome = Array.isArray(varInc) ? varInc : [];
-        const txs = await fbGet('transactions');
-        if (txs) transactions = Array.isArray(txs) ? txs : [];
-        const dbs = await fbGet('debts');
-        if (dbs) debts = Array.isArray(dbs) ? dbs : [];
-        const bls = await fbGet('bills');
-        if (bls) bills = Array.isArray(bls) ? bls : [];
-        const bdg = await fbGet('budgets');
-        if (bdg) budgets = bdg;
-        const ast = await fbGet('assets');
-        if (ast) assets = Array.isArray(ast) ? ast : [];
-        const cd = await fbGet('checklistDone');
-        if (cd) checklistDone = cd;
-        const dm = await fbGet('debtMethod');
-        if (dm) debtMethod = dm;
-        const gl = await fbGet('goals');
-        if (gl) goals = Array.isArray(gl) ? gl : [];
-        const gc = await fbGet('goalContributions');
-        if (gc) goalContributions = gc || {};
-        const nwh = await fbGet('netWorthHistory');
-        if (nwh) netWorthHistory = Array.isArray(nwh) ? nwh : [];
-        const tpl = await fbGet('txTemplates');
-        if (tpl) txTemplates = Array.isArray(tpl) ? tpl : [];
-        const sup = await fbGet('superData');
-        if (sup) superData = { ...superData, ...sup };
-        const dm2 = await fbGet('debtMilestones');
-        if (dm2) debtMilestones = dm2 || {};
-        const srh = await fbGet('savingsRateHistory');
-        if (srh) savingsRateHistory = Array.isArray(srh) ? srh : [];
-        const tm = await fbGet('themeMode');
-        const dk = await fbGet('darkMode');
+        /* These reads used to run one after another — 24 awaits, each its own
+         * round trip. On a phone that is 24 × latency before the first card
+         * can be drawn, which is why the home screen sat on skeletons for
+         * seconds. They don't depend on each other, so they go together and
+         * the wait becomes one round trip instead of 24.
+         *
+         * agentLogs is deliberately NOT in this list. It is by far the
+         * largest node (~73KB, more than every other node combined) and it is
+         * read in exactly one place: the CFO tab. Fetching it here made every
+         * load pay for a screen most loads never open, so it is fetched on
+         * demand instead — see ensureAgentLogs(). */
+        const KEYS = [
+          'income', 'creditScores', 'variableIncome', 'transactions', 'debts',
+          'bills', 'budgets', 'assets', 'checklistDone', 'debtMethod', 'goals',
+          'goalContributions', 'netWorthHistory', 'txTemplates', 'superData',
+          'debtMilestones', 'savingsRateHistory', 'themeMode', 'darkMode',
+          'netWorthMilestones', 'paydayChecklistDone', 'cfoSnapshot',
+          'pendingConfirmations'
+        ];
+        const values = await Promise.all(KEYS.map(k => fbGet(k)));
+        const got = {};
+        KEYS.forEach((k, i) => { got[k] = values[i]; });
+
+        if (got.income) income = got.income;
+        creditScores = Array.isArray(got.creditScores) ? got.creditScores.filter(Boolean) : [];
+        if (got.variableIncome) variableIncome = Array.isArray(got.variableIncome) ? got.variableIncome : [];
+        if (got.transactions) transactions = Array.isArray(got.transactions) ? got.transactions : [];
+        if (got.debts) debts = Array.isArray(got.debts) ? got.debts : [];
+        if (got.bills) bills = Array.isArray(got.bills) ? got.bills : [];
+        if (got.budgets) budgets = got.budgets;
+        if (got.assets) assets = Array.isArray(got.assets) ? got.assets : [];
+        if (got.checklistDone) checklistDone = got.checklistDone;
+        if (got.debtMethod) debtMethod = got.debtMethod;
+        if (got.goals) goals = Array.isArray(got.goals) ? got.goals : [];
+        if (got.goalContributions) goalContributions = got.goalContributions || {};
+        if (got.netWorthHistory) netWorthHistory = Array.isArray(got.netWorthHistory) ? got.netWorthHistory : [];
+        if (got.txTemplates) txTemplates = Array.isArray(got.txTemplates) ? got.txTemplates : [];
+        if (got.superData) superData = { ...superData, ...got.superData };
+        if (got.debtMilestones) debtMilestones = got.debtMilestones || {};
+        if (got.savingsRateHistory) savingsRateHistory = Array.isArray(got.savingsRateHistory) ? got.savingsRateHistory : [];
+        const tm = got.themeMode;
+        const dk = got.darkMode;
         // An older saved preference still counts, until the theme is set here.
         themeMode = (tm === 'light' || tm === 'dark' || tm === 'system') ? tm : (dk === null ? 'system' : (dk ? 'dark' : 'light'));
         applyTheme();
-        const nwm = await fbGet('netWorthMilestones');
-        if (nwm) netWorthMilestones = nwm || {};
-        const pcd = await fbGet('paydayChecklistDone');
-        if (pcd) paydayChecklistDone = pcd || {};
-        const alg = await fbGet('agentLogs');
-        agentLogs = alg || {};
-        const cs = await fbGet('cfoSnapshot');
-        cfoSnapshot = cs || null;
-        const pcf = await fbGet('pendingConfirmations');
-        pendingConfirmations = pcf || {};
+        if (got.netWorthMilestones) netWorthMilestones = got.netWorthMilestones || {};
+        if (got.paydayChecklistDone) paydayChecklistDone = got.paydayChecklistDone || {};
+        cfoSnapshot = got.cfoSnapshot || null;
+        pendingConfirmations = got.pendingConfirmations || {};
         // NOTE: a block here used to seed three hardcoded debts whenever the
         // owner's account loaded with an empty debt list. It was removed — it
         // was the only hardcoded money in this file and it had gone wrong in
@@ -6502,7 +6502,21 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       return html;
     }
 
+    /* agentLogs is the biggest thing in the database and the CFO tab is the
+     * only reader, so it is fetched the first time that tab is opened rather
+     * than on every load. Re-renders once it lands; the counts above simply
+     * read 0 for the moment before it does. The flag is what stops a second
+     * visit from fetching again, and what stops two quick visits racing. */
+    let agentLogsLoaded = false;
+    async function ensureAgentLogs() {
+      if (agentLogsLoaded) return;
+      agentLogsLoaded = true;
+      agentLogs = (await fbGet('agentLogs')) || {};
+      if (currentTab === 'cfo') renderMain();
+    }
+
     function renderAgentActivity() {
+      ensureAgentLogs();
       const pending = Object.entries(pendingConfirmations || {});
       const logs = Object.entries(agentLogs || {})
         .map(([id, l]) => ({ id, ...l }))
@@ -6793,7 +6807,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-14.3';
+    const FF_BUILD = '2026-09-21.1';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
