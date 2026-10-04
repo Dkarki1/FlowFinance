@@ -536,6 +536,170 @@
       main { max-width: 1100px; }
     }
 
+    /* ==================================================================
+     * System pass
+     *
+     * Measured on a live screen before writing any of this: eight distinct
+     * corner radii, seven font sizes, five weights (one of them 650, which
+     * SF does not have, so the browser was synthesising it), card padding
+     * landing on 25.6px and 9.6px because rem maths doesn't respect a grid,
+     * and cards drawn as outlines on the same colour as the page behind
+     * them.
+     *
+     * None of those is wrong on its own. Together they are the difference
+     * between a page that was designed and one that accumulated.
+     *
+     * Three radii. One spacing grid. One type ramp. Cards that sit on the
+     * page rather than being drawn onto it. This block comes last on
+     * purpose — it governs the inline styles scattered through the markup
+     * that no amount of tidying the token block would have reached.
+     * ================================================================== */
+    :root {
+      /* Concentric corners: an inner radius is the outer minus its padding,
+         which is why these three and not any three. */
+      --r1: 10px;   /* controls, chips, inputs */
+      --r2: 14px;   /* rows inside a group */
+      --r3: 20px;   /* cards and groups */
+
+      /* 4pt grid. Nothing between these, nothing fractional. */
+      --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s7: 32px;
+
+      /* The ramp. Body is 17 because that is what a phone reads at. */
+      --f-caption: 13px;
+      --f-foot:    15px;
+      --f-body:    17px;
+      --f-head:    17px;   /* same size as body, carried by weight */
+      --f-title:   22px;
+      --f-large:   28px;
+      --f-display: 40px;
+
+      /* Three weights. 650 was not one of them. */
+      --w-reg: 400; --w-med: 500; --w-semi: 600; --w-bold: 700;
+    }
+
+    /* ---- Surfaces -------------------------------------------------- */
+    /* A card is a surface the page is behind, not a rectangle drawn on it.
+       No border: the tonal step does the separating, which is why the page
+       is grey and the card is white. */
+    .card, .kpi-card, .hero {
+      background: var(--card) !important;
+      border: none !important;
+      border-radius: var(--r3) !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04) !important;
+      padding: var(--s5) !important;
+      margin-bottom: var(--s3) !important;
+    }
+    body.dark .card, body.dark .kpi-card, body.dark .hero {
+      box-shadow: none !important;
+      background: var(--card) !important;
+    }
+    .hero {
+      background: linear-gradient(170deg, var(--accent-soft) 0%, var(--card) 65%) !important;
+    }
+    .stat-chip { border: none !important; border-radius: var(--r2) !important; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    body.dark .stat-chip { box-shadow: none; background: var(--card); }
+
+    /* Everything else gets one of the three. Catches the inline radii the
+       markup sets by hand. */
+    [style*="border-radius: 6px"], [style*="border-radius:6px"],
+    [style*="border-radius: 8px"], [style*="border-radius:8px"],
+    [style*="border-radius: 10px"], [style*="border-radius:10px"] { border-radius: var(--r1) !important; }
+    [style*="border-radius: 12px"], [style*="border-radius:12px"],
+    [style*="border-radius: 14px"], [style*="border-radius:14px"] { border-radius: var(--r2) !important; }
+    [style*="border-radius: 16px"], [style*="border-radius:16px"],
+    [style*="border-radius: 18px"], [style*="border-radius:18px"] { border-radius: var(--r3) !important; }
+    input, select, textarea, .btn, button { border-radius: var(--r1) !important; }
+    .badge, .milestone-badge, .pill { border-radius: var(--r-full) !important; }
+
+    /* ---- Type ------------------------------------------------------ */
+    body { font-size: var(--f-body); -webkit-font-smoothing: antialiased; }
+    h1 { font-size: var(--f-large); font-weight: var(--w-bold); letter-spacing: -0.021em; }
+    h2 { font-size: var(--f-title) !important; font-weight: var(--w-semi) !important; letter-spacing: -0.016em; }
+    h3 { font-size: var(--f-body); font-weight: var(--w-semi); letter-spacing: -0.01em; }
+    .text-muted { color: var(--text-muted); }
+
+    /* Optical tracking: large numerals need to come in, small text does not. */
+    .hero-value { font-size: var(--f-display) !important; font-weight: var(--w-bold) !important; letter-spacing: -0.028em !important; }
+    .kpi-value  { font-size: var(--f-title) !important; font-weight: var(--w-semi) !important; letter-spacing: -0.018em !important; }
+    .stat-chip .v { font-size: var(--f-body) !important; font-weight: var(--w-semi) !important; letter-spacing: -0.012em; }
+    .stat-chip .k, .hero-label { font-size: var(--f-caption) !important; color: var(--text-muted) !important; }
+    .hero-note { font-size: var(--f-foot) !important; }
+
+    /* The synthesised weight, and the sizes that sat between steps. */
+    [style*="font-weight:650"], [style*="font-weight: 650"] { font-weight: var(--w-semi) !important; }
+    [style*="font-size:11px"], [style*="font-size: 11px"],
+    [style*="font-size:12px"], [style*="font-size: 12px"] { font-size: var(--f-caption) !important; }
+    [style*="font-size:13px"], [style*="font-size: 13px"],
+    [style*="font-size:14px"], [style*="font-size: 14px"] { font-size: var(--f-foot) !important; }
+    [style*="font-size:16px"], [style*="font-size: 16px"] { font-size: var(--f-body) !important; }
+    .card p, .card li, .group-row { font-size: var(--f-foot); }
+
+    /* ---- Touch ----------------------------------------------------- */
+    /* 44pt is the floor, and one control was 31. */
+    button, .btn, select, textarea, .bnav-item, summary,
+    input:not([type="checkbox"]):not([type="radio"]) {
+      min-height: 44px;
+    }
+    input[type="checkbox"] { min-height: 22px; width: 22px; height: 22px; }
+    .btn-small, .btn-icon { min-height: 36px; }
+
+    /* ---- Feedback -------------------------------------------------- */
+    /* Nothing acknowledged a tap. A press should land before the result
+       does — it is most of why a native app feels immediate. */
+    @media (hover: none) {
+      .card, .kpi-card { transition: transform .18s cubic-bezier(.22,1,.36,1); }
+    }
+    button:active, .btn:active, .stat-chip:active, summary:active {
+      transform: scale(.97);
+      transition: transform .08s ease-out;
+    }
+    button, .btn, summary, .bnav-item {
+      transition: transform .22s cubic-bezier(.22,1,.36,1), background-color .18s ease, color .18s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    details.more-detail > div { animation: sheet .28s cubic-bezier(.22,1,.36,1); }
+    @keyframes sheet { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      button:active, .btn:active, .stat-chip:active, summary:active { transform: none; }
+      details.more-detail > div { animation: none; }
+    }
+
+    /* ---- Grouped lists --------------------------------------------- */
+    /* The Settings/Wallet pattern: rows share one container, separators are
+       inset to where the text starts rather than running the full width,
+       and the section title sits outside the group in quiet grey. */
+    .group {
+      background: var(--card);
+      border-radius: var(--r3);
+      overflow: hidden;
+      margin-bottom: var(--s4);
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    body.dark .group { box-shadow: none; }
+    .group-title {
+      font-size: var(--f-caption);
+      color: var(--text-muted);
+      font-weight: var(--w-med);
+      padding: 0 var(--s4) var(--s2);
+      margin: 0;
+    }
+    .group-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--s3);
+      padding: var(--s3) var(--s4);
+      min-height: 44px;
+      position: relative;
+    }
+    .group-row + .group-row::before {
+      content: ''; position: absolute; top: 0; left: var(--s4); right: 0;
+      height: 1px; background: var(--border);
+    }
+    .group-row .row-main { min-width: 0; }
+    .group-row .row-title { font-size: var(--f-body); font-weight: var(--w-med); letter-spacing: -0.01em; }
+    .group-row .row-sub { font-size: var(--f-caption); color: var(--text-muted); margin-top: 1px; }
+    .group-row .row-value { font-size: var(--f-body); font-weight: var(--w-semi); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
     /* Nav Tabs */
     nav.tabs {
       background: var(--card);
@@ -2635,11 +2799,14 @@
       if (!rows.length) return '<p class="text-muted" style="font-size:13px;">Nothing due in the next 7 days.</p>';
       rows.sort((a, b) => a.days - b.days);
 
-      return rows.map(({ bill, when, days, overdue, settled }) => {
+      return '<div class="group" style="box-shadow:none;margin-bottom:0;">' + rows.map(({ bill, when, days, overdue, settled }) => {
+        // Short enough to sit on one line beside the figure. "Not logged —
+        // due 5 days ago" wrapped to three lines on a phone and shouted while
+        // it did it; the colour already carries that it hasn't been logged.
         const label = overdue
-          ? (days === -1 ? 'Not logged — due yesterday' : `Not logged — due ${-days} days ago`)
-          : days === 0 ? 'Due today'
-          : days === 1 ? 'Due tomorrow'
+          ? (days === -1 ? 'Yesterday' : `${-days} days ago`)
+          : days === 0 ? 'Today'
+          : days === 1 ? 'Tomorrow'
           : `In ${days} days`;
         // Red means you've missed it. Today and tomorrow are amber — they're
         // diary notes, and colouring them like a failure is why the whole
@@ -2650,13 +2817,17 @@
         const weight = overdue || days <= 1 ? '700' : '400';
         const day = new Date(when + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
 
-        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--surface);">'
-          + '<div><div style="font-weight:600;font-size:14px;">' + bill.name + '</div>'
-          + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + day + ' \u00b7 ' + bill.freq + '</div></div>'
-          + '<div style="text-align:right;"><div class="num" style="font-weight:700;">' + AUD(bill.amount) + '</div>'
-          + '<div style="font-size:11px;margin-top:2px;color:' + colour + ';font-weight:' + weight + ';">' + label + '</div>'
+        // One row of a grouped list: title and its detail on the left, the
+        // figure and its state on the right. The separator is drawn by the
+        // stylesheet, inset to where the text starts, so the rows read as one
+        // object rather than a stack of bordered boxes.
+        return '<div class="group-row">'
+          + '<div class="row-main"><div class="row-title">' + bill.name + '</div>'
+          + '<div class="row-sub">' + day + ' \u00b7 ' + bill.freq + '</div></div>'
+          + '<div style="text-align:right;"><div class="row-value">' + AUD(bill.amount) + '</div>'
+          + '<div class="row-sub" style="color:' + colour + ';font-weight:' + weight + ';">' + label + '</div>'
           + '</div></div>';
-      }).join('');
+      }).join('') + '</div>';
     }
     /**
      * Home answers one question: how am I doing, right now.
@@ -2764,13 +2935,15 @@
           <h2 style="margin:0;">Needs you</h2>
           ${all.length > 3 ? `<span class="text-muted" style="font-size:12px;">${all.length - 3} more in CFO</span>` : ''}
         </div>
-        <div style="margin-top:0.5rem;">
+        <div style="margin-top:var(--s2);">
           ${items.map(d => `
-            <div class="needs-item">
-              <div class="needs-dot" style="background:${colour(d.severity)};"></div>
-              <div style="min-width:0;">
-                <div class="needs-title">${d.title || 'Needs attention'}</div>
-                ${d.detail ? `<div class="needs-detail">${d.detail}</div>` : ''}
+            <div class="group-row" style="padding-left:0;padding-right:0;">
+              <div style="display:flex;gap:var(--s3);align-items:flex-start;min-width:0;">
+                <div class="needs-dot" style="background:${colour(d.severity)};"></div>
+                <div class="row-main">
+                  <div class="row-title">${d.title || 'Needs attention'}</div>
+                  ${d.detail ? `<div class="row-sub">${d.detail}</div>` : ''}
+                </div>
               </div>
             </div>`).join('')}
         </div>
@@ -7277,7 +7450,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-10-04.3';
+    const FF_BUILD = '2026-10-04.4';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
