@@ -647,6 +647,64 @@
         grid-template-columns: 1fr;
       }
     }
+    /* ── Home ──────────────────────────────────────────────────────────
+     * The home screen used to open with four equal KPI cards and then five
+     * more full cards underneath, every one of them the same size and
+     * weight. Equal weight is the same as no weight: nothing told you where
+     * to look, so you read all of it or none of it.
+     *
+     * One number leads now — what is actually free to spend before the next
+     * pay — and everything else is sized by how much it matters.
+     * ------------------------------------------------------------------ */
+    .hero {
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--card) 70%);
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      padding: 1.6rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .hero-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .hero-value {
+      font-size: 42px; font-weight: 700; letter-spacing: -0.03em;
+      line-height: 1.05; margin: 0.35rem 0 0.1rem;
+    }
+    .hero-note { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+    @media (max-width: 480px) { .hero-value { font-size: 34px; } .hero { padding: 1.25rem 1.1rem; } }
+
+    /* Three supporting figures, deliberately small. */
+    .stat-strip {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .stat-chip {
+      background: var(--card); border: 1px solid var(--border-soft);
+      border-radius: 12px; padding: 0.75rem 0.6rem; text-align: center;
+    }
+    .stat-chip .k { font-size: 11px; color: var(--text-muted); display: block; }
+    .stat-chip .v { font-size: 17px; font-weight: 650; letter-spacing: -0.02em; }
+    @media (max-width: 380px) { .stat-chip .v { font-size: 15px; } }
+
+    /* Things that want doing, strongest first. */
+    .needs-item {
+      display: flex; gap: 0.7rem; align-items: flex-start;
+      padding: 0.65rem 0; border-bottom: 1px solid var(--border-soft);
+    }
+    .needs-item:last-child { border-bottom: 0; }
+    .needs-dot {
+      width: 8px; height: 8px; border-radius: 50%; margin-top: 0.45rem; flex: 0 0 8px;
+    }
+    .needs-title { font-size: 14px; font-weight: 600; }
+    .needs-detail { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+    /* The detail that used to be five stacked cards, folded away. */
+    .more-detail > summary {
+      cursor: pointer; list-style: none; padding: 0.85rem 0;
+      font-size: 13px; color: var(--accent); font-weight: 600;
+    }
+    .more-detail > summary::-webkit-details-marker { display: none; }
+    .more-detail > summary::after { content: ' ›'; }
+    .more-detail[open] > summary::after { content: ' ⌄'; }
+
     /* KPI Cards */
     .kpi-card {
       background: var(--card);
@@ -2603,56 +2661,120 @@
     /**
      * Home answers one question: how am I doing, right now.
      *
-     * It used to open with Net Worth, Total Debt, Expected Income and
-     * Expected Surplus — three of which are already in the header on every
-     * screen, and all four of which are projections rather than facts. The
-     * four below are things that are true today.
+     * The answer used to be spread across four equal KPI cards and five more
+     * cards below them, all the same size. That is a list, not an answer —
+     * you had to read nine things and do the arithmetic yourself to find out
+     * whether you could spend anything today.
+     *
+     * So one figure leads: what is left after the bills that fall before the
+     * next pay are taken out of the money already in the account. Three small
+     * figures support it, then only the things that want doing. Everything
+     * else still exists, folded behind "More detail", because occasionally
+     * wanting the runway curve is not a reason to show it every morning.
      */
     function renderDashboard() {
-      const kpiNote = (t) => `<div class="text-muted" style="font-size:11px;margin-top:0.35rem;line-height:1.35;">${t}</div>`;
       const cash = cfoSnapshot && cfoSnapshot.cash;
-      const key = getMonthKey();
-      const rows = (transactions || []).filter(t => t && String(t.date).startsWith(key));
-      const inc = rows.filter(t => t.type === 'income').reduce((s, t) => s + (+t.amount || 0), 0);
-      const out = rows.filter(t => t.type !== 'income').reduce((s, t) => s + (+t.amount || 0), 0);
-      const left = inc - out;
+      const before = cfoSnapshot && cfoSnapshot.beforeNextPayday;
       const pay = effectivePay();
       // expectedPayDates returns Date objects and this compared them to a
       // string, so it never matched and always showed the stale stored date.
       const nextPay = nextPayOnOrAfter(income.myNextPay, income.myFreq, today());
+      const cashNow = cash && cash.estimatedNow != null ? cash.estimatedNow : null;
 
-      const kpi = (label, value, cls, note) => `
-        <div class="kpi-card">
-          <div class="kpi-label">${label}</div>
-          <div class="kpi-value num ${cls || ''}">${value}</div>
-          ${note ? kpiNote(note) : ''}
-        </div>`;
+      // The headline. Falls back to plain cash when the snapshot hasn't been
+      // written yet, and says which one it is rather than quietly differing.
+      const free = before && before.cashLeftIfAllPaid != null ? before.cashLeftIfAllPaid : cashNow;
+      const dueCount = before && Array.isArray(before.bills) ? before.bills.length : 0;
+      const dueTotal = before && before.total != null ? before.total : 0;
+      const payLabel = nextPay ? formatDate(nextPay) : null;
+
+      let heroNote;
+      if (free == null) {
+        heroNote = 'Tell the bot “balance 1700” and this fills in.';
+      } else if (before && dueCount) {
+        heroNote = `${AUD(cashNow)} in the account, less ${AUD(dueTotal)} of bills due before ${payLabel ? 'payday on ' + payLabel : 'payday'}.`;
+      } else {
+        heroNote = payLabel ? `Nothing else due before ${payLabel}.` : 'No bills due before your next pay.';
+      }
+      const heroColour = free == null ? '' : free < 0 ? 'color:var(--danger);' : free < 300 ? 'color:var(--warning-text2, var(--warning));' : '';
 
       return `
-        <div class="grid-4">
-          ${cash && cash.estimatedNow != null
-            ? kpi('In the bank', AUD(cash.estimatedNow), '',
-                `Last counted ${AUD(cash.lastRecorded)} on ${formatDate(cash.lastRecordedOn || cash.recordedOn)}`)
-            : kpi('In the bank', '—', '', 'Tell the bot "balance 1700" and this fills in.')}
-          ${kpi(`Left in ${new Date().toLocaleDateString('en-AU', { month: 'long' })}`, AUD(left),
-                left >= 0 ? 'positive' : 'negative',
-                `${AUD(inc)} in, ${AUD(out)} out so far`)}
-          ${pay.basis === 'none'
-            ? kpi('Next pay', '—', '', 'Log a pay and this fills in.')
-            : kpi('Next pay', AUD(pay.amount), '',
-                nextPay ? `Expected ${formatDate(nextPay)}` : 'No pay date set')}
-          ${kpi('Debt-free', calcDebtFreeDate() || '—', '',
-                dailyInterest() > 0 ? `Interest is costing ${AUD(dailyInterest())} a day` : 'No interest accruing')}
+        <div class="hero">
+          <div class="hero-label">Free to spend before payday</div>
+          <div class="hero-value num" style="${heroColour}">${free == null ? '—' : AUD(free)}</div>
+          <div class="hero-note">${heroNote}</div>
         </div>
-        ${renderMonthStatusCard()}
-        ${renderRunwayCard()}
-        ${renderEmergencyFundCard()}
-        <div class="card">
-          <h2>Bills due this week</h2>
-          ${renderBillsDueWidget()}
+
+        <div class="stat-strip">
+          <div class="stat-chip">
+            <span class="k">In the bank</span>
+            <span class="v num">${cashNow == null ? '—' : AUD(cashNow)}</span>
+          </div>
+          <div class="stat-chip">
+            <span class="k">Next pay</span>
+            <span class="v num">${pay.basis === 'none' ? '—' : AUD(pay.amount)}</span>
+          </div>
+          <div class="stat-chip">
+            <span class="k">Debt-free</span>
+            <span class="v">${calcDebtFreeDate() || '—'}</span>
+          </div>
         </div>
+
+        ${renderNeedsYouCard()}
         ${renderQuickLogCard()}
+
+        <details class="more-detail card" style="padding-top:0;padding-bottom:0;">
+          <summary>More detail</summary>
+          <div style="padding-bottom:1rem;">
+            <h2 style="margin-top:0;">Bills due this week</h2>
+            ${renderBillsDueWidget()}
+            ${renderMonthStatusCard()}
+            ${renderRunwayCard()}
+            ${renderEmergencyFundCard()}
+          </div>
+        </details>
       `;
+    }
+
+    /**
+     * The only part of home that asks for anything.
+     *
+     * The decisions come from the CFO snapshot, already ranked by severity,
+     * which means the phone and the website agree about what is urgent
+     * instead of each deciding for itself. Three at a time: a list of nine
+     * things to worry about is a list nobody reads.
+     */
+    function renderNeedsYouCard() {
+      const all = (cfoSnapshot && cfoSnapshot.decisions) || [];
+      const rank = { urgent: 0, soon: 1, watch: 2 };
+      const items = [...all]
+        .sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3))
+        .slice(0, 3);
+
+      if (!items.length) {
+        return `<div class="card">
+          <h2>Nothing needs you</h2>
+          <p class="text-muted" style="font-size:13px;margin:0;">No bills overdue, nothing tracking over budget. Log what you spend and it stays that way.</p>
+        </div>`;
+      }
+
+      const colour = (s) => s === 'urgent' ? 'var(--danger)' : s === 'soon' ? 'var(--warning)' : 'var(--text-muted)';
+      return `<div class="card">
+        <div class="flex-between" style="align-items:baseline;">
+          <h2 style="margin:0;">Needs you</h2>
+          ${all.length > 3 ? `<span class="text-muted" style="font-size:12px;">${all.length - 3} more in CFO</span>` : ''}
+        </div>
+        <div style="margin-top:0.5rem;">
+          ${items.map(d => `
+            <div class="needs-item">
+              <div class="needs-dot" style="background:${colour(d.severity)};"></div>
+              <div style="min-width:0;">
+                <div class="needs-title">${d.title || 'Needs attention'}</div>
+                ${d.detail ? `<div class="needs-detail">${d.detail}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
     }
 
     /**
@@ -7168,7 +7290,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-10-04.1';
+    const FF_BUILD = '2026-10-04.2';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
