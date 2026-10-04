@@ -2835,7 +2835,7 @@
                No budgets set, so nothing can be over. Give it a month of real spending, then set them from what you actually spend rather than a guess.
              </p>`
           : `<div style="margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border);">
-               <div class="text-muted" style="font-size:11px;margin-bottom:0.6rem;">Budgets under most pressure</div>
+               <div class="text-muted" style="font-size:11px;margin-bottom:0.6rem;">Budgets</div>
                ${tracking.map(bar).join('')}
              </div>`}
       </div>`;
@@ -3932,18 +3932,13 @@
             <div><div class="text-muted" style="font-size: 11px;">Interest</div><div style="font-weight: 700; margin-top: 0.25rem; color: ${monthlyInt > 0 ? 'var(--neg)' : 'var(--text-muted)'};" class="num">${AUD(monthlyInt)}/mo</div></div>
           </div>
           <div style="margin-bottom: 1rem;">
-            <div class="flex-between" style="margin-bottom: 0.5rem; font-size: 12px; color: var(--text-muted);"><span>Paid off so far</span><span class="num">${AUD(paidSoFar)} of ${AUD(original)} (${Math.round(progressPct)}%)</span></div>
+            <div class="flex-between" style="margin-bottom: 0.5rem; font-size: 12px; color: var(--text-muted);"><span>Paid off</span><span class="num">${AUD(paidSoFar)} of ${AUD(original)} (${Math.round(progressPct)}%)</span></div>
             <div class="progress" style="height:10px;margin:0.75rem 0;">
             <div class="progress-fill" style="width:${progressPct}%;background:${progressPct >= 75 ? 'var(--success)' : progressPct >= 40 ? 'var(--warning)' : 'var(--danger)'};transition:width 0.4s ease;"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:-0.5rem;">
-            <span>0%</span>
-            ${progressPct >= 25 && progressPct < 50 ? '<span style="color:var(--warning);font-weight:600;">25% ✓</span>' : ''}
-            ${progressPct >= 50 && progressPct < 75 ? '<span style="color:var(--warning);font-weight:600;">Halfway ✓</span>' : ''}
-            ${progressPct >= 75 && progressPct < 100 ? '<span style="color:var(--success);font-weight:600;">75% ✓</span>' : ''}
-            ${progressPct >= 100 ? '<span style="color:var(--success);font-weight:700;">Paid off!</span>' : ''}
-            <span>100%</span>
-          </div>
+          ${progressPct >= 25 ? `<div style="font-size:11px;margin-top:-0.35rem;color:${progressPct >= 75 ? 'var(--success)' : 'var(--warning)'};font-weight:600;">${
+            progressPct >= 100 ? 'Paid off' : progressPct >= 75 ? '75% paid' : progressPct >= 50 ? 'Halfway' : '25% paid'
+          }</div>` : ''}
           </div>
           ${paidThisMonth > 0 ? `<div style="margin-bottom: 1rem; padding: 0.6rem 0.9rem; background: var(--surface); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: var(--success-dark); font-weight: 600;">Paid this month</span><span class="num" style="font-weight: 700; color: var(--success-dark);">${AUD(paidThisMonth)}</span></div>` : ''}
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 1rem;">At minimums: <strong>${monthsToYears(payoff.months)}</strong>${debtFreeDate ? ` · Debt-free by <strong>${debtFreeDate}</strong>` : ''}</div>
@@ -3967,7 +3962,6 @@
               <input type="date" id="debtPayDate_${debt.id}" value="${today()}">
               <button class="btn-primary" onclick="logDebtPayment(${debt.id})" style="flex: 0 0 auto;">Log Payment</button>
             </div>
-            <p class="text-muted" style="font-size: 11px; margin-top: 0.5rem;">Reduces the balance above and records it as a Debt Payment transaction.</p>
           </div>
         </div>
       `;
@@ -6356,12 +6350,6 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const colour = r.status === 'critical' ? 'var(--danger)'
         : r.status === 'thin' ? 'var(--warning)'
         : r.status === 'adequate' ? 'var(--accent)' : 'var(--success)';
-      const verdict = {
-        critical: 'This is what makes the emergency fund urgent rather than sensible.',
-        thin: 'Under a month. One unexpected bill and it\'s gone.',
-        adequate: 'Enough to absorb a shock, not enough to job-hunt calmly.',
-        comfortable: 'Comfortable — you could take time to find the right thing.'
-      }[r.status];
 
       // Three months of essential costs is the usual target, so the bar reads
       // against something rather than floating.
@@ -6381,10 +6369,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <div class="progress-fill" style="width:${pct}%;background:${colour};"></div>
         </div>
         <div class="flex-between text-muted" style="font-size:11px;">
-          <span>burning ${AUD(r.dailyBurn)}/day</span>
-          <span>${r.daysIfDebtDeferred} days if debt repayments were deferred</span>
+          <span>${AUD(r.dailyBurn)}/day</span>
+          <span>${r.daysIfDebtDeferred} days without debt payments</span>
         </div>
-        <p style="font-size:13px;margin-top:0.75rem;">${verdict}</p>
       </div>`;
     }
 
@@ -6403,7 +6390,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           <div class="progress-fill" style="width:${pct}%;background:${colour};transition:width .4s ease;"></div>
         </div>
         <div class="flex-between text-muted" style="font-size:12px;">
-          <span>${ef.coverageMonths || 0} month${ef.coverageMonths === 1 ? '' : 's'} of essential costs covered</span>
+          <span>${ef.coverageMonths || 0} month${ef.coverageMonths === 1 ? '' : 's'} covered</span>
           <span>${ef.shortfall > 0 ? AUD(ef.shortfall) + ' to go' : 'Funded'}</span>
         </div>
         ${ef.contribution ? `
@@ -6416,10 +6403,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           }</span>
         </div>` : ''}
         ${!ef.savingsRecorded
-          ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet. Tell the bot what you have set aside and this starts tracking.</div>`
+          ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">No savings recorded yet.</div>`
           : ef.largePaymentSince
           ? `<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;background:var(--surface);border-left:3px solid var(--warning);border-radius:6px;font-size:12px;">
-               Based on what you told me on ${formatDate(ef.savingsAsOf)}${ef.depositsSince > 0 ? ', plus your regular deposits since' : ''}. You've logged a large debt payment since — if it came out of savings, this figure is too high. Tell the bot the new number.
+               May be high — a large debt payment was logged since ${formatDate(ef.savingsAsOf)}.
              </div>`
           : (ef.savingsDaysAgo || 0) > 30
           ? `<div class="text-muted" style="font-size:11px;margin-top:0.5rem;">Last updated ${ef.savingsAsOf}.</div>`
@@ -7290,7 +7277,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-10-04.2';
+    const FF_BUILD = '2026-10-04.3';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
