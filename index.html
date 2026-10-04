@@ -6571,21 +6571,47 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
     /* Keyword → category. Deliberately small and readable: these are the
      * merchants that actually show up on this account, and anything it can't
      * place lands in Other for a human to fix with the dropdown. */
+    /* Order matters — the first match wins. The specific names near the top
+     * are the ones that actually appear on this account; a real statement run
+     * through the earlier, generic version of this table put $14,476 of 183
+     * rows into Other, which is not a category so much as an admission. */
     const STATEMENT_RULES = [
-      [/woolworths|coles|aldi|iga|foodland|grocer|spudshed/i, 'Food'],
-      [/uber\s*eats|menulog|doordash|mcdonald|kfc|domino|hungry|cafe|coffee|restaurant|sushi|pizza|bakery/i, 'Food'],
-      [/bp |caltex|shell|ampol|united petrol|7-eleven|fuel|petrol/i, 'Transport'],
-      [/uber(?!\s*eats)|didi|ola|taxi|bus |transit|parking|toll/i, 'Transport'],
-      [/rego|registration|motor vehicle|tyre|mechanic|service centre/i, 'Transport'],
-      [/jacana|energy|electricity|water corp|power/i, 'Utilities'],
-      [/superloop|telstra|optus|vodafone|internet|mobile|broadband/i, 'Utilities'],
-      [/rent|real estate|property|kalo/i, 'Housing'],
-      [/insurance|budget direct|nib|bupa|medibank|hcf/i, 'Insurance'],
-      [/gym|fitness|anytime|plus fitness|chemist|pharmacy|doctor|medical|dental/i, 'Health'],
-      [/kmart|target|big w|amazon|ebay|myer|cotton on|uniqlo|jb hi|officeworks|bunnings/i, 'Shopping'],
-      [/netflix|spotify|disney|twitch|steam|playstation|cinema|event cinema|ticket/i, 'Entertainment'],
-      [/nab |anz |amex|american express|loan|powertorque|card payment|bpay/i, 'Debt Payment'],
-      [/salary|payroll|wage|pay |direct credit/i, 'Salary'],
+      // Money moving between people, and money sent home. Named first because
+      // "KATWAL B" and "WORLDREMIT" would otherwise fall through to Other, and
+      // together they are the largest non-debt flow on the account.
+      [/worldremit|western union|remitly|wise |moneygram|ria money/i, 'Family support'],
+      [/katwal|sriparna|payback/i, 'Family support'],
+      // Income.
+      [/paywise|salary packaging|smartsalary|maxxia/i, 'Salary'],
+      [/wages|salary|payroll|carpentaria/i, 'Salary'],
+      [/\bato\b|tax refund|australian taxation/i, 'Other'],
+      // Housing.
+      [/killarney|real estate|rent\b|property|kalo/i, 'Housing'],
+      // Debt — before the merchants, because a card payment is not shopping.
+      [/powertorque|toyota finance/i, 'Debt Payment'],
+      [/loan repayment|personal loan/i, 'Debt Payment'],
+      [/american express|amex|anz cards|afterpay|zip pay|humm|latitude/i, 'Debt Payment'],
+      // Groceries before eating out, so a supermarket bakery isn't a cafe.
+      [/woolworths|coles|aldi|\biga\b|foodland|spudshed|bk groceries|natures best|grocer/i, 'Food'],
+      [/uber\s*\*?\s*eats|menulog|doordash|mcdonald|kfc|domino|hungry|cafe|coffee|restaurant|sushi|pizza|bakery|breadtop|kebab|yak and yeti|nando|guzman|subway|smp\*/i, 'Food'],
+      [/bws|liquor|dan murphy|bottle ?shop|lizards bar|\bbar\b|pub\b|tavern/i, 'Food'],
+      // Car.
+      [/bp |caltex|shell|ampol|united |7-eleven|puma |fuel|petrol/i, 'Transport'],
+      [/budget direct|car insurance/i, 'Transport'],
+      [/motor vehicle reg|\bmvr\b|registration|\brego\b|safe nt|carwash|car wash|tyre|mechanic|repco|supercheap|autobarn/i, 'Transport'],
+      [/uber(?!\s*\*?\s*eats)|didi|ola |taxi|parking|toll/i, 'Transport'],
+      // Utilities.
+      [/jacana|energy|electricity|water corp|power ?(co|corp)/i, 'Utilities'],
+      [/amaysim|superloop|telstra|optus|vodafone|broadband/i, 'Utilities'],
+      // Health.
+      [/medibank|bupa|\bnib\b|\bhcf\b|health insurance/i, 'Insurance'],
+      [/club lime|gym|fitness|anytime|doctor|medical|dental/i, 'Health'],
+      // Savings is not spending, but it does leave the account.
+      [/raiz|investing|spaceship|vanguard|betashares/i, 'Savings'],
+      // Shopping last among the specifics — the broadest list.
+      [/kmart|target|big w|amazon|ebay|myer|cotton on|uniqlo|jb hi.?fi|officeworks|bunnings|harvey norman|jd sports|mecca|prouds|connor|dhgate|shopify|w retail|chemist|pharmacy|priceline|barber|trim proper/i, 'Shopping'],
+      [/netflix|spotify|disney|twitch|steam|playstation|apple\.com|cinema|ticket/i, 'Entertainment'],
+      [/\bfee\b|account charge/i, 'Other'],
     ];
 
     function classifyStatementLine(description) {
@@ -6680,11 +6706,17 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
         if (!amount) continue;
 
         const description = String(cells[cDesc] || '').replace(/"/g, '').trim() || 'Statement entry';
-        const category = income ? 'Salary' : classifyStatementLine(description);
+        // Credits used to be labelled Salary wholesale, which is wrong on an
+        // account that also receives rent shares from housemates, a tax refund
+        // and the proceeds of a car sale — $6,000 of which read as wages and
+        // quietly raised every income forecast. The description decides, the
+        // same as it does for money going out, and an unrecognised credit
+        // stays Other for a human to name rather than inventing a payslip.
+        const category = classifyStatementLine(description);
         rows.push({
           date, description, amount,
           type: income ? 'income' : 'expense',
-          category: income ? 'Salary' : category,
+          category,
         });
       }
       return rows;
@@ -7136,7 +7168,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-09-21.2';
+    const FF_BUILD = '2026-10-04.1';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
