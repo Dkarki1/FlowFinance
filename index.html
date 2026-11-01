@@ -811,6 +811,62 @@
         grid-template-columns: 1fr;
       }
     }
+    /* ── The fortnight ─────────────────────────────────────────────────
+     * Everything in this account runs on fourteen days. Pay lands on a
+     * Thursday, rent and the car loan leave within days of it, and then it
+     * happens again. A stack of equal cards says nothing about that; it is
+     * the same shape whether you were paid this morning or spent the lot
+     * eleven days ago.
+     *
+     * So the fortnight itself is the structure. A bar fills as the days pass,
+     * what is committed sits under what arrived, and the figure that matters
+     * — what a day is worth for the rest of the cycle — is the one thing
+     * drawn large. This is the one place the design raises its voice;
+     * everything below it is deliberately quiet.
+     * ------------------------------------------------------------------ */
+    .fortnight {
+      background: var(--card);
+      border-radius: var(--r3);
+      padding: var(--s5);
+      margin-bottom: var(--s3);
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    body.dark .fortnight { box-shadow: none; }
+
+    .fn-dates {
+      display: flex; justify-content: space-between;
+      font-size: var(--f-caption); color: var(--text-muted);
+      margin-bottom: var(--s2);
+    }
+    .fn-track {
+      position: relative; height: 6px; border-radius: 999px;
+      background: var(--surface); overflow: hidden;
+    }
+    .fn-elapsed { height: 100%; background: var(--accent); border-radius: 999px; }
+    /* Today, as a notch rather than a label — the bar already says where it is. */
+    .fn-today {
+      position: absolute; top: -3px; width: 2px; height: 12px;
+      background: var(--text); border-radius: 1px;
+    }
+
+    .fn-figure { margin-top: var(--s5); }
+    .fn-perday {
+      font-size: 44px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .fn-perday-unit { font-size: var(--f-body); font-weight: 500; color: var(--text-muted); margin-left: 0.3rem; }
+    .fn-sub { font-size: var(--f-foot); color: var(--text-muted); margin-top: var(--s2); }
+
+    /* In, committed, left — a row of three, weighted so "left" leads. */
+    .fn-flow {
+      display: flex; gap: var(--s5); margin-top: var(--s5);
+      padding-top: var(--s4); border-top: 1px solid var(--border);
+    }
+    .fn-flow div { min-width: 0; }
+    .fn-flow .k { display: block; font-size: var(--f-caption); color: var(--text-muted); }
+    .fn-flow .v { font-size: var(--f-body); font-weight: 600; font-variant-numeric: tabular-nums; }
+    @media (max-width: 380px) { .fn-perday { font-size: 36px; } .fn-flow { gap: var(--s4); } }
+
     /* ── Home ──────────────────────────────────────────────────────────
      * The home screen used to open with four equal KPI cards and then five
      * more full cards underneath, every one of them the same size and
@@ -2947,34 +3003,9 @@
       const heroColour = free == null ? '' : free < 0 ? 'color:var(--danger);' : free < 300 ? 'color:var(--warning-text2, var(--warning));' : '';
 
       return `
-        <div class="hero">
-          <div class="hero-label">Free to spend before payday</div>
-          <div class="hero-value num" style="${heroColour}">${free == null ? '—' : AUD(free)}</div>
-          <div class="hero-note">${heroNote}</div>
-          ${(accounts || []).length > 1 ? `
-            <div style="display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border);">
-              ${accounts.map(a => `
-                <div>
-                  <div style="font-size:var(--f-caption);color:var(--text-muted);">${a.name}${a.setAside ? ' · set aside' : ''}</div>
-                  <div class="num" style="font-weight:600;">${AUD(Number(a.amount) || 0)}</div>
-                </div>`).join('')}
-            </div>` : ''}
-        </div>
+        ${renderFortnight(cashNow, free, nextPay, before)}
 
-        <div class="stat-strip">
-          <div class="stat-chip">
-            <span class="k">${spendableAccounts().length > 1 ? 'Across ' + spendableAccounts().length + ' accounts' : 'In the bank'}</span>
-            <span class="v num">${cashNow == null ? '—' : AUD(cashNow)}</span>
-          </div>
-          <div class="stat-chip">
-            <span class="k">Next pay</span>
-            <span class="v num">${pay.basis === 'none' ? '—' : AUD(pay.amount)}</span>
-          </div>
-          <div class="stat-chip">
-            <span class="k">Debt-free</span>
-            <span class="v">${calcDebtFreeDate() || '—'}</span>
-          </div>
-        </div>
+
 
         ${renderNeedsYouCard()}
         ${renderQuickLogCard()}
@@ -2990,6 +3021,72 @@
           </div>
         </details>
       `;
+    }
+
+    /**
+     * The fortnight.
+     *
+     * Answers the question the account is actually asked — "can I spend this,
+     * today" — with the figure that answers it: what each remaining day is
+     * worth once the bills still to come are taken out.
+     *
+     * A total tells you nothing on day eleven. $900 left is comfortable with
+     * three days to payday and a problem with twelve, and the same card shows
+     * both. Dividing by the days that remain is the whole point.
+     */
+    function renderFortnight(cashNow, free, nextPay, before) {
+      const payDay = nextPay ? String(nextPay).slice(0, 10) : null;
+      const dayMs = 86400000;
+      const d = iso => new Date(iso + 'T00:00:00');
+
+      // The cycle this pay ends: fourteen days back from the next one, which
+      // is right for a fortnightly cycle and close enough to read for others.
+      const step = { weekly: 7, fortnightly: 14, monthly: 30 }[String(income.myFreq || 'fortnightly').toLowerCase()] || 14;
+      const start = payDay ? new Date(d(payDay).getTime() - step * dayMs) : null;
+      const now = d(today());
+      const daysLeft = payDay ? Math.max(0, Math.round((d(payDay) - now) / dayMs)) : null;
+      const elapsed = start ? Math.min(step, Math.max(0, Math.round((now - start) / dayMs))) : 0;
+      const pct = Math.min(100, Math.max(0, (elapsed / step) * 100));
+
+      // Per day over the days that are left, not the days that have gone.
+      const perDay = (free != null && daysLeft != null && daysLeft > 0) ? free / daysLeft : free;
+      const committed = before && before.total != null ? before.total : 0;
+
+      const fmtDay = iso => d(iso).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      const tone = free == null ? '' : free < 0 ? 'color:var(--danger);' : free < 150 ? 'color:var(--warn);' : '';
+
+      if (free == null) {
+        return `<div class="fortnight">
+          <div class="fn-figure"><div class="fn-perday">—</div>
+          <div class="fn-sub">Tell the bot “balance 950” and this fills in.</div></div>
+        </div>`;
+      }
+
+      return `<div class="fortnight">
+        <div class="fn-dates">
+          <span>${start ? fmtDay(start.toISOString().slice(0, 10)) : 'This cycle'}</span>
+          <span>${payDay ? fmtDay(payDay) : ''}</span>
+        </div>
+        <div class="fn-track">
+          <div class="fn-elapsed" style="width:${pct}%;"></div>
+          <div class="fn-today" style="left:calc(${pct}% - 1px);"></div>
+        </div>
+
+        <div class="fn-figure">
+          <span class="fn-perday num" style="${tone}">${AUD(Math.max(0, perDay))}</span><span class="fn-perday-unit">a day</span>
+          <div class="fn-sub">${
+            daysLeft === 0 ? 'Payday today.'
+            : daysLeft === 1 ? 'One day until payday.'
+            : `${daysLeft} days until payday${committed ? `, with ${AUD(committed)} of bills still to come` : ''}.`
+          }</div>
+        </div>
+
+        <div class="fn-flow">
+          <div><span class="k">In the bank</span><span class="v num">${AUD(cashNow || 0)}</span></div>
+          ${committed ? `<div><span class="k">Still to pay</span><span class="v num">−${AUD(committed)}</span></div>` : ''}
+          <div><span class="k">Yours to spend</span><span class="v num" style="${tone}">${AUD(free)}</span></div>
+        </div>
+      </div>`;
     }
 
     /**
@@ -7608,7 +7705,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.5';
+    const FF_BUILD = '2026-11-01.6';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
