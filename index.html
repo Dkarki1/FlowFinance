@@ -4616,10 +4616,99 @@
       return schedule.debtFreeDate;
     }
     // Budget
+    /**
+     * Where it goes.
+     *
+     * The budget screen was a grid of editable ceilings — eight equal boxes,
+     * sorted alphabetically, every one the same size whether it was $30 over
+     * or $1,800 over. That is a form for entering numbers, not an answer to
+     * "what should I stop doing".
+     *
+     * This is ranked by how far over each category is, in dollars, because a
+     * category $1,800 over is not the same kind of problem as one $9 over and
+     * should not be the same size on screen. The categories with no budget at
+     * all are named as what they are: money that buys nothing and has nowhere
+     * to come from.
+     */
+    function renderSpendingVsPlan() {
+      const monthKey = getMonthKey();
+      const monthName = new Date().toLocaleDateString('en-AU', { month: 'long' });
+      const rows = (transactions || []).filter(t =>
+        t && isSpend(t) && String(t.date).startsWith(monthKey));
+
+      const spentBy = {};
+      rows.forEach(t => { spentBy[t.category] = (spentBy[t.category] || 0) + (+t.amount || 0); });
+
+      // Everything with a target or any spending, so a category you have
+      // stopped budgeting for cannot quietly disappear from the page.
+      const names = [...new Set([...Object.keys(budgets || {}), ...Object.keys(spentBy)])];
+
+      const cats = names.map(cat => {
+        const target = Number((budgets || {})[cat]) || 0;
+        const spent = spentBy[cat] || 0;
+        return { cat, target, spent, over: spent - target, pct: target > 0 ? (spent / target) * 100 : (spent > 0 ? 999 : 0) };
+      }).filter(c => c.target > 0 || c.spent > 0)
+        .sort((a, b) => b.over - a.over);
+
+      const totalTarget = cats.reduce((s, c) => s + c.target, 0);
+      const totalSpent  = cats.reduce((s, c) => s + c.spent, 0);
+
+      if (!rows.length) {
+        return `<div class="card">
+          <h2>${monthName} against your plan</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0;">
+            Nothing logged in ${monthName} yet. Send the bot a CSV, or text it as you spend, and this fills in.
+          </p>
+        </div>`;
+      }
+
+      const bar = c => {
+        const over = c.spent > c.target && c.target > 0;
+        const none = c.target === 0 && c.spent > 0;
+        const colour = none ? 'var(--neg)' : over ? 'var(--neg)' : c.pct > 80 ? 'var(--warn)' : 'var(--pos)';
+        // Over-spend is drawn past the full bar so the overshoot has a size,
+        // rather than every blown budget looking identically "100%".
+        const fill = c.target > 0 ? Math.min(100, c.pct) : 100;
+        const spill = c.target > 0 && c.pct > 100 ? Math.min(60, c.pct - 100) : 0;
+        return `
+          <div style="padding:var(--s3) 0;border-bottom:1px solid var(--border);">
+            <div class="flex-between" style="align-items:baseline;">
+              <span class="row-title">${c.cat}</span>
+              <span class="num" style="font-weight:600;">${AUD(c.spent)}${c.target > 0 ? ` <span class="text-muted" style="font-weight:400;">of ${AUD(c.target)}</span>` : ''}</span>
+            </div>
+            <div style="display:flex;gap:2px;margin-top:0.4rem;">
+              <div class="progress" style="flex:1 1 auto;height:6px;">
+                <div class="progress-fill" style="width:${fill}%;background:${colour};"></div>
+              </div>
+              ${spill ? `<div style="flex:0 0 ${spill}%;height:6px;border-radius:999px;background:repeating-linear-gradient(45deg,var(--neg),var(--neg) 3px,transparent 3px,transparent 6px);"></div>` : ''}
+            </div>
+            <div class="row-sub" style="margin-top:0.3rem;color:${none || over ? 'var(--neg)' : 'var(--text-muted)'};">${
+              none ? 'No budget for this — it comes out of something else'
+              : over ? `${AUD(c.over)} over`
+              : `${AUD(-c.over)} left`
+            }</div>
+          </div>`;
+      };
+
+      const worst = cats.filter(c => c.over > 0);
+      return `
+        <div class="card">
+          <div class="flex-between" style="align-items:baseline;">
+            <h2 style="margin:0;">${monthName} against your plan</h2>
+            <span class="num" style="font-weight:600;">${AUD(totalSpent)} <span class="text-muted" style="font-weight:400;">of ${AUD(totalTarget)}</span></span>
+          </div>
+          ${worst.length ? `<p class="text-muted" style="font-size:var(--f-foot);margin:var(--s2) 0 0;">
+            ${worst.length === 1 ? 'One category is' : `${worst.length} categories are`} over, led by <strong>${worst[0].cat}</strong> at ${AUD(worst[0].over)} above plan.
+          </p>` : `<p style="font-size:var(--f-foot);margin:var(--s2) 0 0;color:var(--pos);">Everything inside its target.</p>`}
+          <div style="margin-top:var(--s3);">${cats.map(bar).join('')}</div>
+        </div>`;
+    }
+
     function renderBudget() {
       const monthKey = getMonthKey();
       const categories = ['Housing', 'Utilities', 'Food', 'Transport', 'Health', 'Entertainment', 'Shopping', 'Other'];
       return `
+        ${renderSpendingVsPlan()}
         <div class="card">
           <h2>Budget ceilings</h2>
           <button class="btn-secondary btn-small" onclick="suggestBudgets()" style="margin-bottom: 1.5rem;">Auto-Suggest</button>
@@ -7705,7 +7794,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.6';
+    const FF_BUILD = '2026-11-01.7';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
