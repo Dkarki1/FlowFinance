@@ -904,17 +904,6 @@
     .stat-chip .v { font-size: 17px; font-weight: 650; letter-spacing: -0.02em; }
     @media (max-width: 380px) { .stat-chip .v { font-size: 15px; } }
 
-    /* Things that want doing, strongest first. */
-    .needs-item {
-      display: flex; gap: 0.7rem; align-items: flex-start;
-      padding: 0.65rem 0; border-bottom: 1px solid var(--border-soft);
-    }
-    .needs-item:last-child { border-bottom: 0; }
-    .needs-dot {
-      width: 8px; height: 8px; border-radius: 50%; margin-top: 0.45rem; flex: 0 0 8px;
-    }
-    .needs-title { font-size: 14px; font-weight: 600; }
-    .needs-detail { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
     /* The detail that used to be five stacked cards, folded away. */
     .more-detail > summary {
@@ -3007,7 +2996,6 @@
 
 
 
-        ${renderNeedsYouCard()}
         ${renderQuickLogCard()}
 
         <details class="more-detail card" style="padding-top:0;padding-bottom:0;">
@@ -3085,56 +3073,6 @@
           <div><span class="k">In the bank</span><span class="v num">${AUD(cashNow || 0)}</span></div>
           ${committed ? `<div><span class="k">Still to pay</span><span class="v num">−${AUD(committed)}</span></div>` : ''}
           <div><span class="k">Yours to spend</span><span class="v num" style="${tone}">${AUD(free)}</span></div>
-        </div>
-      </div>`;
-    }
-
-    /**
-     * The only part of home that asks for anything.
-     *
-     * The decisions come from the CFO snapshot, already ranked by severity,
-     * which means the phone and the website agree about what is urgent
-     * instead of each deciding for itself. Three at a time: a list of nine
-     * things to worry about is a list nobody reads.
-     */
-    function renderNeedsYouCard() {
-      // The snapshot is written by the bot on a schedule, so it can still
-      // hold a decision the engine has since stopped raising — end of
-      // financial year sat here for a day after it was removed. Filtering on
-      // read means retiring one takes effect immediately rather than whenever
-      // the next run happens.
-      const RETIRED = new Set(['eofy']);
-      const all = ((cfoSnapshot && cfoSnapshot.decisions) || [])
-        .filter(d => d && !RETIRED.has(d.id) && d.category !== 'tax');
-      const rank = { urgent: 0, soon: 1, watch: 2 };
-      const items = [...all]
-        .sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3))
-        .slice(0, 3);
-
-      if (!items.length) {
-        return `<div class="card">
-          <h2>Nothing needs you</h2>
-          <p class="text-muted" style="font-size:13px;margin:0;">No bills overdue, nothing tracking over budget. Log what you spend and it stays that way.</p>
-        </div>`;
-      }
-
-      const colour = (s) => s === 'urgent' ? 'var(--danger)' : s === 'soon' ? 'var(--warning)' : 'var(--text-muted)';
-      return `<div class="card">
-        <div class="flex-between" style="align-items:baseline;">
-          <h2 style="margin:0;">Needs you</h2>
-          ${all.length > 3 ? `<span class="text-muted" style="font-size:12px;">${all.length - 3} more in CFO</span>` : ''}
-        </div>
-        <div style="margin-top:var(--s2);">
-          ${items.map(d => `
-            <div class="group-row" style="padding-left:0;padding-right:0;">
-              <div style="display:flex;gap:var(--s3);align-items:flex-start;min-width:0;">
-                <div class="needs-dot" style="background:${colour(d.severity)};"></div>
-                <div class="row-main">
-                  <div class="row-title">${d.title || 'Needs attention'}</div>
-                  ${d.detail ? `<div class="row-sub">${d.detail}</div>` : ''}
-                </div>
-              </div>
-            </div>`).join('')}
         </div>
       </div>`;
     }
@@ -7801,7 +7739,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.8';
+    const FF_BUILD = '2026-11-01.9';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
