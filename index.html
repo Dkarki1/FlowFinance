@@ -2540,7 +2540,19 @@
      * payoff by 23 months. It mirrors shared/engines/avalanche.ts exactly, so
      * the chart and the Telegram bot can never disagree.
      */
+    /**
+     * `extraMonthly` is either one number for the whole portfolio, or a map of
+     * debtId -> extra for that debt specifically.
+     *
+     * One slider could only ever answer "what if I had more money", and the
+     * answer was always the same: it goes to the top priority debt. The real
+     * question is the one you can act on — I can find $300, most of it should
+     * hammer NAB but the ANZ promo ends in 2028 and I want it gone before
+     * then. That is an allocation, not an amount, and it needs a slider each.
+     */
     function simulatePayoffSchedule(extraMonthly = 0) {
+      const perDebtExtra = (extraMonthly && typeof extraMonthly === 'object') ? extraMonthly : null;
+      const flatExtra = perDebtExtra ? 0 : (Number(extraMonthly) || 0);
       const working = debts
         .filter(d => (d.balance || 0) > 0)
         .map(d => ({
@@ -2568,15 +2580,18 @@
           ? [...open].sort((a, b) => effectiveRate(b, month) - effectiveRate(a, month) || a.balance - b.balance)
           : [...open].sort((a, b) => a.balance - b.balance || effectiveRate(b, month) - effectiveRate(a, month));
 
-        // Freed minimums keep working. This is the rollover.
-        let pool = extraMonthly + working
+        // Freed minimums keep working. This is the rollover. An extra you had
+        // assigned to a debt that has since cleared rolls too — it was money
+        // you were finding each month, and it doesn't stop existing.
+        let pool = flatExtra + working
           .filter(d => d.balance <= 0.005)
-          .reduce((s, d) => s + d.minimum, 0);
+          .reduce((s, d) => s + d.minimum + (perDebtExtra ? (Number(perDebtExtra[d.id]) || 0) : 0), 0);
 
         for (const debt of working) {
           if (debt.balance <= 0.005) continue;
           const interest = debt.balance * effectiveRate(debt, month) / 100 / 12;
-          let payment = Math.min(debt.minimum, debt.balance + interest);
+          const assigned = perDebtExtra ? (Number(perDebtExtra[debt.id]) || 0) : 0;
+          let payment = Math.min(debt.minimum + assigned, debt.balance + interest);
           if (active.length && active[0].id === debt.id && pool > 0) {
             const applied = Math.min(pool, Math.max(debt.balance + interest - payment, 0));
             payment += applied;
@@ -4076,20 +4091,33 @@
         </div>` : ''}
         <div class="card">
           <h2>Extra payment simulator</h2>
-          <p class="text-muted" style="font-size: 13px; margin-bottom: 1rem;">See how extra cash speeds up each debt — then log it for real if you've got it spare.</p>
-          <div class="form-group"><label>Extra Monthly</label><input type="range" id="extraPayment" min="0" max="1000" value="0" step="50" style="width: 100%; cursor: pointer;"><div style="margin-top: 0.5rem; font-weight: 600; text-align: center;" id="extraPaymentValue">$0</div></div>
+          <p class="text-muted" style="font-size: 13px; margin-bottom: 1rem;">Give each debt its own extra. Money freed when one clears rolls onto the next.</p>
+          <div id="extraSliders">
+            ${sorted.filter(d => (d.balance || 0) > 0).map(d => `
+              <div style="margin-bottom:var(--s4);">
+                <div class="flex-between" style="align-items:baseline;">
+                  <label style="font-weight:600;font-size:var(--f-foot);">${d.name}</label>
+                  <span class="num" id="extraVal_${d.id}" style="font-weight:600;">$0</span>
+                </div>
+                <div class="text-muted" style="font-size:var(--f-caption);margin-bottom:0.35rem;">
+                  ${d.rate}%${d.promoEndDate ? ` until ${formatDate(d.promoEndDate)}` : ''} · minimum ${AUD(toMonthly(d.minPayment, d.minFreq || 'monthly'))}/mo
+                </div>
+                <input type="range" class="extra-slider" data-debt="${d.id}" min="0" max="1000" value="0" step="25" style="width:100%;cursor:pointer;">
+                <div class="text-muted" style="font-size:var(--f-caption);margin-top:0.25rem;" id="extraEffect_${d.id}"></div>
+              </div>`).join('')}
+          </div>
+          <div class="flex-between" style="padding:var(--s3) 0;border-top:1px solid var(--border);">
+            <span style="font-weight:600;">Total extra</span>
+            <span class="num" id="extraTotal" style="font-weight:700;">$0</span>
+          </div>
           <div id="payoffHeadline" style="margin-top: 1rem;"></div>
           <div class="chart-box" style="margin-top: 0.5rem;"><canvas id="payoffChart"></canvas></div>
           <p class="text-muted" style="font-size: 11px; margin-top: 0.5rem;">Every debt at once, with each cleared debt's minimum rolling onto the next — and promo rates ending on their actual date.</p>
           <div id="simulatorResults" style="margin-top: 1.5rem;"></div>
           ${sorted.length > 0 ? `
           <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
-            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 13px;">Put This Extra Toward</label>
-            <div class="form-row">
-              <select id="simulatorTargetDebt" style="flex: 1;">${sorted.map((d, i) => `<option value="${d.id}" ${i === 0 ? 'selected' : ''}>${d.name}</option>`).join('')}</select>
-              <button class="btn-primary" onclick="applySimulatorExtra()" style="flex: 0 0 auto;">Log This Payment</button>
-            </div>
-            <p class="text-muted" style="font-size: 11px; margin-top: 0.5rem;">Defaults to your top ${debtMethod === 'avalanche' ? 'avalanche (highest rate)' : 'snowball (smallest balance)'} priority debt — logs the slider amount as a real payment today.</p>
+            <button class="btn-primary" onclick="applySimulatorExtra()">Log these as real payments today</button>
+            <p class="text-muted" style="font-size: 11px; margin-top: 0.5rem;">Logs each slider's amount against its own debt.</p>
           </div>` : ''}
         </div>
         <div class="card">
@@ -4289,20 +4317,59 @@
         showToast('✓ Payment of ' + AUD(amount) + ' logged', 'success');
       }
     }
-    function applySimulatorExtra() {
-      const extra = parseFloat(document.getElementById('extraPayment')?.value || 0);
-      const debtId = parseInt(document.getElementById('simulatorTargetDebt')?.value);
-      if (!extra || extra <= 0) { showToast('Move the slider to set an extra amount first', 'error'); return; }
-      if (!debtId) { showToast('Choose which debt to pay extra toward', 'error'); return; }
-      if (payDebt(debtId, extra, today())) {
-        showToast('✓ Logged ' + AUD(extra) + ' extra payment', 'success');
-      }
+    /** What each slider currently holds, keyed by debt id. */
+    function readExtraSliders() {
+      const map = {};
+      document.querySelectorAll('.extra-slider').forEach(el => {
+        const v = Number(el.value) || 0;
+        if (v > 0) map[el.dataset.debt] = v;
+      });
+      return map;
     }
+
+    function applySimulatorExtra() {
+      const map = readExtraSliders();
+      const ids = Object.keys(map);
+      if (!ids.length) { showToast('Move a slider to set an extra amount first', 'error'); return; }
+      let logged = 0;
+      for (const id of ids) {
+        const debt = debts.find(d => String(d.id) === String(id));
+        if (debt && payDebt(debt.id, map[id], today())) logged += map[id];
+      }
+      if (logged) showToast('✓ Logged ' + AUD(logged) + ' across ' + ids.length + ' debt' + (ids.length === 1 ? '' : 's'), 'success');
+    }
+
     function updateSimulator() {
-      const extra = parseFloat(document.getElementById('extraPayment')?.value || 0);
-      document.getElementById('extraPaymentValue').textContent = '$' + extra.toLocaleString() + ' extra';
+      const map = readExtraSliders();
+      const total = Object.values(map).reduce((t, v) => t + v, 0);
+
+      // Each slider's own label, and what that extra does to that debt alone.
+      const base = simulatePayoffSchedule(0);
+      document.querySelectorAll('.extra-slider').forEach(el => {
+        const id = el.dataset.debt;
+        const v = Number(el.value) || 0;
+        const label = document.getElementById('extraVal_' + id);
+        if (label) label.textContent = '$' + v.toLocaleString();
+        const effect = document.getElementById('extraEffect_' + id);
+        if (!effect) return;
+        if (!v) { effect.textContent = ''; return; }
+        const was = base.cleared.find(c => String(c.id) === String(id));
+        const now = simulatePayoffSchedule(map).cleared.find(c => String(c.id) === String(id));
+        if (was && now && now.month < was.month) {
+          const saved = was.month - now.month;
+          effect.textContent = `clears ${saved} month${saved === 1 ? '' : 's'} sooner`;
+          effect.style.color = 'var(--pos)';
+        } else {
+          effect.textContent = 'no change on its own — it clears when the rollover reaches it';
+          effect.style.color = '';
+        }
+      });
+
+      const totalEl = document.getElementById('extraTotal');
+      if (totalEl) totalEl.textContent = '$' + total.toLocaleString() + '/mo';
+
       // Same basis as the chart above it — run once, not once per debt.
-      const sched = simulatePayoffSchedule(extra);
+      const sched = simulatePayoffSchedule(map);
       const results = debts.map(d => {
         // A debt already at $0 never "clears" inside the simulation, so it
         // came back as 9999+ years. It's paid off; say so.
@@ -4318,7 +4385,7 @@
         return `<div class="row-line flex-between"><strong>${d.name}</strong><span class="num">${timeStr}</span></div>`;
       }).join('');
       document.getElementById('simulatorResults').innerHTML = results || '<p class="text-muted">No debts</p>';
-      drawPayoffChart(extra);
+      drawPayoffChart(map);
     }
     /**
      * Draws the balance falling to zero, with a second line for the extra
@@ -4342,7 +4409,10 @@
         if (headline) headline.innerHTML = `<div style="padding:0.75rem; background:var(--bg); border-radius:8px; border-left:3px solid var(--danger);"><strong>These minimums never clear the balance.</strong><br><span class="text-muted" style="font-size:12px;">Interest is outrunning the payments. Any extra changes that.</span></div>`;
       }
 
-      const withExtra = extra > 0 ? simulatePayoffSchedule(extra) : null;
+      const anyExtra = typeof extra === 'object'
+        ? Object.values(extra).some(v => v > 0)
+        : extra > 0;
+      const withExtra = anyExtra ? simulatePayoffSchedule(extra) : null;
       const span = Math.max(base.months, withExtra ? withExtra.months : 0) + 1;
       const start = new Date();
       const labels = Array.from({ length: span }, (_, i) => {
@@ -7332,9 +7402,9 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
 
     /** The payoff slider is the one control that has to be wired after render. */
     function wireSimulator() {
-      const slider = document.getElementById('extraPayment');
-      if (!slider) return;
-      slider.addEventListener('input', updateSimulator);
+      const sliders = document.querySelectorAll('.extra-slider');
+      if (!sliders.length) return;
+      sliders.forEach(el => el.addEventListener('input', updateSimulator));
       updateSimulator();
     }
 
@@ -7493,7 +7563,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.2';
+    const FF_BUILD = '2026-11-01.3';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
