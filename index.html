@@ -3098,7 +3098,14 @@
      * things to worry about is a list nobody reads.
      */
     function renderNeedsYouCard() {
-      const all = (cfoSnapshot && cfoSnapshot.decisions) || [];
+      // The snapshot is written by the bot on a schedule, so it can still
+      // hold a decision the engine has since stopped raising — end of
+      // financial year sat here for a day after it was removed. Filtering on
+      // read means retiring one takes effect immediately rather than whenever
+      // the next run happens.
+      const RETIRED = new Set(['eofy']);
+      const all = ((cfoSnapshot && cfoSnapshot.decisions) || [])
+        .filter(d => d && !RETIRED.has(d.id) && d.category !== 'tax');
       const rank = { urgent: 0, soon: 1, watch: 2 };
       const items = [...all]
         .sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3))
@@ -7794,7 +7801,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.7';
+    const FF_BUILD = '2026-11-01.8';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
