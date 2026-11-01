@@ -2870,11 +2870,26 @@
       // expectedPayDates returns Date objects and this compared them to a
       // string, so it never matched and always showed the stale stored date.
       const nextPay = nextPayOnOrAfter(income.myNextPay, income.myFreq, today());
-      const cashNow = cash && cash.estimatedNow != null ? cash.estimatedNow : null;
+      /* The accounts win over the snapshot.
+       *
+       * cfoSnapshot.cash.estimatedNow is the last balance the bot was told,
+       * plus everything logged since. That is the right answer when there is
+       * one account and the ledger is current — and badly wrong otherwise: it
+       * read $5,987 here, being a stale $185.95 plus a pay that had been
+       * logged twice, while the accounts themselves held $950.
+       *
+       * A figure you can point at beats a figure that was derived. */
+      const live = spendableAccounts();
+      const cashNow = live.length
+        ? live.reduce((t, a) => t + (Number(a.amount) || 0), 0)
+        : (cash && cash.estimatedNow != null ? cash.estimatedNow : null);
 
       // The headline. Falls back to plain cash when the snapshot hasn't been
       // written yet, and says which one it is rather than quietly differing.
-      const free = before && before.cashLeftIfAllPaid != null ? before.cashLeftIfAllPaid : cashNow;
+      // Derived from cashNow, not taken from the snapshot: the two must agree,
+      // or the hero subtracts bills from one balance and names another.
+      const free = cashNow == null ? null
+        : cashNow - (before && before.total != null ? before.total : 0);
       const dueCount = before && Array.isArray(before.bills) ? before.bills.length : 0;
       const dueTotal = before && before.total != null ? before.total : 0;
       const payLabel = nextPay ? formatDate(nextPay) : null;
@@ -7478,7 +7493,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.1';
+    const FF_BUILD = '2026-11-01.2';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
