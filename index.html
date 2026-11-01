@@ -6132,19 +6132,32 @@
       const totalOut = monthTx.filter(t => t.type==='expense').reduce((s,t)=>s+t.amount,0);
       const saved = Math.max(0, totalIn - totalOut);
       const sr = totalIn > 0 ? Math.round((saved/totalIn)*100) : 0;
+      /* Two blocks, labelled.
+       *
+       * This used to open with Income $6,285 and say "no income logged" five
+       * lines later, because the top half was projected from the bills and pay
+       * you have configured while the bottom half counted what was actually
+       * recorded. Both were right. Neither said which it was, so the report
+       * read as though it contradicted itself — and a report you have to
+       * decode is worse than no report. */
+      const logged = monthTx.length;
       const report = `FlowFinance Monthly Report — ${monthLabel}
 ${'='.repeat(45)}
-Income:         ${AUD(monthlyIncome())}
-Bills:          ${AUD(monthlyBillsTotal())}
-Debt Mins:      ${AUD(monthlyDebtMin())}
-Surplus:        ${AUD(monthlySurplus())}
-Savings Rate:   ${currentSavingsRate() === null ? 'n/a (no income logged)' : currentSavingsRate() + '%'}
-Net Worth:      ${AUD(netWorth())}
-Total Debt:     ${AUD(totalDebt())}
+EXPECTED — from your bills, pay and debts
+  Income:       ${AUD(monthlyIncome())}
+  Bills:        ${AUD(monthlyBillsTotal())}
+  Debt mins:    ${AUD(monthlyDebtMin())}
+  Surplus:      ${AUD(monthlySurplus())}
 
-Transactions This Month: ${monthTx.length}
-  Income logged:   ${AUD(totalIn)}
-  Expenses logged: ${AUD(totalOut)}
+ACTUAL — what has been logged in ${monthLabel}
+  Transactions: ${logged}${logged === 0 ? '   <- nothing logged yet' : ''}
+  Income:       ${AUD(totalIn)}
+  Spending:     ${AUD(totalOut)}
+  Savings rate: ${currentSavingsRate() === null ? (logged === 0 ? 'n/a — nothing logged' : 'n/a — no income logged') : currentSavingsRate() + '%'}
+
+POSITION — today, whatever has been logged
+  Net worth:    ${AUD(netWorth())}
+  Total debt:   ${AUD(totalDebt())}
 
 Debts:
 ${debts.map(d=>'  '+d.name+': '+AUD(d.balance)+' @ '+d.rate+'%').join('\n')||'  None'}
@@ -7563,7 +7576,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.3';
+    const FF_BUILD = '2026-11-01.4';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
