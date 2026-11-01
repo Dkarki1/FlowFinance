@@ -2129,6 +2129,7 @@
     let bills = [];
     let budgets = {};
     let assets = [];
+    let accounts = [];   // more than one bank account; see snapCash()
     let goals = [];
     let txTemplates = [];
     let superData = { balance: 0, contributions: 0, freq: 'monthly', employerRate: 12, retirementAge: 67, currentAge: 30 };
@@ -2239,8 +2240,26 @@
      * one, savings deposits the other. A second copy here would be stale the
      * day after it was typed. Anything the bot doesn't track — a car, super,
      * a bike — still goes in the assets list by hand. */
-    const snapCash = () => Number(cfoSnapshot && cfoSnapshot.cash && cfoSnapshot.cash.estimatedNow) || 0;
-    const snapSavings = () => Number(cfoSnapshot && cfoSnapshot.emergencyFund && cfoSnapshot.emergencyFund.currentSavings) || 0;
+    /* Spendable cash across every account, not one of them.
+     *
+     * Bills are paid from whichever account holds the money, so "is there
+     * enough before payday" is a question about the total. An account marked
+     * setAside — the emergency fund — is deliberately NOT in it: money you
+     * have promised yourself you won't touch is not this fortnight's money,
+     * and counting it makes the one figure on the home screen a lie in the
+     * only direction that matters. */
+    const spendableAccounts = () => (accounts || []).filter(a => a && !a.setAside);
+    const setAsideAccounts  = () => (accounts || []).filter(a => a && a.setAside);
+    const snapCash = () => {
+      const live = spendableAccounts();
+      if (live.length) return live.reduce((t, a) => t + (Number(a.amount) || 0), 0);
+      return Number(cfoSnapshot && cfoSnapshot.cash && cfoSnapshot.cash.estimatedNow) || 0;
+    };
+    const snapSavings = () => {
+      const aside = setAsideAccounts();
+      if (aside.length) return aside.reduce((t, a) => t + (Number(a.amount) || 0), 0);
+      return Number(cfoSnapshot && cfoSnapshot.emergencyFund && cfoSnapshot.emergencyFund.currentSavings) || 0;
+    };
     const manualAssets = () => assets.reduce((s,a)=>s+(a.value||0),0);
     const totalAssets = () => manualAssets() + snapCash() + snapSavings();
     const netWorth = () => totalAssets() - totalDebt();
@@ -2344,7 +2363,7 @@
           'bills', 'budgets', 'assets', 'checklistDone', 'debtMethod', 'goals',
           'goalContributions', 'netWorthHistory', 'txTemplates', 'superData',
           'debtMilestones', 'savingsRateHistory', 'themeMode', 'darkMode',
-          'netWorthMilestones', 'paydayChecklistDone', 'cfoSnapshot',
+          'netWorthMilestones', 'paydayChecklistDone', 'cfoSnapshot', 'accounts',
           'pendingConfirmations'
         ];
         const values = await Promise.all(KEYS.map(k => fbGet(k)));
@@ -2359,6 +2378,7 @@
         if (got.bills) bills = Array.isArray(got.bills) ? got.bills : [];
         if (got.budgets) budgets = got.budgets;
         if (got.assets) assets = Array.isArray(got.assets) ? got.assets : [];
+        if (got.accounts) accounts = Array.isArray(got.accounts) ? got.accounts : Object.values(got.accounts || {});
         if (got.checklistDone) checklistDone = got.checklistDone;
         if (got.debtMethod) debtMethod = got.debtMethod;
         if (got.goals) goals = Array.isArray(got.goals) ? got.goals : [];
@@ -2874,11 +2894,19 @@
           <div class="hero-label">Free to spend before payday</div>
           <div class="hero-value num" style="${heroColour}">${free == null ? '—' : AUD(free)}</div>
           <div class="hero-note">${heroNote}</div>
+          ${(accounts || []).length > 1 ? `
+            <div style="display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border);">
+              ${accounts.map(a => `
+                <div>
+                  <div style="font-size:var(--f-caption);color:var(--text-muted);">${a.name}${a.setAside ? ' · set aside' : ''}</div>
+                  <div class="num" style="font-weight:600;">${AUD(Number(a.amount) || 0)}</div>
+                </div>`).join('')}
+            </div>` : ''}
         </div>
 
         <div class="stat-strip">
           <div class="stat-chip">
-            <span class="k">In the bank</span>
+            <span class="k">${spendableAccounts().length > 1 ? 'Across ' + spendableAccounts().length + ' accounts' : 'In the bank'}</span>
             <span class="v num">${cashNow == null ? '—' : AUD(cashNow)}</span>
           </div>
           <div class="stat-chip">
@@ -7450,7 +7478,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-10-04.4';
+    const FF_BUILD = '2026-11-01.1';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
