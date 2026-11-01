@@ -1715,18 +1715,45 @@
     .chart-box > canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
     @media (max-width: 480px) { .chart-box { height: 220px; } }
 
-    /* Loading: the shape of the page, not a spinner over a blank screen. */
-    @keyframes ff-shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+    /* Loading.
+     *
+     * Two things were wrong with the grey bars. They were generic — three
+     * cards of lines, which is not the shape of any screen in this app — so
+     * the layout still jumped when the real thing arrived, which is the one
+     * problem a skeleton exists to prevent.
+     *
+     * And since the load became a single round trip they mostly flashed. A
+     * placeholder you see for 150ms is worse than a blank moment: the eye
+     * catches the change, not the content. So nothing is drawn for the first
+     * 400ms, and the skeleton only fades in if the wait is long enough to
+     * actually need explaining.
+     *
+     * The shimmer is gone too. A gradient sliding across the screen draws the
+     * eye to the one part of the page carrying no information. A quiet pulse
+     * says "working" without asking to be watched. */
+    @keyframes ff-skel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    @keyframes ff-skel-in    { from { opacity: 0; } to { opacity: 1; } }
+
+    .skeleton-wrap {
+      /* Invisible until the wait is worth mentioning. `both` holds the
+         from-state during the delay, which is the whole trick. */
+      animation: ff-skel-in 0.25s ease 0.4s both;
+    }
     .skeleton {
-      border-radius: var(--r-sm);
-      background: linear-gradient(90deg, var(--surface) 25%, var(--border) 37%, var(--surface) 63%);
-      background-size: 200% 100%;
-      animation: ff-shimmer 1.4s linear infinite;
+      border-radius: var(--r1);
+      background: var(--surface);
+      animation: ff-skel-pulse 1.8s ease-in-out infinite;
       color: transparent !important;
     }
     .skeleton-line { height: 12px; margin-bottom: 0.6rem; }
     .skeleton-line.tall { height: 28px; width: 60%; margin-bottom: 0.9rem; }
     .skeleton-line.short { width: 40%; }
+
+    /* The real shapes, so nothing moves when the content lands. */
+    .skel-hero  { height: 132px; border-radius: var(--r3); margin-bottom: var(--s3); }
+    .skel-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: var(--s3); }
+    .skel-chip  { height: 62px; border-radius: var(--r2); }
+    .skel-card  { height: 150px; border-radius: var(--r3); margin-bottom: var(--s3); }
 
     @media (prefers-reduced-motion: reduce) {
       #mainContent > *, .progress-fill, .skeleton { animation: none !important; }
@@ -7399,13 +7426,18 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
 
       const content = document.getElementById('mainContent');
       if (appLoading) {
-        // The shape of what's coming. A spinner over a blank screen tells you
-        // nothing, and the layout jumping in afterwards feels broken.
-        const card = lines => `<div class="card">${lines}</div>`;
-        content.innerHTML = subnav +
-          card('<div class="skeleton skeleton-line tall"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div>') +
-          card('<div class="skeleton skeleton-line tall"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div>') +
-          card('<div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div>');
+        // The actual shape of the home screen — hero, three chips, a card —
+        // so the page settles rather than rearranging itself.
+        content.innerHTML = subnav + `
+          <div class="skeleton-wrap">
+            <div class="skeleton skel-hero"></div>
+            <div class="skel-strip">
+              <div class="skeleton skel-chip"></div>
+              <div class="skeleton skel-chip"></div>
+              <div class="skeleton skel-chip"></div>
+            </div>
+            <div class="skeleton skel-card"></div>
+          </div>`;
         return;
       }
       content.innerHTML = subnav + section.render();
@@ -7576,7 +7608,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-01.4';
+    const FF_BUILD = '2026-11-01.5';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
