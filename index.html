@@ -1872,7 +1872,7 @@
       if (!haystack) return out('unknown', 'guess', 'nothing to go on but the amount');
 
       const packaging = hasIncomeWord(haystack, PACKAGING_WORDS);
-      if (packaging) return out('packaging', 'certain', `${packaging} is a salary-packaging provider, not a second wage — check it isn't also inside your gross pay`);
+      if (packaging) return out('packaging', 'certain', `${packaging} is salary packaging routed around your tax, not a second wage`);
 
       for (const pat of ctx.employerPatterns || []) {
         const pk = merchantKey(pat);
@@ -8290,7 +8290,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-02.3';
+    const FF_BUILD = '2026-11-02.4';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
