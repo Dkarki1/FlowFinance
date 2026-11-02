@@ -127,6 +127,10 @@
   html {
     background: var(--bg);
     -webkit-text-size-adjust: 100%;
+    /* Tabbing scrolls only to the viewport edge, which on this layout is
+     * underneath the sticky header or the fixed bottom bar. */
+    scroll-padding-top: 76px;
+    scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
   html, body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -157,10 +161,11 @@
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
 
+  /* No border-radius here: it was overriding the pill and circle radii of
+   * whatever had focus, so controls changed shape when tabbed to. */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 4px;
   }
 
   /* An inline SVG with no intrinsic size expands to fill its parent, so the
@@ -287,6 +292,7 @@
   }
 
   /* ── main ────────────────────────────────────────────────────────────── */
+  main:focus { outline: none; }
   main {
     display: block;
     padding: var(--s4);
@@ -550,8 +556,9 @@
     transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
   }
   textarea { min-height: 88px; resize: vertical; }
-  input:focus, select:focus, textarea:focus {
-    outline: none;
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
@@ -754,9 +761,13 @@
     background: var(--surface);
     color: var(--text-muted);
   }
-  .bill-state.pos, .bill-state.success, .bill-state.paid  { background: var(--pos-soft);  color: var(--pos); }
-  .bill-state.neg, .bill-state.danger, .bill-state.overdue{ background: var(--neg-soft);  color: var(--neg); }
-  .bill-state.warn, .bill-state.warning, .bill-state.due  { background: var(--warn-soft); color: var(--warn); }
+  /* The renderer emits good / bad / watch / muted. Earlier versions of this
+   * block listed pos / neg / warn, which match nothing the app produces, so
+   * every bill pill rendered neutral grey whatever its state. */
+  .bill-state.good, .bill-state.pos, .bill-state.success, .bill-state.paid    { background: var(--pos-soft);  color: var(--pos); }
+  .bill-state.bad,  .bill-state.neg, .bill-state.danger,  .bill-state.overdue { background: var(--neg-soft);  color: var(--neg); }
+  .bill-state.watch,.bill-state.warn,.bill-state.warning, .bill-state.due     { background: var(--warn-soft); color: var(--warn); }
+  .bill-state.muted { background: var(--surface-2); color: var(--text-muted); }
   .bill-actions { display: flex; gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap; }
   .bill-remove {
     appearance: none; background: none; border: 0; cursor: pointer;
@@ -845,6 +856,8 @@
     text-decoration: line-through;
   }
   .checklist-checkbox {
+    appearance: none; background: none; padding: 0;
+    position: relative;
     width: 24px; height: 24px; flex: 0 0 24px;
     border: 1.5px solid var(--border-strong);
     border-radius: 7px;
@@ -864,6 +877,20 @@
   }
   body.dark .checklist-checkbox.checked::after { border-color: #06212A; }
   .checklist-label { font-size: var(--f-body); flex: 1; }
+  /* 24px is the right size to look at and the wrong size to hit. */
+  .checklist-checkbox::before { content: ""; position: absolute; inset: -10px; }
+
+  /* Priority was an 8px dot in hard-coded hex, meaning carried by hue alone
+   * and the only label a title attribute, which a phone never shows. */
+  .priority { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    font-size: var(--f-caption); font-weight: 600; color: var(--text-muted); }
+  .priority-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+  .priority.critical .priority-dot { background: var(--neg); }
+  .priority.critical { color: var(--neg); }
+  .priority.high .priority-dot { background: var(--warn); }
+  .priority.high { color: var(--warn); }
+  .priority.medium .priority-dot { background: var(--accent); }
+  .priority.habit .priority-dot { background: var(--pos); }
 
   /* ── afford verdict ──────────────────────────────────────────────────── */
   .afford-result {
@@ -1002,6 +1029,8 @@
   }
 
   /* ── loading ─────────────────────────────────────────────────────────── */
+  .toast[hidden] { display: none; }
+
   .loading {
     position: fixed; inset: 0;
     z-index: 400;
@@ -1068,6 +1097,7 @@
   }
   .auth-input { margin-bottom: var(--s3); }
   .auth-forgot {
+    appearance: none; background: none; border: 0; font: inherit; text-align: left;
     display: block;
     font-size: var(--f-foot);
     color: var(--accent);
@@ -1182,10 +1212,10 @@
     <div class="auth-title">FlowFinance</div>
     <div class="auth-sub" id="authSub">Sign in to your account</div>
     <div class="auth-card">
-      <input type="email" id="authEmail" class="auth-input" placeholder="Email" autocomplete="email">
-      <input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password">
-      <a class="auth-forgot" id="authForgotLink" onclick="authForgotPassword()">Forgot password?</a>
-      <div class="auth-error" id="authError"></div>
+      <input type="email" id="authEmail" class="auth-input" placeholder="Email" aria-label="Email" autocomplete="email">
+      <input type="password" id="authPassword" class="auth-input" placeholder="Password" aria-label="Password" autocomplete="current-password">
+      <button type="button" class="auth-forgot" id="authForgotLink" onclick="authForgotPassword()">Forgot password?</button>
+      <div class="auth-error" id="authError" role="alert"></div>
       <button class="auth-btn-primary" id="authSubmitBtn" onclick="authSubmit()">Log In</button>
       <div class="auth-divider">or</div>
       <button class="auth-btn-google" onclick="authGoogleSignIn()">Continue with Google</button>
@@ -1221,7 +1251,7 @@
   <!-- Main Content -->
   <main id="mainContent"></main>
   <!-- Loading Overlay -->
-  <div class="loading hidden" id="loadingOverlay">
+  <div class="loading hidden" id="loadingOverlay" role="status">
     <div class="spinner"></div>
     <div>Syncing...</div>
   </div>
@@ -1598,12 +1628,29 @@
     // Insights' own view toggle is gone — those four views are sections of the
     // Spending tab now, and the sub-nav is generated from NAV.
     let toolsView = 'afford'; // session-only: 'afford' | 'windfall' | 'currency'
+    /**
+     * A toast is the only confirmation most actions give, and a freshly
+     * created div is announced by nothing. The live region has to already
+     * exist for a screen reader to be watching it, so one persistent node is
+     * reused and only its text changes. Errors go out as alert rather than
+     * status so they interrupt. Four seconds, not three: three is short if
+     * you are reading it rather than glancing at it.
+     */
+    let _toastTimer = null;
     function showToast(msg, type = 'default') {
-      const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
-      toast.textContent = msg;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      let el = document.getElementById('toastRegion');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'toastRegion';
+        document.body.appendChild(el);
+      }
+      el.className = `toast ${type}`;
+      el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+      el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+      el.textContent = msg;
+      el.hidden = false;
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => { el.hidden = true; el.textContent = ''; }, 4000);
     }
     // Loading
     function showLoading() {
@@ -2078,7 +2125,8 @@
                 onclick="switchTab('${t.id}')" aria-current="${currentTab === t.id ? 'page' : 'false'}">
           <span class="bnav-icon">${ICON[t.icon] || ''}</span>${t.short || t.label}
         </button>`).join('') + `
-        <button class="bnav-item ${!onPrimary || currentTab === 'progress' ? 'active' : ''}" onclick="openMoreSheet()">
+        <button class="bnav-item bnav-more ${!onPrimary || currentTab === 'progress' ? 'active' : ''}"
+                aria-haspopup="dialog" onclick="openMoreSheet()">
           <span class="bnav-icon">${ICON.more}</span>More
         </button>`;
 
@@ -2088,24 +2136,57 @@
       if (grid) {
         grid.innerHTML = NAV.map(t => t.sections.length === 1
           ? `<button class="more-item ${currentTab === t.id ? 'active' : ''}"
-                     onclick="switchTab('${t.id}'); closeMoreSheet();">${ICON[t.icon] || ''}${t.label}</button>`
+                     onclick="switchTab('${t.id}'); closeMoreSheet(false);">${ICON[t.icon] || ''}${t.label}</button>`
           : `<div class="more-group"><div class="more-group-label">${ICON[t.icon] || ''}${t.label}</div>` +
             t.sections.map(s => `<button class="more-item ${currentTab === t.id && currentSection === s.id ? 'active' : ''}"
-                     onclick="switchTab('${t.id}', '${s.id}'); closeMoreSheet();">${s.label}</button>`).join('') +
+                     onclick="switchTab('${t.id}', '${s.id}'); closeMoreSheet(false);">${s.label}</button>`).join('') +
             `</div>`
         ).join('');
       }
     }
 
 
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMoreSheet(); });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('moreSheet')?.classList.contains('open')) closeMoreSheet();
+    });
 
+    /**
+     * The More sheet is a dialog, so it has to behave like one.
+     *
+     * It had role="dialog" and nothing else: focus stayed on the page behind
+     * the backdrop, Tab walked through the screen you could no longer see,
+     * and closing it dropped focus to <body> so a keyboard user restarted
+     * from the top of the app. Escape and a backdrop tap were the only ways
+     * out, neither of which a screen-reader user can discover.
+     *
+     * Marking the siblings inert is the whole trap: it takes them out of the tab
+     * order and out of the accessibility tree at once. Focus returns by
+     * selector rather than by element, because openMoreSheet re-renders the
+     * bottom nav first and that detaches the button that was clicked.
+     */
     function openMoreSheet() {
       renderBottomNav();
-      document.getElementById('moreSheet')?.classList.add('open');
+      const sheet = document.getElementById('moreSheet');
+      if (!sheet) return;
+      sheet.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      ['mainContent', 'bottomNav', 'tabNav'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.inert = true;
+      });
+      document.querySelector('header')?.setAttribute('inert', '');
+      sheet.querySelector('.more-item.active, .more-item')?.focus();
     }
-    function closeMoreSheet() {
-      document.getElementById('moreSheet')?.classList.remove('open');
+    function closeMoreSheet(returnFocus = true) {
+      const sheet = document.getElementById('moreSheet');
+      if (!sheet || !sheet.classList.contains('open')) return;
+      sheet.classList.remove('open');
+      document.body.style.overflow = '';
+      ['mainContent', 'bottomNav', 'tabNav'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.inert = false;
+      });
+      document.querySelector('header')?.removeAttribute('inert');
+      if (returnFocus) document.querySelector('#bottomNav .bnav-more')?.focus();
     }
 
     /**
@@ -2119,8 +2200,16 @@
       if (location.hash.replace(/^#/, '') !== route()) history.replaceState(null, '', '#' + route());
       renderTabs();
       renderMain();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // A new screen: focus goes to it rather than staying wherever it was,
+      // and the title changes so the route is announced.
+      const main = document.getElementById('mainContent');
+      if (main) { main.tabIndex = -1; main.focus({ preventScroll: true }); }
+      document.title = `${r.section.label === r.tab.label ? r.tab.label : r.section.label + ' – ' + r.tab.label} – FlowFinance`;
+      window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     }
+    const prefersReducedMotion = () =>
+      window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     const route = () => tabById(currentTab)?.sections.length > 1
       ? `${currentTab}/${currentSection}` : currentTab;
     function setSection(id) { switchTab(currentTab, id); }
@@ -2329,7 +2418,7 @@
           <span>${payDay ? fmtDay(payDay) : ''}</span>
         </div>
         <div class="fn-track" role="img"
-             aria-label="Day ${elapsed + 1} of ${step} in this pay cycle.">
+             aria-label="Day ${Math.min(elapsed + 1, step)} of ${step} in this pay cycle.">
           ${Array.from({ length: step }, (_, i) =>
             `<span class="fn-seg${i < elapsed ? ' gone' : i === elapsed ? ' today' : ''}"></span>`
           ).join('')}
@@ -3410,8 +3499,8 @@
         <div class="card">
           <h2>Payoff strategy</h2>
           <div class="toggle-group">
-            <button class="toggle-btn ${debtMethod === 'avalanche' ? 'active' : ''}" onclick="setDebtMethod('avalanche')">Avalanche</button>
-            <button class="toggle-btn ${debtMethod === 'snowball' ? 'active' : ''}" onclick="setDebtMethod('snowball')">Snowball</button>
+            <button class="toggle-btn ${debtMethod === 'avalanche' ? 'active' : ''}" aria-pressed="${debtMethod === 'avalanche'}" onclick="setDebtMethod('avalanche')">Avalanche</button>
+            <button class="toggle-btn ${debtMethod === 'snowball' ? 'active' : ''}" aria-pressed="${debtMethod === 'snowball'}" onclick="setDebtMethod('snowball')">Snowball</button>
           </div>
         </div>
         <div class="grid-4">
@@ -4117,8 +4206,8 @@
       const toggle = `
         <div class="card">
           <div class="toggle-group">
-            <button class="toggle-btn ${checklistView === 'payday' ? 'active' : ''}" onclick="setChecklistView('payday')">Payday</button>
-            <button class="toggle-btn ${checklistView === 'monthly' ? 'active' : ''}" onclick="setChecklistView('monthly')">Monthly</button>
+            <button class="toggle-btn ${checklistView === 'payday' ? 'active' : ''}" aria-pressed="${checklistView === 'payday'}" onclick="setChecklistView('payday')">Payday</button>
+            <button class="toggle-btn ${checklistView === 'monthly' ? 'active' : ''}" aria-pressed="${checklistView === 'monthly'}" onclick="setChecklistView('monthly')">Monthly</button>
           </div>
         </div>`;
       return toggle + (checklistView === 'monthly' ? renderChecklist() : renderPaydayChecklist());
@@ -4160,14 +4249,16 @@
       `;
     }
     function renderChecklistTask(task, isChecked, monthKey) {
-      const priorityColor = { 'Critical': '#FF3B30', 'High': '#FF9500', 'Medium': '#FFCC00', 'Habit': '#34C759' };
+      const labelId = 'cl-' + String(task.key).replace(/[^a-zA-Z0-9_-]/g, '');
+      const priority = String(task.priority || '').toLowerCase();
       return `
         <div class="checklist-task ${isChecked ? 'done' : ''}">
-          <div class="checklist-checkbox ${isChecked ? 'checked' : ''}" onclick="toggleChecklistTask('${task.key}', '${monthKey}')">
-            ${isChecked ? '✓' : ''}
-          </div>
-          <div class="checklist-label">${task.label}</div>
-          <span style="width:8px;height:8px;border-radius:50%;background:${priorityColor[task.priority] || 'var(--success)'};flex-shrink:0;display:inline-block;" title="${task.priority}"></span>
+          <button type="button" role="checkbox" aria-checked="${isChecked ? 'true' : 'false'}"
+                  aria-labelledby="${labelId}"
+                  class="checklist-checkbox ${isChecked ? 'checked' : ''}"
+                  onclick="toggleChecklistTask('${task.key}', '${monthKey}')"></button>
+          <div class="checklist-label" id="${labelId}">${task.label}</div>
+          ${task.priority ? `<span class="priority ${priority}"><span class="priority-dot"></span>${task.priority}</span>` : ''}
         </div>
       `;
     }
@@ -6862,6 +6953,40 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       });
     }
 
+
+    /**
+     * Keep the keyboard user's place across a re-render.
+     *
+     * Every toggle, checkbox and section button rebuilds the whole of
+     * #mainContent, which removes the element that was focused and drops
+     * focus to <body> — so after ticking one checklist item you were back at
+     * the top of the app and had to tab down again for the next one. The
+     * element cannot be put back because it no longer exists, so what is
+     * remembered is how to find its replacement: its id, or its position
+     * among the elements matching its class.
+     *
+     * Returns a function to call once the new HTML is in place. It only
+     * restores focus if the render actually took it, so it never steals it.
+     */
+    function rememberFocus(container) {
+      const el = document.activeElement;
+      if (!el || !container.contains(el)) return () => {};
+      const cls = (el.className || '').toString().trim().split(/\s+/)[0];
+      const key = el.id
+        ? { by: 'id', v: el.id }
+        : cls
+          ? { by: 'cls', v: cls, i: [...container.querySelectorAll('.' + CSS.escape(cls))].indexOf(el) }
+          : null;
+      return () => {
+        if (!key) return;
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const next = key.by === 'id'
+          ? container.querySelector('#' + CSS.escape(key.v))
+          : container.querySelectorAll('.' + CSS.escape(key.v))[key.i];
+        if (next && typeof next.focus === 'function') next.focus({ preventScroll: true });
+      };
+    }
+
     function renderMain() {
       const tab = tabById(currentTab) || NAV[0];
       const section = tab.sections.find(x => x.id === currentSection) || tab.sections[0];
@@ -6890,8 +7015,10 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
           </div>`;
         return;
       }
+      const resume = rememberFocus(content);
       content.innerHTML = subnav + section.render();
       nameTheControls(content);
+      resume();
       // Charts need a laid-out parent before Chart.js can size them.
       if (section.after) setTimeout(section.after, 0);
     }
@@ -6934,7 +7061,11 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       // forever — which is what happened on 13 Sept. With a width-based ratio
       // instead, a 300×150 chart became 650px tall on a wide screen.
       C.defaults.maintainAspectRatio = false;
-      C.defaults.animation = { duration: 320, easing: 'easeOutQuart' };
+      // Chart.js animates on canvas, which the reduced-motion media query
+      // in the stylesheet cannot reach.
+      C.defaults.animation = prefersReducedMotion()
+        ? false
+        : { duration: 320, easing: 'easeOutQuart' };
       C.defaults.elements.bar.borderRadius = 4;
       C.defaults.elements.line.tension = 0.35;
       C.defaults.elements.point.radius = 0;
@@ -7092,8 +7223,12 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
   <!-- Phone navigation. Hidden above 768px. -->
   <nav class="bottom-nav" id="bottomNav" aria-label="Main"></nav>
   <div class="more-sheet" id="moreSheet" onclick="if(event.target===this) closeMoreSheet()">
-    <div class="more-panel" role="dialog" aria-label="All sections">
+    <div class="more-panel" role="dialog" aria-modal="true" aria-label="All sections" tabindex="-1">
       <div class="more-grip"></div>
+      <button type="button" class="more-close btn-icon" onclick="closeMoreSheet()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+             stroke-linecap="round" aria-hidden="true"><path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6"/></svg>
+      </button>
       <div class="more-grid" id="moreGrid"></div>
     </div>
   </div>
