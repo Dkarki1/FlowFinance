@@ -468,6 +468,14 @@
     border-bottom: 1px solid var(--border);
   }
   .row-line:last-child { border-bottom: 0; }
+  /* .row-line lays its children across. Where a row has to stack — a heading,
+   * a line of detail, then a control — it needs to be a block, or the detail
+   * ends up in a column beside the heading. */
+  .row-stack {
+    padding: var(--s3) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .row-stack:last-child { border-bottom: 0; }
   .row-main  { min-width: 0; flex: 1; }
   .row-title { font-weight: 500; }
   .row-sub, .row-meta {
@@ -517,6 +525,21 @@
   .btn-small:hover { background: var(--surface-2); }
   .btn-small { position: relative; }
   .btn-small::after { content: ""; position: absolute; inset: -5px -2px; }
+
+  /* Two small buttons side by side each expand their hit area by 5px, so with
+   * less than 10px between them the expansions overlap and a tap near the
+   * boundary lands on whichever is painted last. That is tolerable between two
+   * harmless actions and not between "Paid one" and "Remove", so any row
+   * holding a destructive action keeps them far enough apart to be distinct.
+   * The margin-top also stops the expansion colliding with the row above. */
+  .row-actions {
+    display: flex; flex-wrap: wrap; gap: var(--s4);
+    margin-top: var(--s4);
+  }
+  /* And a real 44px rather than a borrowed one. The ::after expansion gets the
+   * dense buttons elsewhere to about 43px, which is fine where every action is
+   * harmless; it is not fine on a row whose other button deletes something. */
+  .row-actions .btn-small { margin: 0; min-height: 44px; }
 
   .btn-icon {
     padding: var(--s2);
@@ -1317,13 +1340,30 @@
         return null;
       }
     }
+    /**
+     * Writes one node, and says so when it doesn't.
+     *
+     * This used to catch every failure and only console.error it, while the
+     * caller went on to renderAll() regardless — so a write the database
+     * rejected appeared on screen exactly as if it had saved, and was gone on
+     * the next load. A rules change, a validation error or a signed-out
+     * session were all silent.
+     *
+     * The write still isn't retried here: the Firebase SDK queues writes while
+     * the connection is down and flushes them on reconnect, which is the right
+     * behaviour and better than anything this could do. What was missing was
+     * telling the person when it genuinely failed.
+     */
     async function fbSet(key, data) {
-      if (!_db || !currentUser) return;
+      if (!_db || !currentUser) return false;
       try {
         showLoading();
         await _db.ref(`flowfinance/users/${currentUser.uid}/${key}`).set(data);
+        return true;
       } catch (e) {
-        console.error('Firebase set error:', e);
+        console.error('Firebase set error:', key, e);
+        showToast(`Couldn't save — ${e.code || e.message}. It's on screen but not stored.`, 'error');
+        return false;
       } finally {
         hideLoading();
       }
@@ -1522,6 +1562,14 @@
     let taxCustomIncome = null;
     let netWorthMilestones = {};
     let paydayChecklistDone = {};   // { fortnightKey: { step: true } }
+    // People who pay you back. Reimbursements from them are not income —
+    // see classifyIncome. [{ id, name, patterns: [], shares: { bill: pct } }]
+    let household = { members: [] };
+    // Buy-now-pay-later plans. Not debts: no balance, no rate, and they end.
+    let bnplPlans = [];
+    // Where your pay comes from. No rule can guess an employer's name, so
+    // "Wages CARPENTARIA" only reads as a wage once this says so.
+    let incomeRules = { employerPatterns: [] };
     let notificationsEnabled = false;
     let currentTab = 'home';
     let currentSection = 'home';
@@ -1734,6 +1782,950 @@
     async function saveGoalContributions() { await fbSet('goalContributions', goalContributions); }
     async function saveNetWorthHistory() { await fbSet('netWorthHistory', netWorthHistory); }
     async function saveTxTemplates() { await fbSet('txTemplates', txTemplates); renderAll(); }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * INCOME: what was earned, against what merely arrived
+     *
+     * Mirrors shared/engines/income.ts. The duplication is deliberate and the
+     * parity tests hold the two together — the same arrangement as the payoff
+     * maths and the billing cycles, for the same reason: this app is a PWA and
+     * the browser needs its own copy.
+     *
+     * Every figure downstream of income came from adding up credits. On a real
+     * October that made income $9,217.73 when $5,893.33 had been earned: a
+     * housemate repaying rent and groceries, an investment withdrawal, a
+     * supermarket refund, and salary packaging counted as a second wage. A
+     * reimbursement is worse than an overstatement — it is counted twice, once
+     * as the expense going out and once as the credit coming back.
+     * ═══════════════════════════════════════════════════════════════════════ */
+
+    /** Cents, not floating-point noise. The backend's engines round the same way. */
+    const round2 = (n) => Math.round(n * 100) / 100;
+
+    /** Normalises a merchant the way the backend does. Keep the two identical. */
+    function merchantKey(name) {
+      return String(name ?? '')
+        .toLowerCase()
+        .replace(/['’.]/g, '')
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 40);
+    }
+
+    const INCOME_BUCKET = {
+      wage: 'earned',
+      packaging: 'earned',
+      gift: 'earned',
+      interest: 'earned',
+      reimbursement: 'recovered',
+      refund: 'recovered',
+      investment: 'internal',
+      // An unmatched credit counts as earned, so a missed rule understates the
+      // savings rate rather than flattering it.
+      unknown: 'earned',
+    };
+
+    const INCOME_KIND_LABEL = {
+      wage: 'Wage', packaging: 'Salary packaging', gift: 'Gift', interest: 'Interest',
+      reimbursement: 'Paid back to you', refund: 'Refund',
+      investment: 'Your own money', unknown: 'Not sure yet',
+    };
+
+    const WAGE_WORDS = ['wage', 'wages', 'salary', 'payroll', 'pay run', 'payrun', 'pay slip', 'payslip'];
+    const PACKAGING_WORDS = ['paywise', 'maxxia', 'smartsalary', 'smart salary', 'remserv', 'remunerator', 'salary packaging', 'novated', 'fleetcare', 'autopia', 'eziway'];
+    const INVESTMENT_WORDS = ['raiz', 'spaceship', 'stake', 'commsec', 'vanguard', 'betashares', 'superhero', 'selfwealth', 'pearler', 'sharesies', 'etoro', 'coinspot', 'binance', 'withdrawal', 'redemption'];
+    const REFUND_WORDS = ['refund', 'reversal', 'chargeback', 'returned', 'credit adj'];
+    const INTEREST_WORDS = ['interest', 'int paid', 'bonus interest'];
+    const GIFT_WORDS = ['gift', 'birthday', 'present'];
+
+    const hasIncomeWord = (key, words) => words.find(w => key.includes(w)) || null;
+
+    /** Every merchant that also appears on the spending side. */
+    function expenseMerchantsOf(rows) {
+      const keys = new Set();
+      for (const t of rows || []) {
+        if (!t || t.type === 'income' || !t.name) continue;
+        const k = merchantKey(t.name);
+        if (k) keys.add(k);
+      }
+      return keys;
+    }
+
+    /** The patterns the household screen and the settings screen supply. */
+    function incomeContext(rows) {
+      return {
+        expenseMerchants: expenseMerchantsOf(rows || transactions),
+        householdPatterns: (household.members || []).flatMap(m => m.patterns || []),
+        employerPatterns: incomeRules.employerPatterns || [],
+      };
+    }
+
+    function classifyIncome(row, context) {
+      const ctx = context || {};
+      const out = (kind, confidence, why) => ({ kind, bucket: INCOME_BUCKET[kind], confidence, why });
+
+      if (row.incomeKind && INCOME_BUCKET[row.incomeKind]) return out(row.incomeKind, 'certain', 'you set this');
+
+      const key = merchantKey(row.name);
+      const haystack = `${key} ${merchantKey(row.note)}`.trim();
+      if (!haystack) return out('unknown', 'guess', 'nothing to go on but the amount');
+
+      const packaging = hasIncomeWord(haystack, PACKAGING_WORDS);
+      if (packaging) return out('packaging', 'certain', `${packaging} is a salary-packaging provider, not a second wage — check it isn't also inside your gross pay`);
+
+      for (const pat of ctx.employerPatterns || []) {
+        const pk = merchantKey(pat);
+        if (pk && haystack.includes(pk)) return out('wage', 'certain', `${pat} is where you work`);
+      }
+
+      const refundWord = hasIncomeWord(haystack, REFUND_WORDS);
+      if (refundWord) return out('refund', 'certain', `says "${refundWord}"`);
+
+      const investWord = hasIncomeWord(haystack, INVESTMENT_WORDS);
+      if (investWord) return out('investment', 'likely', `${investWord} holds your own money — taking it out isn't earning it`);
+
+      for (const pat of ctx.householdPatterns || []) {
+        const pk = merchantKey(pat);
+        if (pk && haystack.includes(pk)) return out('reimbursement', 'certain', `${pat} is paying you back, not paying you`);
+      }
+
+      const wageWord = hasIncomeWord(haystack, WAGE_WORDS);
+      if (wageWord) return out('wage', 'likely', `says "${wageWord}"`);
+
+      const interestWord = hasIncomeWord(haystack, INTEREST_WORDS);
+      if (interestWord) return out('interest', 'certain', `says "${interestWord}"`);
+
+      const giftWord = hasIncomeWord(haystack, GIFT_WORDS);
+      if (giftWord) return out('gift', 'likely', `says "${giftWord}"`);
+
+      const expenseKeys = new Set(ctx.expenseMerchants || []);
+      if (key) {
+        if (expenseKeys.has(key)) return out('refund', 'likely', 'you also pay this merchant, so money coming back is a refund');
+        // The real refund read "WOOLWORTHS/CAVENAGH ST & DARWIN CIT" against
+        // purchases written "Woolworths Darwin City": same shop, different key.
+        // One word, at least four characters, and it must appear on the
+        // spending side too.
+        const brand = key.split(' ')[0];
+        if (brand.length >= 4) {
+          for (const e of expenseKeys) {
+            if (e.split(' ')[0] === brand) return out('refund', 'likely', `you spend at ${brand}, so money coming back from it is a refund`);
+          }
+        }
+      }
+
+      return out('unknown', 'guess', 'no rule matched — worth telling it what this is');
+    }
+
+    function summariseIncome(rows, context) {
+      const ctx = context || { expenseMerchants: expenseMerchantsOf(rows) };
+      const byKind = {};
+      for (const k of Object.keys(INCOME_BUCKET)) byKind[k] = { total: 0, count: 0 };
+      const lines = [];
+      let totalCredits = 0, earned = 0, recovered = 0, internal = 0;
+
+      for (const t of rows || []) {
+        if (!t || t.type !== 'income') continue;
+        const amount = Number(t.amount);
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+        const c = classifyIncome(t, ctx);
+        totalCredits += amount;
+        if (c.bucket === 'earned') earned += amount;
+        else if (c.bucket === 'recovered') recovered += amount;
+        else internal += amount;
+        byKind[c.kind].total += amount;
+        byKind[c.kind].count += 1;
+        lines.push({ ...c, id: t.id, date: String(t.date), name: String(t.name ?? ''), amount });
+      }
+      for (const k of Object.keys(byKind)) byKind[k].total = round2(byKind[k].total);
+
+      return {
+        totalCredits: round2(totalCredits), earned: round2(earned),
+        recovered: round2(recovered), internal: round2(internal), byKind,
+        needsReview: lines.filter(l => l.confidence !== 'certain').sort((a, b) => b.amount - a.amount),
+        lines: lines.sort((a, b) => b.date.localeCompare(a.date)),
+      };
+    }
+
+    function trueCashflow(rows, context) {
+      const summary = summariseIncome(rows, context);
+      const spentGross = (rows || [])
+        .filter(t => t && t.type !== 'income' && Number.isFinite(Number(t.amount)))
+        .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+      const spentNet = Math.max(0, spentGross - summary.recovered);
+      const surplus = summary.earned - spentNet;
+      return {
+        earned: summary.earned, spentGross: round2(spentGross), spentNet: round2(spentNet),
+        recovered: summary.recovered, internal: summary.internal, surplus: round2(surplus),
+        savingsRate: summary.earned > 0 ? round2((surplus / summary.earned) * 100) : null,
+        overstatedBy: round2(summary.totalCredits - summary.earned),
+      };
+    }
+
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * BUY-NOW-PAY-LATER — plans, which end
+     *
+     * Mirrors shared/engines/bnpl.ts. Not a debt: no balance to compound and
+     * no rate to compound it at. A plan is a fixed number of instalments on a
+     * fixed cycle with a last one, and that last date is the useful fact — it
+     * is when the money becomes yours again.
+     * ═══════════════════════════════════════════════════════════════════════ */
+
+    const BNPL_STEP = { weekly: 7, fortnightly: 14, monthly: 30 };
+
+    function bnplPlanStatus(plan) {
+      const total = Math.max(0, Math.floor(Number(plan.instalmentsTotal) || 0));
+      const paid = Math.min(total, Math.max(0, Math.floor(Number(plan.instalmentsPaid) || 0)));
+      const amount = Math.max(0, Number(plan.instalmentAmount) || 0);
+      const left = Math.max(0, total - paid);
+      const step = BNPL_STEP[plan.frequency] || 14;
+      const schedule = [];
+      for (let i = 0; i < left; i++) {
+        schedule.push({ date: addDaysISO(plan.nextDate, i * step), amount: round2(amount) });
+      }
+      return {
+        ...plan, instalmentsTotal: total, instalmentsPaid: paid, instalmentAmount: round2(amount),
+        remaining: round2(amount * left), instalmentsLeft: left, totalAmount: round2(amount * total),
+        finalDate: schedule.length ? schedule[schedule.length - 1].date : null,
+        progressPercent: total > 0 ? Math.round((paid / total) * 100) : 100,
+        done: left === 0, schedule,
+      };
+    }
+
+    function addDaysISO(iso, days) {
+      return new Date(Date.parse(iso + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10);
+    }
+
+    function bnplSummary() {
+      const all = (bnplPlans || []).filter(Boolean).map(bnplPlanStatus);
+      const live = all.filter(p => !p.done);
+      const horizon = addDaysISO(today(), 14);
+      const perMonthOf = (a, f) => f === 'weekly' ? (a * 52) / 12 : f === 'fortnightly' ? (a * 26) / 12 : a;
+      const finals = live.map(p => p.finalDate).filter(Boolean).sort();
+      return {
+        plans: all.sort((a, b) => Number(a.done) - Number(b.done) || b.remaining - a.remaining),
+        totalRemaining: round2(live.reduce((s, p) => s + p.remaining, 0)),
+        perFortnight: round2(live.reduce((s, p) => s + (perMonthOf(p.instalmentAmount, p.frequency) * 12) / 26, 0)),
+        perMonth: round2(live.reduce((s, p) => s + perMonthOf(p.instalmentAmount, p.frequency), 0)),
+        clearBy: finals.length ? finals[finals.length - 1] : null,
+        dueNextFortnight: round2(live.reduce((s, p) => s + p.schedule.filter(x => x.date >= today() && x.date <= horizon).reduce((a, x) => a + x.amount, 0), 0)),
+        activeCount: live.length,
+      };
+    }
+
+    function renderBnpl() {
+      const sum = bnplSummary();
+      return `
+        <div class="card">
+          <h2>Payment plans</h2>
+          ${sum.activeCount ? `
+            <div class="grid-2" style="margin-top:var(--s3);">
+              <div><div class="kpi-label">Still to pay</div><div class="kpi-value num">${AUD(sum.totalRemaining)}</div></div>
+              <div><div class="kpi-label">Next fortnight</div><div class="kpi-value num">${AUD(sum.dueNextFortnight)}</div></div>
+              <div><div class="kpi-label">A month</div><div class="kpi-value num">${AUD(sum.perMonth)}</div></div>
+              <div><div class="kpi-label">All clear by</div><div class="kpi-value num">${sum.clearBy ? h(formatDate(sum.clearBy)) : '—'}</div></div>
+            </div>
+            <p class="text-muted" style="font-size:var(--f-foot);margin:var(--s3) 0 0;">
+              Unlike a debt, this ends. ${AUD(sum.perMonth)} a month is yours again from ${sum.clearBy ? h(formatDate(sum.clearBy)) : 'the last instalment'}.
+            </p>` : `
+            <p class="text-muted" style="font-size:var(--f-foot);margin:0;">
+              Nothing entered. Afterpay and the rest aren't debts — no balance, no interest rate —
+              so entering one as a debt means inventing a rate that doesn't exist. A plan is a
+              number of instalments and a date it finishes.
+            </p>`}
+        </div>
+
+        ${sum.plans.map(p => `
+          <div class="card" ${p.done ? 'style="opacity:0.7;"' : ''}>
+            <div class="flex-between" style="align-items:baseline;">
+              <h2 style="margin:0;">${h(p.provider)}${p.description ? ` · ${h(p.description)}` : ''}</h2>
+              <span class="num" style="font-weight:600;">${p.done ? 'Paid off' : AUD(p.remaining)}</span>
+            </div>
+            <div class="row-sub" style="margin-top:0.2rem;">
+              ${p.instalmentsPaid} of ${p.instalmentsTotal} paid · ${AUD(p.instalmentAmount)} ${h(p.frequency)}
+              ${p.done ? '' : ` · last one ${h(formatDate(p.finalDate))}`}
+            </div>
+            <div class="progress" style="height:6px;margin-top:var(--s3);">
+              <div class="progress-fill" style="width:${p.progressPercent}%;background:${p.done ? 'var(--pos)' : 'var(--accent)'};"></div>
+            </div>
+            ${p.done ? '' : `
+              <div class="row-stack" style="margin-top:var(--s3);">
+                <div class="row-sub">Still to come: ${p.schedule.slice(0, 4).map(x => `${h(formatDate(x.date))} ${AUD(x.amount)}`).join(' · ')}${p.schedule.length > 4 ? ` · +${p.schedule.length - 4} more` : ''}</div>
+              </div>
+              `}
+            <div class="row-actions">
+              ${p.done ? '' : `<button class="btn-secondary btn-small" onclick="payBnplInstalment(${jsArg(p.id)})">Paid one</button>`}
+              <button class="btn-danger btn-small" onclick="removeBnplPlan(${jsArg(p.id)})">Remove</button>
+            </div>
+          </div>`).join('')}
+
+        <div class="card">
+          <h2>Add a plan</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bnplProvider">Provider</label>
+              <input type="text" id="bnplProvider" placeholder="Afterpay" list="bnplProviders">
+              <datalist id="bnplProviders">
+                ${['Afterpay', 'Zip Pay', 'Klarna', 'Humm', 'Openpay', 'Laybuy', 'Payright'].map(x => `<option value="${h(x)}"></option>`).join('')}
+              </datalist>
+            </div>
+            <div class="form-group">
+              <label for="bnplWhat">What for</label>
+              <input type="text" id="bnplWhat" placeholder="optional">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bnplAmount">Each instalment</label>
+              <input type="number" id="bnplAmount" step="0.01" min="0" placeholder="115.25">
+            </div>
+            <div class="form-group">
+              <label for="bnplFreq">How often</label>
+              <select id="bnplFreq">
+                <option value="fortnightly" selected>Fortnightly</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bnplTotal">Instalments in total</label>
+              <input type="number" id="bnplTotal" min="1" max="60" placeholder="4">
+            </div>
+            <div class="form-group">
+              <label for="bnplPaid">Already paid</label>
+              <input type="number" id="bnplPaid" min="0" max="60" value="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="bnplNext">Next instalment due</label>
+            <input type="date" id="bnplNext" value="${h(today())}">
+          </div>
+          <button class="btn-primary" onclick="addBnplPlan()">Add plan</button>
+        </div>`;
+    }
+
+    async function addBnplPlan() {
+      const provider = document.getElementById('bnplProvider').value.trim();
+      const instalmentAmount = Number(document.getElementById('bnplAmount').value);
+      const instalmentsTotal = Number(document.getElementById('bnplTotal').value);
+      const instalmentsPaid = Number(document.getElementById('bnplPaid').value) || 0;
+      const nextDate = document.getElementById('bnplNext').value;
+      if (!provider) { showToast('Which provider?', 'error'); return; }
+      if (!Number.isFinite(instalmentAmount) || instalmentAmount <= 0) { showToast('What does each instalment cost?', 'error'); return; }
+      if (!Number.isFinite(instalmentsTotal) || instalmentsTotal < 1) { showToast('How many instalments in total?', 'error'); return; }
+      if (instalmentsPaid > instalmentsTotal) { showToast("You can't have paid more instalments than the plan has", 'error'); return; }
+      if (!nextDate) { showToast('When is the next one due?', 'error'); return; }
+      bnplPlans = [...bnplPlans, {
+        id: 'p' + Date.now(), provider,
+        description: document.getElementById('bnplWhat').value.trim() || null,
+        instalmentAmount, instalmentsTotal, instalmentsPaid,
+        frequency: document.getElementById('bnplFreq').value, nextDate,
+      }];
+      await saveBnplPlans();
+      const st = bnplPlanStatus(bnplPlans[bnplPlans.length - 1]);
+      showToast(`${provider} added — ${AUD(st.remaining)} to go, done ${formatDate(st.finalDate)}`, 'success');
+    }
+
+    async function payBnplInstalment(id) {
+      const plan = bnplPlans.find(p => String(p.id) === String(id));
+      if (!plan) return;
+      const step = BNPL_STEP[plan.frequency] || 14;
+      plan.instalmentsPaid = Math.min(Number(plan.instalmentsTotal), Number(plan.instalmentsPaid) + 1);
+      plan.nextDate = addDaysISO(plan.nextDate, step);
+      await saveBnplPlans();
+      const st = bnplPlanStatus(plan);
+      showToast(st.done ? `${plan.provider} finished — ${AUD(st.instalmentAmount)} a cycle back in your pocket` : `${st.instalmentsLeft} to go on ${plan.provider}`, 'success');
+    }
+
+    async function removeBnplPlan(id) {
+      const plan = bnplPlans.find(p => String(p.id) === String(id));
+      if (!plan) return;
+      if (!confirm(`Remove the ${plan.provider} plan?`)) return;
+      bnplPlans = bnplPlans.filter(p => String(p.id) !== String(id));
+      await saveBnplPlans();
+      showToast('Plan removed', 'success');
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * SENDING — money going overseas
+     * ═══════════════════════════════════════════════════════════════════════ */
+
+    const REMIT_PROVIDERS = [
+      { id: 'worldremit', label: 'WorldRemit', words: ['worldremit', 'world remit'] },
+      { id: 'remitly', label: 'Remitly', words: ['remitly'] },
+      { id: 'wise', label: 'Wise', words: ['wise', 'transferwise'] },
+      { id: 'westernunion', label: 'Western Union', words: ['western union', 'westernunion'] },
+      { id: 'moneygram', label: 'MoneyGram', words: ['moneygram', 'money gram'] },
+      { id: 'ria', label: 'Ria', words: ['ria money', 'riamoney'] },
+      { id: 'instarem', label: 'Instarem', words: ['instarem'] },
+      { id: 'orbitremit', label: 'OrbitRemit', words: ['orbitremit', 'orbit remit'] },
+      { id: 'xe', label: 'XE', words: ['xe money', 'xe com'] },
+      { id: 'sendwave', label: 'Sendwave', words: ['sendwave'] },
+      { id: 'taptapsend', label: 'TapTap Send', words: ['taptap', 'tap tap send'] },
+      { id: 'azimo', label: 'Azimo', words: ['azimo'] },
+    ];
+
+    function remitProviderOf(text) {
+      const key = merchantKey(text);
+      if (!key) return null;
+      for (const p of REMIT_PROVIDERS) if (p.words.some(w => key.includes(w))) return p;
+      return null;
+    }
+
+    function renderSending() {
+      const found = transactions
+        .filter(t => t && t.type !== 'income' && Number(t.amount) > 0)
+        .map(t => ({ t, p: remitProviderOf(`${t.name ?? ''} ${t.note ?? ''}`) }))
+        .filter(x => x.p)
+        .map(({ t, p }) => ({
+          id: t.id, date: String(t.date), provider: p.label, name: String(t.name ?? ''),
+          amount: round2(Number(t.amount)),
+          rate: Number(t.fx?.rate) > 0 ? Number(t.fx.rate) : null,
+          currency: t.fx?.currency ? String(t.fx.currency).toUpperCase() : null,
+        }))
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+      if (!found.length) {
+        return `<div class="card">
+          <h2>Sending money</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0;">
+            No transfers through WorldRemit, Remitly, Wise or the others are in your ledger yet.
+            When there are, they'll be totalled here instead of sitting in a category beside the groceries.
+          </p>
+        </div>`;
+      }
+
+      const total = round2(found.reduce((s, x) => s + x.amount, 0));
+      const byMonth = {};
+      for (const x of found) byMonth[x.date.slice(0, 7)] = round2((byMonth[x.date.slice(0, 7)] || 0) + x.amount);
+      const months = Object.keys(byMonth).sort();
+      const byProvider = {};
+      for (const x of found) {
+        byProvider[x.provider] = byProvider[x.provider] || { sent: 0, count: 0 };
+        byProvider[x.provider].sent = round2(byProvider[x.provider].sent + x.amount);
+        byProvider[x.provider].count += 1;
+      }
+      const noRate = found.filter(x => !x.rate).length;
+      const monthlyAvg = round2(total / Math.max(1, months.length));
+      const maxMonth = Math.max(...Object.values(byMonth));
+
+      return `
+        <div class="card">
+          <h2>Sending money</h2>
+          <div class="grid-2" style="margin-top:var(--s3);">
+            <div><div class="kpi-label">Sent in total</div><div class="kpi-value num">${AUD(total)}</div></div>
+            <div><div class="kpi-label">A month</div><div class="kpi-value num">${AUD(monthlyAvg)}</div></div>
+            <div><div class="kpi-label">Transfers</div><div class="kpi-value num">${found.length}</div></div>
+            <div><div class="kpi-label">Average</div><div class="kpi-value num">${AUD(round2(total / found.length))}</div></div>
+          </div>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:var(--s3) 0 0;">
+            This is an obligation, not a weekly choice, and a budget that files it next to
+            the shopping invites you to trim the one thing here you won't.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>By month</h2>
+          ${months.map(m => `
+            <div class="row-stack">
+              <div class="flex-between" style="align-items:baseline;">
+                <span>${h(new Date(m + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }))}</span>
+                <span class="num" style="font-weight:600;">${AUD(byMonth[m])}</span>
+              </div>
+              <div class="progress" style="height:5px;margin-top:0.35rem;">
+                <div class="progress-fill" style="width:${Math.round((byMonth[m] / maxMonth) * 100)}%;"></div>
+              </div>
+            </div>`).join('')}
+        </div>
+
+        <div class="card">
+          <h2>Who you send with</h2>
+          ${Object.entries(byProvider).sort((a, b) => b[1].sent - a[1].sent).map(([name, v]) => `
+            <div class="row-line flex-between">
+              <div><div class="row-title">${h(name)}</div><div class="row-sub">${v.count} transfer${v.count === 1 ? '' : 's'}</div></div>
+              <span class="num" style="font-weight:600;">${AUD(v.sent)}</span>
+            </div>`).join('')}
+          ${noRate ? `
+            <div class="row-stack">
+              <div class="row-sub">
+                ${noRate} of ${found.length} transfers have no exchange rate recorded, so nothing here can
+                say what they cost. The fee is usually inside the rate — a bank line never shows it.
+                Record the rate on a transfer and comparing providers becomes possible.
+              </div>
+            </div>` : ''}
+        </div>
+
+        <div class="card">
+          <h2>Record what a transfer got you</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fxTx">Transfer</label>
+              <select id="fxTx">
+                ${found.slice(0, 20).map(x => `<option value="${h(String(x.id))}">${h(formatDate(x.date))} · ${h(x.provider)} · ${AUD(x.amount)}${x.rate ? ' (recorded)' : ''}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="fxCurrency">Currency</label>
+              <input type="text" id="fxCurrency" placeholder="NPR" maxlength="3" style="text-transform:uppercase;">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="fxRate">Rate you got, per $1</label>
+            <input type="number" id="fxRate" step="0.0001" min="0" placeholder="92.5">
+          </div>
+          <button class="btn-primary" onclick="recordTransferRate()">Save rate</button>
+        </div>`;
+    }
+
+    async function recordTransferRate() {
+      const id = document.getElementById('fxTx')?.value;
+      const rate = Number(document.getElementById('fxRate').value);
+      const currency = document.getElementById('fxCurrency').value.trim().toUpperCase();
+      const t = transactions.find(x => x && String(x.id) === String(id));
+      if (!t) { showToast('Pick a transfer', 'error'); return; }
+      if (!Number.isFinite(rate) || rate <= 0) { showToast('What rate did you get?', 'error'); return; }
+      if (!currency) { showToast('Which currency did it arrive in?', 'error'); return; }
+      t.fx = { rate, currency, received: round2(Number(t.amount) * rate) };
+      await saveTx();
+      showToast(`${AUD(Number(t.amount))} → ${t.fx.received.toLocaleString()} ${currency}`, 'success');
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * COMMITTED — money already spoken for
+     *
+     * The four claims on this account were in four places: minimums on the
+     * debts tab, bills on the calendar, instalments in a plan, and whatever
+     * the bot found in a Telegram message. Nothing added them up, so "how much
+     * of this is actually mine" had no answer on any screen — while the payday
+     * plan handed out a surplus computed before three of them were counted.
+     * ═══════════════════════════════════════════════════════════════════════ */
+
+    function renderCommitted() {
+      const from = today();
+      const horizon = 30;
+      const to = addDaysISO(from, horizon);
+      const items = [];
+
+      const occurrences = (anchor, freq, until) => {
+        const step = { weekly: 7, fortnightly: 14 }[freq];
+        const out = [];
+        if (!anchor) return out;
+        if (step) {
+          let cursor = anchor;
+          let guard = 0;
+          while (cursor < from && guard++ < 400) cursor = addDaysISO(cursor, step);
+          while (cursor <= until && guard++ < 400) { out.push(cursor); cursor = addDaysISO(cursor, step); }
+        } else {
+          // Monthly and longer: step by calendar month off the anchor's day.
+          const months = freq === 'quarterly' ? 3 : freq === 'yearly' ? 12 : 1;
+          let d = new Date(anchor + 'T00:00:00Z');
+          let guard = 0;
+          while (d.toISOString().slice(0, 10) < from && guard++ < 400) d.setUTCMonth(d.getUTCMonth() + months);
+          while (d.toISOString().slice(0, 10) <= until && guard++ < 400) {
+            out.push(d.toISOString().slice(0, 10));
+            d.setUTCMonth(d.getUTCMonth() + months);
+          }
+        }
+        return out;
+      };
+
+      for (const b of bills.filter(x => x && x.active !== false)) {
+        const amount = Number(b.amount) || 0;
+        if (amount <= 0) continue;
+        for (const date of occurrences(billNextDue(b), b.freq, to)) {
+          items.push({ date, label: b.name, amount: round2(amount), source: 'bill', because: 'a bill you entered' });
+        }
+      }
+
+      for (const d of debts.filter(x => x && Number(x.balance) > 0)) {
+        const min = Number(d.minPayment) || 0;
+        if (min <= 0) continue;
+        for (const date of occurrences(from, d.minFreq || 'monthly', to)) {
+          items.push({ date, label: `${d.name} minimum`, amount: round2(min), source: 'debt', because: 'the minimum stops it going backwards' });
+        }
+      }
+
+      for (const p of (bnplPlans || []).filter(Boolean)) {
+        const st = bnplPlanStatus(p);
+        for (const x of st.schedule.filter(x => x.date >= from && x.date <= to)) {
+          items.push({ date: x.date, label: `${p.provider}${p.description ? ` · ${p.description}` : ''}`, amount: x.amount, source: 'bnpl', because: `${st.instalmentsLeft} instalments left of a plan already agreed` });
+        }
+      }
+
+      const total = round2(items.reduce((s, i) => s + i.amount, 0));
+      const fortnightEnd = addDaysISO(from, 14);
+      const nextFortnight = round2(items.filter(i => i.date <= fortnightEnd).reduce((s, i) => s + i.amount, 0));
+      const cash = snapCash() || 0;
+      const SOURCE_LABEL = { bill: 'Bills', debt: 'Debt minimums', bnpl: 'Payment plans', detected: 'Found in your ledger' };
+      const bySource = ['bill', 'debt', 'bnpl'].map(source => {
+        const mine = items.filter(i => i.source === source);
+        return { source, total: round2(mine.reduce((s, i) => s + i.amount, 0)), count: mine.length };
+      }).filter(x => x.count);
+
+      const byDate = {};
+      for (const i of items) (byDate[i.date] = byDate[i.date] || []).push(i);
+      const dates = Object.keys(byDate).sort();
+
+      return `
+        <div class="card">
+          <h2>Already spoken for</h2>
+          <div class="grid-2" style="margin-top:var(--s3);">
+            <div><div class="kpi-label">Next 30 days</div><div class="kpi-value num">${AUD(total)}</div></div>
+            <div><div class="kpi-label">Next fortnight</div><div class="kpi-value num">${AUD(nextFortnight)}</div></div>
+            <div><div class="kpi-label">In the account</div><div class="kpi-value num">${cash ? AUD(cash) : '—'}</div></div>
+            <div><div class="kpi-label">Actually yours</div><div class="kpi-value num ${!cash ? '' : cash - total >= 0 ? 'positive' : 'negative'}">${cash ? AUD(cash - total) : '—'}</div></div>
+          </div>
+          ${cash && cash - total < 0 ? `
+            <p style="font-size:var(--f-foot);margin:var(--s3) 0 0;color:var(--neg);">
+              The next 30 days claim ${AUD(total - cash)} more than is in the account. Either something
+              arrives before then, or one of these doesn't get paid.
+            </p>` : ''}
+          ${!cash ? `
+            <p class="text-muted" style="font-size:var(--f-foot);margin:var(--s3) 0 0;">
+              No balance recorded, so there's nothing to measure this against. Tell the bot what's
+              in the account and this becomes a number you can act on.
+            </p>` : ''}
+        </div>
+
+        ${bySource.length ? `
+        <div class="card">
+          <h2>What's claiming it</h2>
+          ${bySource.map(b => `
+            <div class="row-line flex-between">
+              <div><div class="row-title">${h(SOURCE_LABEL[b.source])}</div><div class="row-sub">${b.count} payment${b.count === 1 ? '' : 's'} in 30 days</div></div>
+              <span class="num" style="font-weight:600;">${AUD(b.total)}</span>
+            </div>`).join('')}
+        </div>` : `
+        <div class="card">
+          <h2>Nothing scheduled</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0;">
+            No bills, debt minimums or payment plans fall in the next 30 days. If money is
+            leaving anyway, the bot's commitment watch will say what it found.
+          </p>
+        </div>`}
+
+        ${dates.length ? `
+        <div class="card">
+          <h2>When</h2>
+          ${dates.map(date => {
+            const day = byDate[date];
+            const dayTotal = round2(day.reduce((s, i) => s + i.amount, 0));
+            const daysOut = Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000);
+            return `<div class="row-stack">
+              <div class="flex-between" style="align-items:baseline;">
+                <div class="row-title">${h(formatDate(date))}${daysOut === 0 ? ' · today' : daysOut === 1 ? ' · tomorrow' : ` · in ${daysOut} days`}</div>
+                <span class="num" style="font-weight:600;">${AUD(dayTotal)}</span>
+              </div>
+              ${day.map(i => `<div class="row-sub">${h(i.label)} — ${AUD(i.amount)} · ${h(i.because)}</div>`).join('')}
+            </div>`;
+          }).join('')}
+        </div>` : ''}`;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * INCOME REVIEW
+     * ═══════════════════════════════════════════════════════════════════════ */
+
+    function renderIncomeReview() {
+      const monthKey = getMonthKey();
+      const rows = transactions.filter(t => t && String(t.date).slice(0, 7) === monthKey);
+      const ctx = incomeContext(transactions);
+      const flow = trueCashflow(rows, ctx);
+      const summary = summariseIncome(rows, ctx);
+      const monthName = new Date(monthKey + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+
+      const kindRow = (kind) => {
+        const v = summary.byKind[kind];
+        if (!v || !v.count) return '';
+        const bucket = INCOME_BUCKET[kind];
+        const colour = bucket === 'earned' ? 'var(--pos)' : bucket === 'recovered' ? 'var(--text-muted)' : 'var(--text-dim)';
+        return `<div class="row-line flex-between">
+          <div><div class="row-title">${h(INCOME_KIND_LABEL[kind])}</div>
+            <div class="row-sub">${v.count} credit${v.count === 1 ? '' : 's'} · ${bucket === 'earned' ? 'counts as income' : bucket === 'recovered' ? 'nets off what you spent' : 'your own money moving'}</div></div>
+          <span class="num" style="font-weight:600;color:${colour};">${AUD(v.total)}</span>
+        </div>`;
+      };
+
+      return `
+        <div class="card">
+          <h2>${h(monthName)}</h2>
+          <div class="grid-2" style="margin-top:var(--s3);">
+            <div><div class="kpi-label">Earned</div><div class="kpi-value num">${AUD(flow.earned)}</div></div>
+            <div><div class="kpi-label">Spent, net</div><div class="kpi-value num">${AUD(flow.spentNet)}</div></div>
+            <div><div class="kpi-label">${flow.surplus >= 0 ? 'Left over' : 'Short by'}</div><div class="kpi-value num ${flow.surplus >= 0 ? 'positive' : 'negative'}">${AUD(Math.abs(flow.surplus))}</div></div>
+            <div><div class="kpi-label">Savings rate</div><div class="kpi-value num">${flow.savingsRate === null ? '—' : flow.savingsRate + '%'}</div></div>
+          </div>
+          ${flow.overstatedBy >= 1 ? `
+            <div class="row-stack" style="margin-top:var(--s3);">
+              <div class="row-sub">Every credit added together comes to ${AUD(summary.totalCredits)}.
+              ${AUD(flow.overstatedBy)} of that wasn't earned — money paid back to you, a refund, or your own
+              money moving — so it isn't in the figures above.</div>
+            </div>` : ''}
+        </div>
+
+        ${summary.needsReview.length ? `
+        <div class="card">
+          <h2>Tell it what these are</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0 0 var(--s3);">
+            ${summary.needsReview.length} credit${summary.needsReview.length === 1 ? '' : 's'} this month ${summary.needsReview.length === 1 ? 'was' : 'were'} a guess.
+            Until you say, each one counts as earned — which understates your savings rate rather than flattering it.
+          </p>
+          ${summary.needsReview.map(l => `
+            <div class="row-stack">
+              <div class="flex-between" style="align-items:baseline;">
+                <div class="row-title">${h(l.name) || '—'}</div>
+                <span class="num" style="font-weight:600;">${AUD(l.amount)}</span>
+              </div>
+              <div class="row-sub">${h(l.date)} · guessed ${h(INCOME_KIND_LABEL[l.kind].toLowerCase())} — ${h(l.why)}</div>
+              <select style="margin-top:var(--s2);" aria-label="What is the ${AUD(l.amount)} from ${h(l.name)}"
+                      onchange="setIncomeKind(${jsArg(l.id)}, this.value)">
+                <option value="">Leave it a guess</option>
+                ${Object.keys(INCOME_BUCKET).filter(k => k !== 'unknown').map(k =>
+                  `<option value="${h(k)}"${k === l.kind ? ' selected' : ''}>${h(INCOME_KIND_LABEL[k])}</option>`
+                ).join('')}
+              </select>
+            </div>`).join('')}
+        </div>` : `
+        <div class="card">
+          <h2>Nothing to sort out</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0;">Every credit this month matched a rule.</p>
+        </div>`}
+
+        <div class="card">
+          <h2>Where it came from</h2>
+          ${Object.keys(INCOME_BUCKET).map(kindRow).join('') || '<p class="text-muted" style="font-size:var(--f-foot);margin:0;">No money in this month yet.</p>'}
+        </div>
+
+        <div class="card">
+          <h2>Where you work</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0 0 var(--s3);">
+            No rule can guess an employer's name. Until it's here, a deposit called
+            "Wages ACME" is only recognised as a wage because it happens to contain
+            the word "wages" — and one called "ACME PTY LTD" isn't recognised at all.
+          </p>
+          <div class="form-group">
+            <label for="employerPatterns">Names your pay arrives under</label>
+            <input type="text" id="employerPatterns" value="${h((incomeRules.employerPatterns || []).join(', '))}"
+                   placeholder="e.g. CARPENTARIA, ACME PTY" onchange="saveEmployerPatterns(this.value)">
+          </div>
+        </div>`;
+    }
+
+    async function saveEmployerPatterns(raw) {
+      incomeRules.employerPatterns = String(raw || '').split(',').map(x => x.trim()).filter(Boolean);
+      await saveIncomeRules();
+      showToast(incomeRules.employerPatterns.length ? 'Saved — income re-read' : 'Cleared', 'success');
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * HOUSEHOLD — who owes whom
+     * ═══════════════════════════════════════════════════════════════════════ */
+
+    function householdLedger() {
+      const members = household.members || [];
+      const ctx = incomeContext(transactions);
+      const credits = transactions.filter(t => {
+        if (!t || t.type !== 'income') return false;
+        const amount = Number(t.amount);
+        if (!Number.isFinite(amount) || amount <= 0) return false;
+        return classifyIncome(t, ctx).bucket === 'recovered';
+      });
+
+      const claimed = new Set();
+      const PURPOSES = [
+        { purpose: 'rent', words: ['rent', 'board', 'lease'] },
+        { purpose: 'groceries', words: ['grocer', 'groceries', 'food', 'shopping'] },
+        { purpose: 'insurance', words: ['insurance', 'health', 'medibank', 'bupa', 'hcf', 'nib'] },
+        { purpose: 'utilities', words: ['power', 'electric', 'gas', 'water', 'internet', 'nbn', 'utilities'] },
+        { purpose: 'car', words: ['car', 'fuel', 'petrol', 'rego', 'registration'] },
+      ];
+      const purposeOf = (text) => {
+        const key = merchantKey(text);
+        for (const { purpose, words } of PURPOSES) if (words.some(w => key.includes(w))) return purpose;
+        return 'unspecified';
+      };
+      const matches = (t, m) => {
+        const hay = `${merchantKey(t.name)} ${merchantKey(t.note)}`;
+        return (m.patterns || []).some(pat => { const pk = merchantKey(pat); return pk && hay.includes(pk); });
+      };
+
+      const rows = members.map(m => {
+        const mine = credits.filter(t => matches(t, m));
+        mine.forEach(t => claimed.add(t));
+        const byPurpose = {};
+        for (const t of mine) {
+          const k = purposeOf(`${t.name ?? ''} ${t.note ?? ''}`);
+          byPurpose[k] = (byPurpose[k] || 0) + Number(t.amount);
+        }
+        // A share is only claimed where one was configured — what someone owes
+        // is not in the ledger, and an invented split is worse than a blank.
+        const shares = m.shares || {};
+        let expected = null;
+        if (Object.keys(shares).length) {
+          expected = round2(bills.reduce((sum, b) => {
+            const pct = shares[b.name] ?? (b.category ? shares[b.category] : 0) ?? 0;
+            return pct > 0 ? sum + (toMonthly(Number(b.amount) || 0, b.freq) * pct) / 100 : sum;
+          }, 0));
+        }
+        return {
+          ...m,
+          received: round2(mine.reduce((s, t) => s + Number(t.amount), 0)),
+          count: mine.length,
+          byPurpose: Object.entries(byPurpose).map(([purpose, v]) => ({ purpose, received: round2(v) })).sort((a, b) => b.received - a.received),
+          expected,
+          balance: expected === null ? null : round2(expected - round2(mine.reduce((s, t) => s + Number(t.amount), 0))),
+        };
+      }).sort((a, b) => b.received - a.received);
+
+      return {
+        members: rows,
+        totalReceived: round2(credits.reduce((s, t) => s + Number(t.amount), 0)),
+        unattributed: credits.filter(t => !claimed.has(t)).sort((a, b) => Number(b.amount) - Number(a.amount)),
+      };
+    }
+
+    function renderHousehold() {
+      const l = householdLedger();
+      const billOptions = [...new Set([...bills.map(b => b.name), ...bills.map(b => b.category).filter(Boolean)])];
+
+      return `
+        <div class="card">
+          <h2>Household</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0;">
+            Rent leaves this account as one payment and comes back as several. Without a
+            name against them, those repayments were counted as income — so the same money
+            was counted twice, once going out and once coming back.
+          </p>
+          ${l.members.length ? `<div class="flex-between" style="margin-top:var(--s4);">
+            <span class="text-muted">Paid back to you, all time</span>
+            <span class="num" style="font-size:var(--f-title);font-weight:600;">${AUD(l.totalReceived)}</span>
+          </div>` : ''}
+        </div>
+
+        ${l.members.map(m => `
+          <div class="card">
+            <div class="flex-between" style="align-items:baseline;">
+              <h2 style="margin:0;">${h(m.name)}</h2>
+              <span class="num" style="font-weight:600;">${AUD(m.received)}</span>
+            </div>
+            <div class="row-sub" style="margin-top:0.2rem;">${m.count} transfer${m.count === 1 ? '' : 's'} · matched on ${h((m.patterns || []).join(', '))}</div>
+
+            ${m.byPurpose.length ? m.byPurpose.map(pp => `
+              <div class="row-line flex-between">
+                <span>${h(pp.purpose === 'unspecified' ? 'No reason given' : pp.purpose)}</span>
+                <span class="num">${AUD(pp.received)}</span>
+              </div>`).join('') : '<div class="row-line"><span class="text-muted">Nothing from them yet.</span></div>'}
+
+            ${m.balance === null ? `
+              <div class="row-stack">
+                <div class="row-sub">No share set, so there's nothing to compare this against.
+                Set what they cover below and the gap becomes a number.</div>
+              </div>` : `
+              <div class="row-line flex-between">
+                <div><div class="row-title">${m.balance > 0 ? 'Still owing' : m.balance < 0 ? 'Paid ahead' : 'Square'}</div>
+                  <div class="row-sub">${AUD(m.expected)} of shared costs a month against ${AUD(m.received)} received</div></div>
+                <span class="num" style="font-weight:600;color:${m.balance > 0 ? 'var(--neg)' : 'var(--pos)'};">${AUD(Math.abs(m.balance))}</span>
+              </div>`}
+
+            <div class="form-row" style="margin-top:var(--s3);">
+              <div class="form-group">
+                <label for="hhShareBill_${h(m.id)}">They cover a share of</label>
+                <select id="hhShareBill_${h(m.id)}">
+                  ${billOptions.map(b => `<option value="${h(b)}">${h(b)}</option>`).join('') || '<option value="">Add a bill first</option>'}
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="hhSharePct_${h(m.id)}">Their share %</label>
+                <input type="number" id="hhSharePct_${h(m.id)}" min="0" max="100" placeholder="50">
+              </div>
+            </div>
+            <div class="row-actions">
+              <button class="btn-secondary btn-small" onclick="setMemberShare(${jsArg(m.id)})">Set share</button>
+              <button class="btn-danger btn-small" onclick="removeMember(${jsArg(m.id)})">Remove ${h(m.name)}</button>
+            </div>
+            ${Object.keys(m.shares || {}).length ? `<div class="row-sub" style="margin-top:var(--s2);">Covers: ${Object.entries(m.shares).map(([k, v]) => `${h(k)} ${v}%`).join(', ')}</div>` : ''}
+          </div>`).join('')}
+
+        <div class="card">
+          <h2>Add someone</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0 0 var(--s3);">
+            The patterns are how their transfers are written on your statement — rarely
+            their name as you'd write it. "MRS BISAKHA KATWAL" and "KATWAL B" are the same
+            person, so both belong here.
+          </p>
+          <div class="form-group">
+            <label for="hhName">Name</label>
+            <input type="text" id="hhName" placeholder="e.g. Bisakha">
+          </div>
+          <div class="form-group">
+            <label for="hhPatterns">How their transfers appear, comma separated</label>
+            <input type="text" id="hhPatterns" placeholder="e.g. BISAKHA KATWAL, KATWAL B">
+          </div>
+          <button class="btn-primary" onclick="addMember()">Add</button>
+        </div>
+
+        ${l.unattributed.length ? `
+        <div class="card">
+          <h2>Paid back by nobody on the list</h2>
+          <p class="text-muted" style="font-size:var(--f-foot);margin:0 0 var(--s3);">
+            These read as a repayment or a refund but match no one here. If one is a person,
+            adding them stops it counting as income.
+          </p>
+          ${l.unattributed.slice(0, 8).map(t => `
+            <div class="row-line flex-between">
+              <div><div class="row-title">${h(t.name) || '—'}</div><div class="row-sub">${h(String(t.date))}</div></div>
+              <span class="num">${AUD(Number(t.amount))}</span>
+            </div>`).join('')}
+        </div>` : ''}`;
+    }
+
+    async function addMember() {
+      const name = document.getElementById('hhName').value.trim();
+      const patterns = document.getElementById('hhPatterns').value.split(',').map(x => x.trim()).filter(Boolean);
+      if (!name) { showToast('Give them a name', 'error'); return; }
+      if (!patterns.length) { showToast('Add at least one way their transfers are written', 'error'); return; }
+      household.members = [...(household.members || []), { id: 'm' + Date.now(), name, patterns, shares: {} }];
+      await saveHousehold();
+      showToast(`${name} added — their transfers no longer count as income`, 'success');
+    }
+
+    async function removeMember(id) {
+      const m = (household.members || []).find(x => String(x.id) === String(id));
+      if (!m) return;
+      if (!confirm(`Remove ${m.name}? Their transfers will count as income again.`)) return;
+      household.members = household.members.filter(x => String(x.id) !== String(id));
+      await saveHousehold();
+      showToast(`${m.name} removed`, 'success');
+    }
+
+    async function setMemberShare(id) {
+      const m = (household.members || []).find(x => String(x.id) === String(id));
+      if (!m) return;
+      const what = document.getElementById(`hhShareBill_${id}`)?.value;
+      const pct = Number(document.getElementById(`hhSharePct_${id}`)?.value);
+      if (!what) { showToast('Pick what they cover', 'error'); return; }
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) { showToast('A share is between 0 and 100', 'error'); return; }
+      m.shares = { ...(m.shares || {}), [what]: pct };
+      if (pct === 0) delete m.shares[what];
+      await saveHousehold();
+      showToast(`${m.name} covers ${pct}% of ${what}`, 'success');
+    }
+
+    /** Sets, or clears, what a credit actually is. */
+    async function setIncomeKind(txId, kind) {
+      const t = transactions.find(x => x && String(x.id) === String(txId));
+      if (!t) { showToast('Transaction not found', 'error'); return; }
+      if (kind) t.incomeKind = kind; else delete t.incomeKind;
+      await saveTx();
+      showToast(kind ? `Filed as ${INCOME_KIND_LABEL[kind].toLowerCase()}` : 'Back to a guess', 'success');
+    }
+
+    async function saveHousehold() { await fbSet('household', household); renderAll(); }
+    async function saveBnplPlans() { await fbSet('bnplPlans', bnplPlans); renderAll(); }
+    async function saveIncomeRules() { await fbSet('incomeRules', incomeRules); renderAll(); }
     async function saveSuperData() { await fbSet('superData', superData); renderAll(); }
     async function saveDebtMilestones() { await fbSet('debtMilestones', debtMilestones); }
     async function saveSavingsRateHistory() { await fbSet('savingsRateHistory', savingsRateHistory); }
@@ -1758,6 +2750,9 @@
       superData = { balance: 0, contributions: 0, freq: 'monthly', employerRate: 12, retirementAge: 67, currentAge: 30 };
       debtMilestones = {};
       savingsRateHistory = [];
+      household = { members: [] };
+      bnplPlans = [];
+      incomeRules = { employerPatterns: [] };
       darkMode = false;
       goalContributions = {};
       netWorthHistory = [];
@@ -1789,7 +2784,7 @@
           'goalContributions', 'netWorthHistory', 'txTemplates', 'superData',
           'debtMilestones', 'savingsRateHistory', 'themeMode', 'darkMode',
           'netWorthMilestones', 'paydayChecklistDone', 'cfoSnapshot', 'accounts',
-          'pendingConfirmations'
+          'pendingConfirmations', 'household', 'bnplPlans', 'incomeRules'
         ];
         const values = await Promise.all(KEYS.map(k => fbGet(k)));
         const got = {};
@@ -1822,6 +2817,9 @@
         if (got.paydayChecklistDone) paydayChecklistDone = got.paydayChecklistDone || {};
         cfoSnapshot = got.cfoSnapshot || null;
         pendingConfirmations = got.pendingConfirmations || {};
+        household = { members: Array.isArray(got.household?.members) ? got.household.members.filter(Boolean) : [] };
+        bnplPlans = Array.isArray(got.bnplPlans) ? got.bnplPlans.filter(Boolean) : [];
+        incomeRules = { employerPatterns: Array.isArray(got.incomeRules?.employerPatterns) ? got.incomeRules.employerPatterns.filter(Boolean) : [] };
         // NOTE: a block here used to seed three hardcoded debts whenever the
         // owner's account loaded with an empty debt list. It was removed — it
         // was the only hardcoded money in this file and it had gone wrong in
@@ -2106,13 +3104,20 @@
         { id: 'compare',    label: 'Compare',       render: renderCompare }
       ]},
       { id: 'money', label: 'Bills & Income', short: 'Bills', icon: 'bills', sections: [
-        { id: 'bills',    label: 'Bills',    render: renderBills },
-        { id: 'calendar', label: 'Calendar', render: renderBillCalendar },
-        { id: 'pay',      label: 'Pay',      render: renderPayPlan, after: drawIncomeMonthChart }
+        { id: 'bills',     label: 'Bills',     render: renderBills },
+        { id: 'calendar',  label: 'Calendar',  render: renderBillCalendar },
+        { id: 'pay',       label: 'Pay',       render: renderPayPlan, after: drawIncomeMonthChart },
+        { id: 'committed', label: 'Committed', render: renderCommitted },
+        { id: 'income',    label: 'Income',    render: renderIncomeReview },
+        { id: 'household', label: 'Household', render: renderHousehold },
+        { id: 'sending',   label: 'Sending',   render: renderSending }
       ]},
       { id: 'debts', label: 'Debts', icon: 'debts', sections: [
+        // Payoff stays first: it is where the Debts tab has always landed, and
+        // the first section is the tab's default.
         { id: 'payoff', label: 'Payoff', render: renderDebtsTab,  after: wireSimulator },
-        { id: 'credit', label: 'Credit', render: renderCreditTab, after: drawCreditScoreChart }
+        { id: 'credit', label: 'Credit', render: renderCreditTab, after: drawCreditScoreChart },
+        { id: 'plans',  label: 'Plans',  render: renderBnpl }
       ]},
       { id: 'progress', label: 'Progress', icon: 'progress', sections: [
         { id: 'networth',   label: 'Net worth',    render: renderNetWorth,  after: renderNetWorthChart },
@@ -7091,9 +8096,31 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
       const resume = rememberFocus(content);
       content.innerHTML = subnav + section.render();
       nameTheControls(content);
+      showActiveSubnav(content);
       resume();
       // Charts need a laid-out parent before Chart.js can size them.
       if (section.after) setTimeout(section.after, 0);
+    }
+
+    /**
+     * Brings the current section's button into view in the sub-navigation.
+     *
+     * The sub-nav scrolls sideways, and three or four sections all fit on a
+     * phone, so this never mattered. Bills & Income now has seven: opening
+     * Sending left the strip showing Bills…Pay, with nothing marked current
+     * and no clue that the thing you were looking at was two swipes to the
+     * right. The bar was telling you where you weren't.
+     *
+     * `nearest` rather than `center` so the first section does not get
+     * pointlessly nudged, and `instant` because this is a correction to where
+     * the strip already is, not a movement worth animating.
+     */
+    function showActiveSubnav(root) {
+      const active = root.querySelector('.subnav [aria-current="page"]');
+      if (!active) return;
+      const nav = active.parentElement;
+      if (nav.scrollWidth <= nav.clientWidth) return;
+      active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'instant' });
     }
 
     /** The payoff slider is the one control that has to be wired after render. */
@@ -7263,7 +8290,7 @@ Generated: ${new Date().toLocaleDateString('en-AU')}`;
      * takes control it reloads once — skipWaiting hands over the worker, but
      * the HTML already parsed stays on screen until something reloads it.
      * ══════════════════════════════════════════════════════════════════ */
-    const FF_BUILD = '2026-11-02.2';
+    const FF_BUILD = '2026-11-02.3';
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
