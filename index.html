@@ -52,7 +52,9 @@
     --surface:       #F2F1EE;
     --surface-2:     #EAE8E4;
     --border:        #E3E1DC;
-    --border-strong: #CFCCC5;
+    --border-strong: #8C8982;  /* a control boundary needs 3:1, and this was 1.6:1 */
+    --meter-gone:    #84817C;  /* days spent — 3:1 against the days left */
+    --meter-left:    #E6E4DF;
 
     /* ink — three weights, all of which pass 4.5:1 on --card and --surface */
     --text:       #16171A;
@@ -99,7 +101,9 @@
     --surface:       #232428;
     --surface-2:     #2C2D32;
     --border:        #2E2F34;
-    --border-strong: #3C3E45;
+    --border-strong: #71747D;  /* a control boundary needs 3:1, and this was 1.6:1 */
+    --meter-gone:    #7C8088;
+    --meter-left:    #2B2C31;
 
     --text:       #ECECEE;
     --text-muted: #A5A7AE;
@@ -337,11 +341,11 @@
   }
   .fn-seg {
     flex: 1 1 0;
-    background: var(--surface-2);
+    background: var(--meter-left);
     border-radius: 2px;
     transition: background var(--dur) var(--ease);
   }
-  .fn-seg.gone  { background: var(--border-strong); }
+  .fn-seg.gone  { background: var(--meter-gone); }
   .fn-seg.today { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
   /* Legacy continuous-bar fallback, still used if segments are unavailable. */
